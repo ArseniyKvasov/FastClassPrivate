@@ -1,0 +1,164 @@
+<style>
+    .course-badge-scroll {
+        overflow-x: auto;
+        scroll-behavior: smooth;
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+    .course-badge-scroll::-webkit-scrollbar {
+        display: none;
+    }
+
+    .course-badge {
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .course-badge.active {
+        background-color: #0d6efd !important;
+        color: #fff !important;
+        border-color: transparent !important;
+    }
+    .course-badge:hover {
+        background-color: #0b5ed7 !important;
+        color: #fff !important;
+    }
+
+    .course-card {
+        transition: transform 0.2s, box-shadow 0.2s;
+        position: relative;
+    }
+    .course-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+    }
+
+    .text-truncate-2 {
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+
+    .btn-plain {
+        background: none;
+        border: none;
+        color: #0d6efd;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.95rem;
+        transition: background-color 0.18s, color 0.18s;
+        text-decoration: none;
+        border-radius: 0.5rem;
+    }
+    .btn-plain:hover,
+    .btn-plain:focus {
+        background-color: rgba(13,110,253,0.12);
+        color: #0d6efd;
+        text-decoration: none;
+    }
+
+    .course-subject {
+        display: inline-flex;
+        align-items: center;
+        background-color: rgba(13,110,253,0.08);
+        color: #0d6efd;
+        font-size: 0.75rem;
+        font-weight: 500;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        margin-left: 0.5rem;
+        white-space: nowrap;
+    }
+
+    .card-title-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .card-title-row .card-title {
+        margin: 0;
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+</style>
+
+<section class="mb-5">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="fw-bold mb-0">Курсы</h2>
+            <form class="d-none d-md-flex" role="search" style="max-width: 250px;">
+                <input class="form-control" type="search" placeholder="Поиск по названию..." aria-label="Поиск">
+            </form>
+        </div>
+
+        <div class="d-flex align-items-center course-badge-scroll pb-2 mb-4">
+            {% if user.is_authenticated %}
+                <span class="badge course-badge active me-2 px-3 py-2" data-filter="my">Мои курсы</span>
+            {% endif %}
+            <span class="badge course-badge bg-light text-dark border me-2 px-3 py-2" data-filter="math">Математика</span>
+            <span class="badge course-badge bg-light text-dark border me-2 px-3 py-2" data-filter="english">Английский язык</span>
+            <span class="badge course-badge bg-light text-dark border me-2 px-3 py-2" data-filter="physics">Физика</span>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-lg-6 col-xl-4">
+                <div class="card course-card h-100 d-flex flex-column shadow-sm border-0"
+                     data-subject="english" data-my="true">
+                    <div class="card-body d-flex flex-column">
+                        <div class="card-title-row mb-2">
+                            <h6 class="card-title mb-0 text-truncate">Дополнение к Spotlight 5</h6>
+                            <span class="course-subject">Английский</span>
+                        </div>
+                        <p class="card-text text-secondary mb-3 text-truncate-2" style="flex-grow: 1;">
+                            Интерактивные задания по темам учебника Spotlight 5.
+                            Подходит для учеников и репетиторов.
+                        </p>
+                        <a href="#" class="btn-plain mt-auto">Перейти</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6 col-xl-4">
+                <div class="card course-card h-100 d-flex flex-column shadow-sm border-0"
+                     data-subject="math" data-my="false">
+                    <div class="card-body d-flex flex-column">
+                        <div class="card-title-row mb-2">
+                            <h6 class="card-title mb-0 text-truncate">Практикум по математике</h6>
+                            <span class="course-subject">Математика</span>
+                        </div>
+                        <p class="card-text text-secondary mb-3 text-truncate-2" style="flex-grow: 1;">
+                            Курс с интерактивными заданиями и проверкой ответов.
+                            Уровень: 5–6 класс.
+                        </p>
+                        <a href="#" class="btn-plain mt-auto">Перейти</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const courseBadges = document.querySelectorAll('.course-badge');
+        const courseCards = document.querySelectorAll('.course-card');
+
+        courseBadges.forEach(badge => {
+            badge.addEventListener('click', () => {
+                courseBadges.forEach(b => b.classList.remove('active'));
+                badge.classList.add('active');
+                const filter = badge.dataset.filter;
+
+                courseCards.forEach(card => {
+                    const col = card.closest('[class*="col-"]');
+                    if (!col) return;
+
+                    if (filter === 'my') {
+                        col.style.display = card.dataset.my === 'true' ? '' : 'none';
+                    } else {
+                        col.style.display = card.dataset.subject === filter ? '' : 'none';
+                    }
+                });
+            });
+        });
+    });
+</script>
