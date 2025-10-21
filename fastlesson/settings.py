@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-6)8(ui+7fu8ylrrvywsk$q$s$cuy^7e68l0uvo@%^@a*p4sn75
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -37,6 +37,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'social_django',
+    'apps.authapp',
     'apps.classroom',
     'apps.courses',
     'apps.dashboard',
@@ -67,6 +69,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'social_django.context_processors.backends',
             ],
         },
     },
@@ -74,6 +77,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'fastlesson.wsgi.application'
 
+AUTH_USER_MODEL = 'authapp.User'
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
@@ -107,6 +111,24 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
+
+# Аутентификация
+
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",  # стандартный email+password
+    "apps.authapp.backends.SocialIDBackend",          # соц-сети
+]
+
+SOCIAL_AUTH_POSTGRES_JSONFIELD = True
+
+SOCIAL_AUTH_VK_OAUTH2_KEY = '54246351'
+SOCIAL_AUTH_VK_OAUTH2_SECRET = 'Gu9gc10BqF7iOvTxFLPo'
+
+LOGIN_REDIRECT_URL = '/'
+SOCIAL_AUTH_LOGIN_ERROR_URL = '/login-error/'
+
+SOCIAL_AUTH_VK_OAUTH2_SCOPE = ['email']
+
 
 
 # Internationalization

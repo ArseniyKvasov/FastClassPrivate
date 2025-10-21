@@ -3,13 +3,13 @@
 {% block title %}Главная — FastLesson{% endblock %}
 
 {% block content %}
-    {% include 'pages/_hero.html' %}
-    {% include 'pages/_courses.html' %}
+{% include 'pages/_hero.html' %}
+{% include 'pages/_courses.html' %}
 
-    {% if user.is_authenticated %}
-        {% include 'pages/_classes.html' %}
-        {% include 'pages/_tariff.html' %}
-        {% include 'pages/_support.html' %}
-    {% endif %}
+{% if user.is_authenticated %}
+{% include 'pages/_classes.html' %}
+{% include 'pages/_tariff.html' %}
+{% include 'pages/_support.html' %}
+{% endif %}
 
 {% endblock %}
