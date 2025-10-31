@@ -1,3 +1,5 @@
 django~=4.2.25
 psycopg2-binary==2.9.11
-social-auth-app-django==5.4.3
+Pillow==11.3.0
+django-rest-framework==
+bleach==

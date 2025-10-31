@@ -38,12 +38,12 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'social_django',
-    'apps.authapp',
-    'apps.classroom',
-    'apps.courses',
-    'apps.dashboard',
-    'apps.pages',
-    'apps.telegram_bot'
+    'authapp',
+    'classroom',
+    'courses',
+    'dashboard',
+    'pages',
+    'telegram_bot'
 ]
 
 MIDDLEWARE = [
@@ -116,18 +116,19 @@ AUTH_PASSWORD_VALIDATORS = [
 
 AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",  # стандартный email+password
-    "apps.authapp.backends.SocialIDBackend",          # соц-сети
+    "authapp.backends.SocialIDBackend",          # соц-сети
 ]
 
 SOCIAL_AUTH_POSTGRES_JSONFIELD = True
 
-SOCIAL_AUTH_VK_OAUTH2_KEY = '54246351'
-SOCIAL_AUTH_VK_OAUTH2_SECRET = 'Gu9gc10BqF7iOvTxFLPo'
+VK_ID_CLIENT = '54246351'
+VK_ID_SECRET = 'Gu9gc10BqF7iOvTxFLPo'
 
 LOGIN_REDIRECT_URL = '/'
 SOCIAL_AUTH_LOGIN_ERROR_URL = '/login-error/'
 
-SOCIAL_AUTH_VK_OAUTH2_SCOPE = ['email']
+VK_ID_REDIRECT_URI = "https://fbe04798e5ad.ngrok-free.app/auth/vk/custom-login/"
+VK_ID_TOKEN_URL = "https://id.vk.com/oauth2/token"
 
 
 
@@ -147,6 +148,9 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 STATIC_URL = 'static/'
+
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
