@@ -22,7 +22,7 @@ function renderMatchCardsTaskEditor(taskId = null, container = null, taskData = 
             <i class="bi bi-plus me-1"></i>Добавить карточку
         </button>
 
-        <button class="btn btn-success mt-2 w-100 fw-semibold">
+        <button class="btn btn-success mt-2 w-100 fw-semibold save-btn">
             Сохранить
         </button>
     `;

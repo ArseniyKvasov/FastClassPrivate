@@ -1,3 +1,13 @@
+/**
+ * Рендерит задание "Заполни пропуски"
+ * @param {Object} task - Объект задания
+ * @param {Object} task.data - Данные задания
+ * @param {string} task.data.text - HTML текст с пропусками в формате [...]
+ * @param {string} [task.data.title] - Заголовок задания
+ * @param {string} task.data.task_type - Тип задания
+ * @param {string[]} [task.data.answers] - Подсказки для задания типа "open"
+ * @param {HTMLElement} container - Контейнер для рендеринга
+ */
 function renderFillGapsTask(task, container) {
     if (!container) return;
     container.innerHTML = "";
@@ -35,29 +45,10 @@ function renderFillGapsTask(task, container) {
     const textDiv = document.createElement("div");
     textDiv.className = "fill-gaps-text";
 
-    let gapIndex = 0;
+    const htmlText = task.data.text || "";
+    const processedHtml = htmlText.replace(/\[([^\]]+)\]/g, '<input type="text" class="form-control d-inline gap-input m-1" style="width: 110px;">');
 
-    const cleanText = task.data.text
-        .replace(/<(\/?)(?!b|i|u|em|strong|ul|ol|li|p|br)(\w+)[^>]*>/gi, '')
-        .replace(/\n/g, '<br>');
-
-    const parts = cleanText.split(/(\[[^\]]+\])/g);
-
-    parts.forEach(part => {
-        if (part.startsWith('[') && part.endsWith(']')) {
-            const input = document.createElement("input");
-            input.type = "text";
-            input.className = "form-control d-inline-block gap-input mx-1 mb-1 text-start";
-            input.style.width = "110px";
-            input.setAttribute("data-gap-index", gapIndex);
-            gapIndex++;
-            textDiv.appendChild(input);
-        } else if (part.trim() !== '') {
-            const span = document.createElement("span");
-            span.innerHTML = part;
-            textDiv.appendChild(span);
-        }
-    });
+    textDiv.innerHTML = processedHtml;
 
     cardBody.appendChild(textDiv);
     card.appendChild(cardBody);

@@ -27,7 +27,7 @@ function renderTextInputTaskEditor(taskId = null, container = null, taskData = n
             <textarea class="form-control task-default-text" rows="3" placeholder="Текст по умолчанию (опционально)">${defaultTextValue}</textarea>
         </div>
 
-        <button class="btn btn-success mt-3 w-100 fw-semibold">
+        <button class="btn btn-success mt-3 w-100 fw-semibold save-btn">
             Сохранить
         </button>
     `;

@@ -108,6 +108,20 @@ class Classroom(models.Model):
         self.students.remove(user)
         return self
 
+    def get_available_users(self, user):
+        """
+        Определяет доступных пользователей для просмотра
+        Для учителя - возвращает учителя и всех учеников
+        Для ученика - возвращает только самого ученика
+        """
+        if self.teacher == user:
+            available_users = list(self.students.all())
+            available_users.append(self.teacher)
+        else:
+            available_users = [user]
+
+        return available_users
+
 
 class BaseAnswer(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

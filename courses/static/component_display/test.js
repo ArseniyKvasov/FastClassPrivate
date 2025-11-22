@@ -59,5 +59,6 @@ function renderTestTask(task, container) {
     checkBtn.type = "button";
     checkBtn.className = "btn btn-primary mt-3";
     checkBtn.textContent = "Проверить";
+    checkBtn.style.display = "none";
     container.appendChild(checkBtn);
 }

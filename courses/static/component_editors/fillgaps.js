@@ -10,7 +10,7 @@ function renderFillGapsTaskEditor(taskId = null, container = null, taskData = nu
     const card = document.createElement("div");
     card.className = "task-editor-card mb-4 p-3 bg-white border-0 rounded";
 
-    const textValue = taskData?.text || "";
+    const htmlContent = taskData?.text || "";
 
     card.innerHTML = `
         <div class="d-flex justify-content-between align-items-center mb-3">
@@ -46,15 +46,19 @@ function renderFillGapsTaskEditor(taskId = null, container = null, taskData = nu
             <label class="form-label mb-1">Текст с пропусками</label>
             <div class="fill-text-editor border rounded p-2"
                  contenteditable="true"
-                 style="min-height: 120px; outline: none;">${textValue}</div>
+                 style="min-height: 120px; outline: none;">${htmlContent}</div>
         </div>
 
-        <button class="btn btn-success mt-3 w-100 fw-semibold">
+        <button class="btn btn-success mt-3 w-100 fw-semibold save-btn">
             Сохранить
         </button>
     `;
 
     const editor = card.querySelector(".fill-text-editor");
+
+    if (htmlContent) {
+        editor.innerHTML = htmlContent;
+    }
 
     card.querySelectorAll(".format-btn").forEach(btn => {
         btn.addEventListener("click", () => {
@@ -67,11 +71,25 @@ function renderFillGapsTaskEditor(taskId = null, container = null, taskData = nu
         const selection = window.getSelection();
         if (selection.rangeCount > 0) {
             const range = selection.getRangeAt(0);
-            const textNode = document.createTextNode("[]");
+
+            const gapSpan = document.createElement('span');
+            gapSpan.className = 'gap-placeholder';
+            gapSpan.contentEditable = 'false';
+            gapSpan.innerHTML = '[]';
+            gapSpan.style.display = 'inline-block';
+            gapSpan.style.minWidth = '30px';
+            gapSpan.style.borderBottom = '2px solid #000';
+            gapSpan.style.textAlign = 'center';
+            gapSpan.style.margin = '0 2px';
+            gapSpan.style.padding = '0 4px';
+
+            range.insertNode(gapSpan);
+
+            const textNode = document.createTextNode('\u00A0');
             range.insertNode(textNode);
 
-            range.setStart(textNode, 1);
-            range.setEnd(textNode, 1);
+            range.setStartAfter(gapSpan);
+            range.setEndAfter(gapSpan);
             selection.removeAllRanges();
             selection.addRange(range);
         }
@@ -79,8 +97,16 @@ function renderFillGapsTaskEditor(taskId = null, container = null, taskData = nu
     });
 
     card.querySelector(".clear-format-btn").addEventListener("click", () => {
-        const html = editor.innerText;
-        editor.innerHTML = html;
+        const content = editor.innerHTML;
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = content;
+
+        const gaps = tempDiv.querySelectorAll('.gap-placeholder');
+        gaps.forEach(gap => {
+            gap.outerHTML = '[]';
+        });
+
+        editor.innerHTML = tempDiv.innerHTML;
         editor.focus();
     });
 
@@ -125,4 +151,11 @@ function renderFillGapsTaskEditor(taskId = null, container = null, taskData = nu
     }
 
     card.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function collectFillGapsData(card) {
+    const editor = card.querySelector('.fill-text-editor');
+    return {
+        text: editor.innerHTML
+    };
 }

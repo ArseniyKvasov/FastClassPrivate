@@ -19,7 +19,6 @@ loader.className = "loader-overlay";
 loader.innerHTML = `<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Загрузка...</span></div>`;
 document.body.appendChild(loader);
 
-// Создаёт карточку задания или заменяет существующую
 function renderTaskCard(task, replaceExisting = false) {
     const card = document.createElement("div");
     card.className = "task-card mb-3 p-2 rounded-3 position-relative overflow-hidden";
@@ -131,6 +130,45 @@ async function loadSectionTasks(sectionId) {
         const tasks = await fetchSectionTasks(sectionId);
         if (Array.isArray(tasks)) {
             tasks.forEach(task => renderTaskCard(task));
+        }
+        if (isClassroom) {
+            try {
+                const data = await fetchSectionAnswers(sectionId);
+
+                if (!data || !Array.isArray(data.answers)) {
+                    showNotification("Нет данных для отображения.");
+                    return;
+                }
+
+                data.answers.forEach(answerData => {
+                    const { task_id, task_type, answer } = answerData;
+
+                    const container = document.querySelector(`[data-task-id="${task_id}"]`);
+                    if (!container) {
+                        console.warn(`Контейнер не найден для task_id: ${task_id}`);
+                        return;
+                    }
+
+                    const handler = answerHandlers[task_type];
+                    if (typeof handler === "function") {
+                        try {
+                            handler(answerData);
+                        } catch (error) {
+                            console.warn(`Ошибка в обработчике для task_type ${task_type}, task_id ${task_id}:`, error);
+                            showNotification("Не удалось отобразить ответ.");
+                        }
+                    } else {
+                        console.warn(`Не найден обработчик для типа задания: ${task_type}`);
+                        showNotification("Не удалось отобразить ответ.");
+                    }
+                });
+
+            } catch (error) {
+                console.warn("Ошибка в handleSectionAnswers:", error);
+                showNotification("Не удалось загрузить ответы раздела.");
+            }
+        } else {
+            console.warn('Ответы не загружены, так как пользователь находится вне режима виртуального класса.');
         }
     } catch (e) {
         console.error(e);

@@ -1,9 +1,10 @@
 /**
  * Рендер редактора задания True / False.
  * Если передан taskId — открывает модальное окно для редактирования.
- * taskData может содержать утверждение {text: "...", value: "true"|"false"}
+ * taskData может содержать массив утверждений [{statement: "...", is_true: bool}, ...]
  */
 function renderTrueFalseTaskEditor(taskId = null, container = null, taskData = null) {
+    console.log(taskData);
     const parent = container || document.getElementById("task-list");
     if (!parent) return;
 
@@ -22,7 +23,7 @@ function renderTrueFalseTaskEditor(taskId = null, container = null, taskData = n
             <i class="bi bi-plus me-1"></i>Добавить утверждение
         </button>
 
-        <button class="btn btn-success mt-2 w-100 fw-semibold">
+        <button class="btn btn-success mt-2 w-100 fw-semibold save-btn">
             Сохранить
         </button>
     `;
@@ -49,8 +50,14 @@ function renderTrueFalseTaskEditor(taskId = null, container = null, taskData = n
     card.querySelector(".btn-success")
         .addEventListener("click", () => saveTask("true_false", card, taskId));
 
-    if (taskData && taskData.statement) {
-        addTrueFalseStatement(statementsWrapper, taskData.statement, taskData.is_true);
+    if (taskData && Array.isArray(taskData.statements) && taskData.statements.length > 0) {
+        taskData.statements.forEach(statement => {
+            addTrueFalseStatement(
+                statementsWrapper,
+                statement.statement,
+                statement.is_true.toString()
+            );
+        });
     } else {
         for (let i = 0; i < 2; i++) addTrueFalseStatement(statementsWrapper);
     }
@@ -106,4 +113,23 @@ function addTrueFalseStatement(container, textValue = "", value = "false") {
 
     container.appendChild(row);
     row.querySelector(".statement-text").focus();
+}
+
+function collectTrueFalseData(card) {
+    const statements = [];
+    const statementRows = card.querySelectorAll('.statement-row');
+
+    statementRows.forEach(row => {
+        const textInput = row.querySelector('.statement-text');
+        const select = row.querySelector('.statement-select');
+
+        if (textInput.value.trim()) {
+            statements.push({
+                statement: textInput.value.trim(),
+                is_true: select.value === "true"
+            });
+        }
+    });
+
+    return statements;
 }

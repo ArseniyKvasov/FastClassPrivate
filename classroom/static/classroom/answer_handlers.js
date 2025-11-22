@@ -51,25 +51,40 @@ async function sendAnswer({ taskId, data }) {
     }
 }
 
-async function fetchTaskAnswer(taskId, handler) {
+async function fetchSectionAnswers(sectionId) {
+    const url = `/classroom/get-section-answers/?section_id=${sectionId}&classroom_id=${virtualClassId}&user_id=${currentUserId}`;
+    const response = await fetch(url);
+
+    if (!response.ok) {
+        throw new Error(`HTTP error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+}
+
+async function fetchTaskAnswer(taskId) {
+    /**
+     * Получает данные ответа для задания с сервера
+     * Возвращает: { task_id, task_type, answer: {...} }
+     */
     if (!virtualClassId) {
-        showNotification("Произошла ошибка. Не указан виртуальный класс.");
-        return;
+        throw new Error("Не указан виртуальный класс");
     }
 
-    try {
-        const url = `/classroom/get-task-answer/?task_id=${taskId}&classroom_id=${virtualClassId}&user_id=${currentUserId}`;
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+    const url = `/classroom/get-task-answer/?task_id=${taskId}&classroom_id=${virtualClassId}&user_id=${currentUserId}`;
+    const response = await fetch(url);
 
-        const data = await response.json();
-        if (!data?.task_type) throw new Error("Некорректный ответ от сервера");
-
-        if (typeof handler === "function") handler(data);
-    } catch (err) {
-        console.error("Ошибка при получении ответа:", err);
-        showNotification("Не удалось отобразить ответы для задания.");
+    if (!response.ok) {
+        throw new Error(`HTTP error: ${response.status}`);
     }
+
+    const data = await response.json();
+    if (!data?.task_type) {
+        throw new Error("Некорректный ответ от сервера");
+    }
+
+    return data;
 }
 
 // ==================== ОБРАБОТЧИКИ ВВОДА ОТВЕТОВ ====================
@@ -82,14 +97,6 @@ const taskHandlers = {
     match_cards: handleMatchCardsTask
 };
 
-const answerHandlers = {
-    test: handleTestAnswer,
-    true_false: handleTrueFalseAnswer,
-    text_input: handleTextInputAnswer,
-    fill_gaps: handleFillGapsAnswer,
-    match_cards: handleMatchCardsAnswer
-};
-
 function attachTaskHandler(container, task) {
     const handler = taskHandlers[task.task_type];
     if (handler) handler(container, task);
@@ -97,8 +104,6 @@ function attachTaskHandler(container, task) {
 
 function handleTestTask(container, task) {
     if (!container) return;
-
-    fetchTaskAnswer(task.task_id, handleTestAnswer);
 
     container.querySelectorAll("[data-option-index]").forEach(input => {
         input.addEventListener("change", () => {
@@ -113,8 +118,6 @@ function handleTestTask(container, task) {
 
 function handleTrueFalseTask(container, task) {
     if (!container) return;
-
-    fetchTaskAnswer(task.task_id, handleTrueFalseAnswer);
 
     container.querySelectorAll("[data-tf]").forEach(input => {
         input.addEventListener("change", () => {
@@ -142,11 +145,6 @@ function handleTextInputTask(container, task) {
         }
     };
 
-    fetchTaskAnswer(task.task_id, (data) => {
-        const serverText = data?.answer?.current_text || "";
-        syncValue(serverText);
-    });
-
     input.addEventListener("input", debounce(() => {
         sendAnswer({
             taskId: task.task_id,
@@ -158,20 +156,17 @@ function handleTextInputTask(container, task) {
 function handleFillGapsTask(container, task) {
     if (!container) return;
 
-    const inputs = container.querySelectorAll("[data-gap-index]");
+    const inputs = container.querySelectorAll(".gap-input");
 
-    fetchTaskAnswer(task.task_id, handleFillGapsAnswer);
-
-    inputs.forEach(input => {
+    inputs.forEach((input, index) => {
         input.addEventListener("blur", () => {
-            const idx = Number(input.dataset.gapIndex);
             const value = input.value.trim();
 
             if (!value) return;
 
             sendAnswer({
                 taskId: task.task_id,
-                data: { [`gap-${idx}`]: value }
+                data: { [`gap-${index}`]: value }
             });
         });
     });
@@ -226,67 +221,131 @@ function handleMatchCardsTask(container, task) {
             selectPair();
         });
     });
-
-    fetchTaskAnswer(task.task_id, handleMatchCardsAnswer);
 }
 
 // ==================== ОТОБРАЖЕНИЕ ОТВЕТОВ ====================
 
-function handleTestAnswer(data) {
-    /**
-     * data: {
-     *   task_id,
-     *   task_type,
-     *   answer: { answers: [{ question_index, selected_option, is_correct }], is_checked }
-     * }
-     */
-    if (!data || data.task_type !== "test") return;
+const answerHandlers = {
+    test: handleTestAnswer,
+    true_false: handleTrueFalseAnswer,
+    text_input: handleTextInputAnswer,
+    fill_gaps: handleFillGapsAnswer,
+    match_cards: handleMatchCardsAnswer
+};
 
-    const taskId = data.task_id;
-    const answers = data.answer?.answers || [];
-    const isChecked = data.answer?.is_checked ?? false;
+async function handleSectionAnswers(sectionId) {
+    if (!virtualClassId) {
+        showNotification("Произошла ошибка. Не указан виртуальный класс.");
+        return;
+    }
 
-    const container = document.querySelector(`[data-task-id="${taskId}"]`);
-    if (!container) return;
+    try {
+        const data = await fetchSectionAnswers(sectionId);
 
-    container.dataset.isChecked = isChecked.toString();
-
-    container.querySelectorAll("[data-option-index]").forEach(el => {
-        const qIndex = Number(el.dataset.questionIndex);
-        const oIndex = Number(el.dataset.optionIndex);
-
-        const answerForQ = answers.find(a => a.question_index === qIndex) || {};
-        const selectedIdx = answerForQ.selected_option;
-        const correct = answerForQ.is_correct;
-        const isSelected = selectedIdx === oIndex;
-
-        if (el.tagName.toLowerCase() === "input" && el.type === "radio") {
-            el.checked = isSelected;
+        if (!data || !Array.isArray(data.answers)) {
+            showNotification("Нет данных для отображения.");
+            return;
         }
 
-        if (isChecked) {
-            el.disabled = true;
-            el.classList.remove("bg-success", "bg-danger", "text-white", "fw-bold");
+        data.answers.forEach(answerData => {
+            const { task_id, task_type, answer } = answerData;
 
-            if (isSelected) {
-                if (correct) {
-                    el.classList.add("bg-success", "text-white", "fw-bold");
-                    if (el.tagName.toLowerCase() === "input" && el.type === "radio") {
-                        el.style.border = "none";
-                        el.style.outline = "none";
-                        el.style.borderColor = "#198754";
-                        el.style.boxShadow = "none";
+            const container = document.querySelector(`[data-task-id="${task_id}"]`);
+            if (!container) {
+                console.warn(`Контейнер не найден для task_id: ${task_id}`);
+                return;
+            }
+
+            const handler = answerHandlers[task_type];
+            if (typeof handler === "function") {
+                try {
+                    handler(answerData);
+                } catch (error) {
+                    console.warn(`Ошибка в обработчике для task_type ${task_type}, task_id ${task_id}:`, error);
+                    showNotification("Не удалось отобразить ответ.");
+                }
+            } else {
+                console.warn(`Не найден обработчик для типа задания: ${task_type}`);
+                showNotification("Не удалось отобразить ответ.");
+            }
+        });
+
+    } catch (error) {
+        console.warn("Ошибка в handleSectionAnswers:", error);
+        showNotification("Не удалось загрузить ответы раздела.");
+    }
+}
+
+async function handleTestAnswer(data) {
+    /**
+     * Обрабатывает ответ на тестовое задание
+     * @param {Object} data - Данные ответа
+     * @param {string} data.task_id - ID задания
+     * @param {string} data.task_type - Тип задания (должен быть "test")
+     * @param {Object} data.answer - Данные ответа
+     * @param {Array} data.answer.answers - Массив ответов на вопросы
+     * @param {number} data.answer.answers[].question_index - Индекс вопроса
+     * @param {number} data.answer.answers[].selected_option - Выбранный вариант
+     * @param {boolean} data.answer.answers[].is_correct - Правильность ответа
+     * @param {boolean} data.answer.is_checked - Проверен ли ответ
+     */
+    try {
+        if (!data || data.task_type !== "test") return;
+
+        const answers = data.answer?.answers || [];
+        const isChecked = data.answer?.is_checked ?? false;
+
+        const container = document.querySelector(`[data-task-id="${data.task_id}"]`);
+        if (!container) return;
+
+        container.dataset.isChecked = isChecked.toString();
+
+        container.querySelectorAll("[data-option-index]").forEach(el => {
+            const qIndex = Number(el.dataset.questionIndex);
+            const oIndex = Number(el.dataset.optionIndex);
+
+            const answerForQ = answers.find(a => a.question_index === qIndex) || {};
+            const selectedIdx = answerForQ.selected_option;
+            const correct = answerForQ.is_correct;
+            const isSelected = selectedIdx === oIndex;
+
+            if (el.tagName.toLowerCase() === "input" && el.type === "radio") {
+                el.checked = isSelected;
+            }
+
+            if (isChecked) {
+                el.disabled = true;
+                el.classList.remove("bg-success", "bg-danger", "text-white", "fw-bold");
+
+                if (isSelected) {
+                    if (correct) {
+                        el.classList.add("bg-success", "text-white", "fw-bold");
+                        if (el.tagName.toLowerCase() === "input" && el.type === "radio") {
+                            el.style.border = "none";
+                            el.style.outline = "none";
+                            el.style.borderColor = "#198754";
+                            el.style.boxShadow = "none";
+                        }
+                    } else {
+                        el.classList.add("bg-danger", "text-white");
+                        if (el.tagName.toLowerCase() === "input" && el.type === "radio") {
+                            el.style.border = "none";
+                            el.style.outline = "none";
+                            el.style.borderColor = "#dc3545";
+                            el.style.boxShadow = "none";
+                        }
                     }
                 } else {
-                    el.classList.add("bg-danger", "text-white");
                     if (el.tagName.toLowerCase() === "input" && el.type === "radio") {
-                        el.style.border = "none";
-                        el.style.outline = "none";
-                        el.style.borderColor = "#dc3545";
-                        el.style.boxShadow = "none";
+                        el.style.border = "";
+                        el.style.outline = "";
+                        el.style.borderColor = "";
+                        el.style.boxShadow = "";
                     }
                 }
             } else {
+                el.disabled = false;
+                el.classList.remove("bg-success", "bg-danger", "text-white", "fw-bold");
                 if (el.tagName.toLowerCase() === "input" && el.type === "radio") {
                     el.style.border = "";
                     el.style.outline = "";
@@ -294,83 +353,93 @@ function handleTestAnswer(data) {
                     el.style.boxShadow = "";
                 }
             }
-        } else {
-            el.disabled = false;
-            el.classList.remove("bg-success", "bg-danger", "text-white", "fw-bold");
-            if (el.tagName.toLowerCase() === "input" && el.type === "radio") {
-                el.style.border = "";
-                el.style.outline = "";
-                el.style.borderColor = "";
-                el.style.boxShadow = "";
-            }
+        });
+
+        const checkBtn = container.querySelector("button.btn-primary");
+        if (checkBtn) {
+            checkBtn.style.display = isChecked ? "none" : "";
         }
-    });
 
-    const checkBtn = container.querySelector("button.btn-primary");
-    if (checkBtn) {
-        checkBtn.style.display = isChecked ? "none" : "";
-    }
-
-    try {
-        initCheckButton(data, container, currentUserId, virtualClassId);
-    } catch (err) {
-        console.error("Не удалось инициализировать кнопку checkButton: ", err);
+        try {
+            initCheckButton(data, container, currentUserId, virtualClassId);
+        } catch (err) {
+            console.error("Не удалось инициализировать кнопку checkButton: ", err);
+        }
+    } catch (error) {
+        console.error(`Ошибка в handleTestAnswer для task ${data.task_id}:`, error);
+        showNotification("Не удалось отобразить ответ.");
     }
 }
 
-function handleTrueFalseAnswer(data) {
+async function handleTrueFalseAnswer(data) {
     /**
-     * data: {
-     *   task_id,
-     *   task_type,
-     *   answer: { answers: [{ statement_index, selected_value, is_correct }], is_checked }
-     * }
+     * Обрабатывает ответ на задание true/false
+     * @param {Object} data - Данные ответа
+     * @param {string} data.task_id - ID задания
+     * @param {string} data.task_type - Тип задания (должен быть "true_false")
+     * @param {Object} data.answer - Данные ответа
+     * @param {Array} data.answer.answers - Массив ответов на утверждения
+     * @param {number} data.answer.answers[].statement_index - Индекс утверждения
+     * @param {boolean} data.answer.answers[].selected_value - Выбранное значение
+     * @param {boolean} data.answer.answers[].is_correct - Правильность ответа
+     * @param {boolean} data.answer.is_checked - Проверен ли ответ
      */
-    if (!data || data.task_type !== "true_false") return;
+    try {
+        if (!data || data.task_type !== "true_false") return;
 
-    const taskId = data.task_id;
-    const answers = data.answer?.answers || [];
-    const isChecked = data.answer?.is_checked ?? false;
+        const answers = data.answer?.answers || [];
+        const isChecked = data.answer?.is_checked ?? false;
 
-    const container = document.querySelector(`[data-task-id="${taskId}"]`);
-    if (!container) return;
+        const container = document.querySelector(`[data-task-id="${data.task_id}"]`);
+        if (!container) return;
 
-    container.dataset.isChecked = isChecked.toString();
+        container.dataset.isChecked = isChecked.toString();
 
-    container.querySelectorAll("[data-tf]").forEach(el => {
-        const sIndex = Number(el.dataset.statementIndex);
-        const answerForS = answers.find(a => a.statement_index === sIndex) || {};
-        const selectedValue = answerForS.selected_value;
-        const correct = answerForS.is_correct;
+        container.querySelectorAll("[data-tf]").forEach(el => {
+            const sIndex = Number(el.dataset.statementIndex);
+            const answerForS = answers.find(a => a.statement_index === sIndex) || {};
+            const selectedValue = answerForS.selected_value;
+            const correct = answerForS.is_correct;
 
-        const tf = el.dataset.tf === "true";
-        const isSelected = selectedValue !== null && tf === selectedValue;
+            const tf = el.dataset.tf === "true";
+            const isSelected = selectedValue !== null && tf === selectedValue;
 
-        if (isChecked) {
-            el.disabled = true;
-            el.readOnly = true;
+            if (isChecked) {
+                el.disabled = true;
+                el.readOnly = true;
 
-            if (isSelected) {
-                if (correct) {
-                    el.classList.remove("bg-danger");
-                    el.classList.add("bg-success", "text-white", "fw-bold");
-                    if (el.tagName.toLowerCase() === "input") {
-                        el.style.border = "none";
-                        el.style.outline = "none";
-                        el.style.borderColor = "#198754";
-                        el.style.boxShadow = "none";
+                if (isSelected) {
+                    if (correct) {
+                        el.classList.remove("bg-danger");
+                        el.classList.add("bg-success", "text-white", "fw-bold");
+                        if (el.tagName.toLowerCase() === "input") {
+                            el.style.border = "none";
+                            el.style.outline = "none";
+                            el.style.borderColor = "#198754";
+                            el.style.boxShadow = "none";
+                        }
+                    } else {
+                        el.classList.remove("bg-success", "fw-bold");
+                        el.classList.add("bg-danger", "text-white");
+                        if (el.tagName.toLowerCase() === "input") {
+                            el.style.border = "none";
+                            el.style.outline = "none";
+                            el.style.borderColor = "#dc3545";
+                            el.style.boxShadow = "none";
+                        }
                     }
                 } else {
-                    el.classList.remove("bg-success", "fw-bold");
-                    el.classList.add("bg-danger", "text-white");
+                    el.classList.remove("bg-success", "bg-danger", "text-white", "fw-bold");
                     if (el.tagName.toLowerCase() === "input") {
-                        el.style.border = "none";
-                        el.style.outline = "none";
-                        el.style.borderColor = "#dc3545";
-                        el.style.boxShadow = "none";
+                        el.style.border = "";
+                        el.style.outline = "";
+                        el.style.borderColor = "";
+                        el.style.boxShadow = "";
                     }
                 }
             } else {
+                el.disabled = false;
+                el.readOnly = false;
                 el.classList.remove("bg-success", "bg-danger", "text-white", "fw-bold");
                 if (el.tagName.toLowerCase() === "input") {
                     el.style.border = "";
@@ -379,178 +448,190 @@ function handleTrueFalseAnswer(data) {
                     el.style.boxShadow = "";
                 }
             }
-        } else {
-            el.disabled = false;
-            el.readOnly = false;
-            el.classList.remove("bg-success", "bg-danger", "text-white", "fw-bold");
-            if (el.tagName.toLowerCase() === "input") {
-                el.style.border = "";
-                el.style.outline = "";
-                el.style.borderColor = "";
-                el.style.boxShadow = "";
+
+            if (el.tagName.toLowerCase() === "input" && (el.type === "radio" || el.type === "checkbox")) {
+                el.checked = isSelected;
             }
+        });
+
+        const checkBtn = container.querySelector("button.btn-primary");
+        if (checkBtn) {
+            checkBtn.style.display = isChecked ? "none" : "";
         }
 
-        if (el.tagName.toLowerCase() === "input" && (el.type === "radio" || el.type === "checkbox")) {
-            el.checked = isSelected;
+        try {
+            initCheckButton(data, container, currentUserId, virtualClassId);
+        } catch (err) {
+            console.error("Не удалось инициализировать кнопку checkButton: ", err);
         }
-    });
-
-    const checkBtn = container.querySelector("button.btn-primary");
-    if (checkBtn) {
-        checkBtn.style.display = isChecked ? "none" : "";
+    } catch (error) {
+        console.error(`Ошибка в handleTrueFalseAnswer для task ${data.task_id}:`, error);
+        showNotification("Не удалось отобразить ответ.");
     }
+}
 
+async function handleTextInputAnswer(data) {
+    /**
+     * Обрабатывает ответ на задание с текстовым вводом
+     * @param {Object} data - Данные ответа
+     * @param {string} data.task_id - ID задания
+     * @param {string} data.task_type - Тип задания (должен быть "text_input")
+     * @param {Object} data.answer - Данные ответа
+     * @param {string} data.answer.current_text - Текст ответа
+     * @param {boolean} data.answer.is_checked - Проверен ли ответ
+     */
     try {
-        initCheckButton(data, container, currentUserId, virtualClassId);
-    } catch (err) {
-        console.error("Не удалось инициализировать кнопку checkButton: ", err);
-    }
-}
+        if (!data || data.task_type !== "text_input") return;
 
-function handleTextInputAnswer(data) {
-    /**
-     * data: {task_id, task_type, answer: {current_text, is_checked}}
-     */
-    if (!data || data.task_type !== "text_input") return;
+        const serverText = data.answer?.current_text ?? "";
+        const isChecked = data.answer?.is_checked ?? false;
 
-    const taskId = data.task_id;
-    const serverText = data.answer?.current_text ?? "";
-    const isChecked = data.answer?.is_checked ?? false;
+        const container = document.querySelector(`[data-task-id="${data.task_id}"]`);
+        if (!container) return;
 
-    const container = document.querySelector(`[data-task-id="${taskId}"]`);
-    if (!container) return;
+        const textarea = container.querySelector("textarea, input[type='text']");
+        if (!textarea) return;
 
-    const textarea = container.querySelector("textarea, input[type='text']");
-    if (!textarea) return;
-
-    if (textarea.value !== serverText) {
-        textarea.value = serverText;
-        if (textarea.tagName.toLowerCase() === "textarea") {
-            adjustTextareaHeight(textarea);
-        }
-    }
-
-    textarea.disabled = isChecked;
-    textarea.readOnly = isChecked;
-}
-
-function handleFillGapsAnswer(data) {
-    /**
-     * data: {task_id, task_type, answer: {answers: {[index]: {value, is_correct}}}}
-     */
-    if (!data || data.task_type !== "fill_gaps") return;
-
-    const taskId = data.task_id;
-    const answers = data.answer?.answers ?? {};
-
-    const container = document.querySelector(`[data-task-id="${taskId}"]`);
-    if (!container) return;
-
-    // Обновляем вычеркивание баджей
-    updateBadgesStrikethrough(container, answers);
-
-    container.querySelectorAll("[data-gap-index]").forEach(input => {
-        const index = input.dataset.gapIndex;
-        const answerData = answers[index];
-        const serverValue = answerData?.value || "";
-        const isCorrect = answerData?.is_correct;
-        const currentIsCorrect = input.classList.contains("bg-success");
-        const currentIsWrong = input.classList.contains("bg-danger");
-
-        if (input.value !== serverValue) {
-            input.value = serverValue;
-        }
-
-        // Если ответ пустой - сбрасываем стили и разрешаем редактирование
-        if (!serverValue.trim()) {
-            input.classList.remove("bg-success", "bg-danger", "bg-opacity-25", "border", "border-success", "border-danger", "text-white");
-            input.disabled = false;
-            input.readOnly = false;
-            return;
-        }
-
-        if (isCorrect === true && !currentIsCorrect) {
-            input.classList.add("bg-success", "bg-opacity-25", "border", "border-success", "text-white");
-            input.classList.remove("bg-danger", "bg-opacity-25", "border-danger");
-            input.disabled = true;
-            input.readOnly = true;
-        } else if (isCorrect === false && !currentIsWrong) {
-            input.classList.add("bg-danger", "bg-opacity-25", "border", "border-danger", "text-white");
-            input.classList.remove("bg-success", "bg-opacity-25", "border-success");
-            input.disabled = false;
-            input.readOnly = false;
-        } else if (isCorrect === null) {
-            input.classList.remove("bg-success", "bg-danger", "bg-opacity-25", "border", "border-success", "border-danger", "text-white");
-            input.disabled = false;
-            input.readOnly = false;
-        }
-    });
-}
-
-function handleMatchCardsAnswer(data) {
-    /**
-     * data: {task_id, task_type, answer: {answers: {[card_left]: {card_right, is_correct}}}}
-     */
-    if (!data || data.task_type !== "match_cards" || !data.answer) return;
-
-    const taskId = data.task_id;
-    const answers = data.answer.answers ?? {};
-
-    const container = document.querySelector(`[data-task-id="${taskId}"]`);
-    if (!container) return;
-
-    const leftButtons = Array.from(container.querySelectorAll(".left-card"));
-    const rightButtons = Array.from(container.querySelectorAll(".right-card"));
-
-    const currentStates = new Map();
-    leftButtons.forEach(btn => {
-        const isSuccess = btn.classList.contains("bg-success");
-        currentStates.set(btn.dataset.left, { isSuccess });
-    });
-
-    Object.entries(answers).forEach(([leftCard, answerData]) => {
-        const leftBtn = leftButtons.find(btn => btn.dataset.left === leftCard);
-        const rightBtn = rightButtons.find(btn => btn.dataset.right === answerData.card_right);
-        const isCorrect = answerData.is_correct;
-        const currentState = currentStates.get(leftCard);
-
-        if (leftBtn && rightBtn) {
-            if (isCorrect === true) {
-                if (!currentState?.isSuccess) {
-                    leftBtn.classList.remove("bg-primary", "bg-danger", "border-1");
-                    rightBtn.classList.remove("bg-primary", "bg-danger", "border-1");
-                    leftBtn.classList.add("bg-success", "text-light", "fw-bold", "border-0");
-                    rightBtn.classList.add("bg-success", "text-light", "fw-bold", "border-0");
-                }
-                leftBtn.disabled = true;
-                rightBtn.disabled = true;
-            } else {
-                leftBtn.classList.remove("bg-primary", "bg-success", "bg-danger", "text-light", "fw-bold", "border-0");
-                rightBtn.classList.remove("bg-primary", "bg-success", "bg-danger", "text-light", "fw-bold", "border-0");
-                leftBtn.classList.add("border-1");
-                rightBtn.classList.add("border-1");
-                leftBtn.disabled = false;
-                rightBtn.disabled = false;
+        if (textarea.value !== serverText) {
+            textarea.value = serverText;
+            if (textarea.tagName.toLowerCase() === "textarea") {
+                adjustTextareaHeight(textarea);
             }
         }
-    });
 
-    leftButtons.forEach(btn => {
-        if (!answers[btn.dataset.left]) {
-            btn.classList.remove("bg-primary", "bg-success", "bg-danger", "text-light", "fw-bold", "border-0");
-            btn.classList.add("border-1");
-            btn.disabled = false;
-        }
-    });
-    rightButtons.forEach(btn => {
-        const hasMatch = Object.values(answers).some(answer => answer.card_right === btn.dataset.right);
-        if (!hasMatch) {
-            btn.classList.remove("bg-primary", "bg-success", "bg-danger", "text-light", "fw-bold", "border-0");
-            btn.classList.add("border-1");
-            btn.disabled = false;
-        }
-    });
+        textarea.disabled = isChecked;
+        textarea.readOnly = isChecked;
+    } catch (error) {
+        console.error(`Ошибка в handleTextInputAnswer для task ${data.task_id}:`, error);
+        showNotification("Не удалось отобразить ответ.");
+    }
+}
+
+async function handleFillGapsAnswer(data) {
+    try {
+        if (!data || data.task_type !== "fill_gaps") return;
+
+        const answers = data.answer?.answers ?? {};
+
+        const container = document.querySelector(`[data-task-id="${data.task_id}"]`);
+        if (!container) return;
+
+        updateBadgesStrikethrough(container, answers);
+
+        container.querySelectorAll(".gap-input").forEach((input, index) => {
+            const answerData = answers[index];
+            const serverValue = answerData?.value || "";
+            const isCorrect = answerData?.is_correct;
+            const currentIsCorrect = input.classList.contains("bg-success");
+            const currentIsWrong = input.classList.contains("bg-danger");
+
+            if (input.value !== serverValue) {
+                input.value = serverValue;
+            }
+
+            if (!serverValue.trim()) {
+                input.classList.remove("bg-success", "bg-danger", "bg-opacity-25", "border", "border-success", "border-danger", "text-white");
+                input.disabled = false;
+                input.readOnly = false;
+                return;
+            }
+
+            if (isCorrect === true && !currentIsCorrect) {
+                input.classList.add("bg-success", "bg-opacity-25", "border", "border-success", "text-white");
+                input.classList.remove("bg-danger", "bg-opacity-25", "border-danger");
+                input.disabled = true;
+                input.readOnly = true;
+            } else if (isCorrect === false && !currentIsWrong) {
+                input.classList.add("bg-danger", "bg-opacity-25", "border", "border-danger", "text-white");
+                input.classList.remove("bg-success", "bg-opacity-25", "border-success");
+                input.disabled = false;
+                input.readOnly = false;
+            } else if (isCorrect === null) {
+                input.classList.remove("bg-success", "bg-danger", "bg-opacity-25", "border", "border-success", "border-danger", "text-white");
+                input.disabled = false;
+                input.readOnly = false;
+            }
+        });
+    } catch (error) {
+        console.error(`Ошибка в handleFillGapsAnswer для task ${data.task_id}:`, error);
+        showNotification("Не удалось отобразить ответ.");
+    }
+}
+
+async function handleMatchCardsAnswer(data) {
+    /**
+     * Обрабатывает ответ на задание с сопоставлением карточек
+     * @param {Object} data - Данные ответа
+     * @param {string} data.task_id - ID задания
+     * @param {string} data.task_type - Тип задания (должен быть "match_cards")
+     * @param {Object} data.answer - Данные ответа
+     * @param {Object} data.answer.answers - Объект с сопоставлениями карточек
+     * @param {string} data.answer.answers[].card_right - Сопоставленная правая карточка
+     * @param {boolean} data.answer.answers[].is_correct - Правильность сопоставления
+     */
+    try {
+        if (!data || data.task_type !== "match_cards" || !data.answer) return;
+
+        const answers = data.answer.answers ?? {};
+
+        const container = document.querySelector(`[data-task-id="${data.task_id}"]`);
+        if (!container) return;
+
+        const leftButtons = Array.from(container.querySelectorAll(".left-card"));
+        const rightButtons = Array.from(container.querySelectorAll(".right-card"));
+
+        const currentStates = new Map();
+        leftButtons.forEach(btn => {
+            const isSuccess = btn.classList.contains("bg-success");
+            currentStates.set(btn.dataset.left, { isSuccess });
+        });
+
+        Object.entries(answers).forEach(([leftCard, answerData]) => {
+            const leftBtn = leftButtons.find(btn => btn.dataset.left === leftCard);
+            const rightBtn = rightButtons.find(btn => btn.dataset.right === answerData.card_right);
+            const isCorrect = answerData.is_correct;
+            const currentState = currentStates.get(leftCard);
+
+            if (leftBtn && rightBtn) {
+                if (isCorrect === true) {
+                    if (!currentState?.isSuccess) {
+                        leftBtn.classList.remove("bg-primary", "bg-danger", "border-1");
+                        rightBtn.classList.remove("bg-primary", "bg-danger", "border-1");
+                        leftBtn.classList.add("bg-success", "text-light", "fw-bold", "border-0");
+                        rightBtn.classList.add("bg-success", "text-light", "fw-bold", "border-0");
+                    }
+                    leftBtn.disabled = true;
+                    rightBtn.disabled = true;
+                } else {
+                    leftBtn.classList.remove("bg-primary", "bg-success", "bg-danger", "text-light", "fw-bold", "border-0");
+                    rightBtn.classList.remove("bg-primary", "bg-success", "bg-danger", "text-light", "fw-bold", "border-0");
+                    leftBtn.classList.add("border-1");
+                    rightBtn.classList.add("border-1");
+                    leftBtn.disabled = false;
+                    rightBtn.disabled = false;
+                }
+            }
+        });
+
+        leftButtons.forEach(btn => {
+            if (!answers[btn.dataset.left]) {
+                btn.classList.remove("bg-primary", "bg-success", "bg-danger", "text-light", "fw-bold", "border-0");
+                btn.classList.add("border-1");
+                btn.disabled = false;
+            }
+        });
+        rightButtons.forEach(btn => {
+            const hasMatch = Object.values(answers).some(answer => answer.card_right === btn.dataset.right);
+            if (!hasMatch) {
+                btn.classList.remove("bg-primary", "bg-success", "bg-danger", "text-light", "fw-bold", "border-0");
+                btn.classList.add("border-1");
+                btn.disabled = false;
+            }
+        });
+    } catch (error) {
+        console.error(`Ошибка в handleMatchCardsAnswer для task ${data.task_id}:`, error);
+        showNotification("Не удалось отобразить ответ.");
+    }
 }
 
 // ==================== УТИЛИТЫ ====================
@@ -675,9 +756,11 @@ function initCheckButton(task, container, userId, classroomId) {
                 container.dataset.isChecked = "true";
 
                 if (task.task_type === "test" && typeof handleTestAnswer === "function") {
-                    fetchTaskAnswer(task.task_id, handleTestAnswer);
+                    const data = fetchTaskAnswer(task.task_id, handleTestAnswer);
+                    handleTestAnswer(data);
                 } else if (task.task_type === "true_false" && typeof handleTrueFalseAnswer === "function") {
-                    fetchTaskAnswer(task.task_id, handleTrueFalseAnswer);
+                    const data = fetchTaskAnswer(task.task_id, handleTrueFalseAnswer);
+                    handleTrueFalseAnswer(data);
                 }
             } else {
                 console.error(result.errors);

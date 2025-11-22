@@ -39,7 +39,7 @@ function renderImageTaskEditor(taskId = null, container = null, taskData = null)
             <input type="text" class="form-control caption-input" placeholder="Введите подпись..." value="${captionText}">
         </div>
 
-        <button class="btn btn-success mt-3 w-100 fw-semibold">
+        <button class="btn btn-success mt-3 w-100 fw-semibold save-btn">
             Сохранить
         </button>
     `;

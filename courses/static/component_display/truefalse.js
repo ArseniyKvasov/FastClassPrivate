@@ -34,7 +34,6 @@ function renderTrueFalseTask(task, container) {
 
             const input = document.createElement("input");
             input.type = "radio";
-            console.log(task.task_id, sIndex);
             input.name = `tf-${task.task_id}-s${sIndex}`;
             input.className = "form-check-input";
             input.dataset.tf = val;
@@ -58,5 +57,6 @@ function renderTrueFalseTask(task, container) {
     checkBtn.type = "button";
     checkBtn.className = "btn btn-primary mt-3";
     checkBtn.textContent = "Проверить";
+    checkBtn.style.display = "none";
     container.appendChild(checkBtn);
 }

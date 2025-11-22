@@ -8,7 +8,6 @@ const TASK_TYPES = [
     { type: "text_input", label: "Ввод текста", icon: "bi-text-paragraph" }
 ];
 
-// Обработчики, перенаправляют в соответствующие renderer/editor функции.
 const taskTypeHandlers = {
     test:       (taskId, container, taskData) => renderTestTaskEditor?.(taskId, container, taskData),
     note:       (taskId, container, taskData) => renderNoteTaskEditor?.(taskId, container, taskData),
@@ -92,7 +91,6 @@ const addTaskBtn = document.getElementById("add-task-btn");
 if (addTaskBtn) addTaskBtn.addEventListener("click", () => createTaskTypeSelector());
 
 function closeTaskEditor() {
-    // Проверяем Bootstrap-модальное окно
     const modalEl = document.querySelector(".modal.show .task-editor-card");
     if (modalEl) {
         const modalInstance = bootstrap.Modal.getInstance(modalEl.closest(".modal"));
@@ -100,17 +98,14 @@ function closeTaskEditor() {
         return;
     }
 
-    // Проверяем обычный редактор на странице
     const editor = document.querySelector(".task-editor-card");
     if (editor) {
-        editor.remove(); // удаляем карточку редактора из DOM
+        editor.remove();
     }
 
-    // Сбрасываем формы, если они есть
     const form = document.querySelector("#taskEditorForm");
     if (form && form.reset) form.reset();
 
-    // Убираем состояние редактирования с карточек
     document.querySelectorAll(".task-card.editing").forEach(el => el.classList.remove("editing"));
 }
 
@@ -265,31 +260,33 @@ async function saveTask(taskType, taskCard, taskId = null) {
         const result = await res.json();
 
         if (!result.success) {
-            showNotification("❌ Ошибка сохранения: см. консоль");
+            showNotification("Ошибка сохранения: см. консоль");
             console.error(result.errors);
             return null;
         }
 
-        showNotification("✅ Задание сохранено!");
-        closeTaskEditor?.();
-
         const replaceExisting = !!taskId;
 
-        if (Array.isArray(result.tasks) && result.tasks.length > 0) {
-            for (const t of result.tasks) {
-                const id = t.task_id;
-                if (!id) continue;
-                try {
-                    const savedTask = await fetchSingleTask(id);
-                    if (savedTask) renderTaskCard(savedTask, replaceExisting);
-                } catch (err) {
-                    console.error(`Ошибка при загрузке задания ${id}:`, err);
-                }
-            }
-        } else if (result.task_id) {
+        if (result.task_id) {
             try {
                 const savedTask = await fetchSingleTask(result.task_id);
                 if (savedTask) renderTaskCard(savedTask, replaceExisting);
+                if (isClassroom) {
+                    try {
+                        if (typeof fetchSectionAnswers === 'function') {
+                            await handleSectionAnswers(sectionId);
+                        } else {
+                            console.warn('Функция fetchSectionAnswers не найдена');
+                        }
+                    } catch (error) {
+                        console.error('Ошибка при вызове fetchSectionAnswers:', error);
+                    }
+                } else {
+                    console.warn('Ответы не загружены, так как пользователь находится вне режима виртуального класса.');
+                }
+
+                showNotification("Задание сохранено!");
+                closeTaskEditor?.();
             } catch (err) {
                 console.error(`Ошибка при загрузке задания ${result.task_id}:`, err);
             }
@@ -300,7 +297,7 @@ async function saveTask(taskType, taskCard, taskId = null) {
         return result.task_id || (result.tasks?.[0]?.task_id) || null;
     } catch (err) {
         console.error(err);
-        showNotification("❌ Ошибка сети");
+        showNotification("Ошибка сети");
         return null;
     }
 }
