@@ -1,18 +1,52 @@
-import hashlib
-import json
-
-import requests
-from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
+# pages/views.py
 from django.shortcuts import render, redirect
-from django.contrib.auth import login, authenticate, get_user_model
-
-from fastlesson import settings
+from django.contrib.auth import authenticate, login
+from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
 
+def login_view(request):
+    if request.method == "POST":
+        email = request.POST.get("email")
+        password = request.POST.get("password")
 
+        user = authenticate(request, username=email, password=password)
+        if user:
+            login(request, user)
+            return redirect("home")
+
+        return render(request, "pages/login.html", {"error": "Неверные данные"})
+
+    return render(request, "authapp/login.html")
+
+
+def register_view(request):
+    if request.method == "POST":
+        email = request.POST.get("email")
+        password = request.POST.get("password")
+        password2 = request.POST.get("password2")
+
+        if password != password2:
+            return render(request, "authapp/register.html", {"error": "Пароли не совпадают"})
+
+        if User.objects.filter(username=email).exists():
+            return render(request, "authapp/register.html", {"error": "Пользователь уже существует"})
+
+        user = User.objects.create_user(username=email, email=email, password=password)
+
+        user.backend = "django.contrib.auth.backends.ModelBackend"
+
+        login(request, user)
+        return redirect("home")
+
+    return render(request, "authapp/register.html")
+
+
+
+
+
+"""
 def login_view(request):
     return render(request, 'authapp/login.html')
 
@@ -46,3 +80,5 @@ def vk_callback(request):
 
     # Тут логика входа/регистрации пользователя
     return redirect("/")
+
+"""

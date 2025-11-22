@@ -1,9 +1,14 @@
-function renderMatchCardsTaskEditor(nextTaskId = null) {
-    const taskList = document.getElementById("task-list");
-    if (!taskList) return;
+/**
+ * Рендер редактора задания "Соотнеси карточки".
+ * Если передан taskId — открывает редактор в модальном окне для редактирования.
+ * Если container не указан — вставляет редактор в список заданий.
+ */
+function renderMatchCardsTaskEditor(taskId = null, container = null, taskData = null) {
+    const parent = container || document.getElementById("task-list");
+    if (!parent) return;
 
     const card = document.createElement("div");
-    card.className = "task-editor-card mb-4 p-3 bg-white border rounded";
+    card.className = "task-editor-card mb-4 p-3 bg-white border-0 rounded";
 
     card.innerHTML = `
         <div class="d-flex justify-content-between align-items-center mb-3">
@@ -28,27 +33,57 @@ function renderMatchCardsTaskEditor(nextTaskId = null) {
         .addEventListener("click", () => addMatchCard(cardsWrapper));
 
     card.querySelector(".remove-task-btn")
-        .addEventListener("click", () => card.remove());
+        .addEventListener("click", () => {
+            if (taskId && bootstrapEditorModal) {
+                bootstrapEditorModal.hide();
+            } else {
+                card.remove();
+            }
+        });
 
     card.querySelector(".btn-success")
-        .addEventListener("click", () => saveTask("match_cards", card));
+        .addEventListener("click", () => saveTask("match_cards", card, taskId));
 
-    // добавляем две карточки по умолчанию
-    for (let i = 0; i < 2; i++) addMatchCard(cardsWrapper);
+    const initialCards = taskData?.cards || [];
+    if (initialCards.length > 0) {
+        initialCards.forEach(c => addMatchCard(cardsWrapper, c.card_left, c.card_right));
+    } else {
+        addMatchCard(cardsWrapper);
+        addMatchCard(cardsWrapper);
+    }
 
     card.addEventListener("paste", (e) => handleAutoPasteCards(e, cardsWrapper));
 
-    if (nextTaskId) {
-        const nextEl = document.querySelector(`[data-task-id="${nextTaskId}"]`);
-        if (nextEl) {
-            taskList.insertBefore(card, nextEl);
-            return;
+    if (taskId) {
+        if (!editorModal) {
+            editorModal = document.createElement("div");
+            editorModal.className = "modal fade";
+            editorModal.tabIndex = -1;
+            editorModal.innerHTML = `
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content p-3"></div>
+                </div>
+            `;
+            document.body.appendChild(editorModal);
+            bootstrapEditorModal = new bootstrap.Modal(editorModal);
         }
+        const content = editorModal.querySelector(".modal-content");
+        content.innerHTML = "";
+        content.appendChild(card);
+        bootstrapEditorModal.show();
+        return;
     }
 
-    taskList.appendChild(card);
+    if (container) {
+        parent.innerHTML = "";
+        parent.appendChild(card);
+    } else {
+        parent.appendChild(card);
+    }
+
     card.scrollIntoView({ behavior: "smooth", block: "center" });
 }
+
 
 function addMatchCard(container, leftValue = "", rightValue = "") {
     const cId = generateId("card");

@@ -1,9 +1,16 @@
-function renderNoteTaskEditor(nextTaskId = null) {
-    const taskList = document.getElementById("task-list");
-    if (!taskList) return;
+/**
+ * Рендер редактора заметки.
+ * Если передан taskId — открывает модальное окно для редактирования.
+ * taskData может содержать { content: "текст заметки" }.
+ */
+function renderNoteTaskEditor(taskId = null, container = null, taskData = null) {
+    const parent = container || document.getElementById("task-list");
+    if (!parent) return;
 
     const card = document.createElement("div");
-    card.className = "task-editor-card mb-4 p-3 bg-white border rounded";
+    card.className = "task-editor-card mb-4 p-3 bg-white border-0 rounded";
+
+    const content = taskData?.content || "";
 
     card.innerHTML = `
         <div class="d-flex justify-content-between align-items-center mb-3">
@@ -32,9 +39,10 @@ function renderNoteTaskEditor(nextTaskId = null) {
             </button>
         </div>
 
-        <div class="note-editor border rounded p-2" 
-             contenteditable="true" 
+        <div class="note-editor border rounded p-2"
+             contenteditable="true"
              style="min-height: 160px; outline: none;">
+             ${content}
         </div>
 
         <button class="btn btn-success mt-3 w-100 fw-semibold">
@@ -46,8 +54,7 @@ function renderNoteTaskEditor(nextTaskId = null) {
 
     card.querySelectorAll(".format-btn").forEach(btn => {
         btn.addEventListener("click", () => {
-            const cmd = btn.dataset.cmd;
-            document.execCommand(cmd, false, null);
+            document.execCommand(btn.dataset.cmd, false, null);
             editor.focus();
         });
     });
@@ -60,20 +67,43 @@ function renderNoteTaskEditor(nextTaskId = null) {
         });
 
     card.querySelector(".remove-task-btn")
-        .addEventListener("click", () => card.remove());
+        .addEventListener("click", () => {
+            if (taskId && bootstrapEditorModal) {
+                bootstrapEditorModal.hide();
+            } else {
+                card.remove();
+            }
+        });
 
     card.querySelector(".btn-success")
-        .addEventListener("click", () => saveTask("note", card));
+        .addEventListener("click", () => saveTask("note", card, taskId));
 
-    if (nextTaskId) {
-        const nextEl = document.querySelector(`[data-task-id="${nextTaskId}"]`);
-        if (nextEl) {
-            taskList.insertBefore(card, nextEl);
-            return;
+    if (taskId) {
+        if (!editorModal) {
+            editorModal = document.createElement("div");
+            editorModal.className = "modal fade";
+            editorModal.tabIndex = -1;
+            editorModal.innerHTML = `
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content p-3"></div>
+                </div>
+            `;
+            document.body.appendChild(editorModal);
+            bootstrapEditorModal = new bootstrap.Modal(editorModal);
         }
+        const contentEl = editorModal.querySelector(".modal-content");
+        contentEl.innerHTML = "";
+        contentEl.appendChild(card);
+        bootstrapEditorModal.show();
+        return;
     }
 
-    taskList.appendChild(card);
+    if (container) {
+        parent.innerHTML = "";
+        parent.appendChild(card);
+    } else {
+        parent.appendChild(card);
+    }
+
     card.scrollIntoView({ behavior: "smooth", block: "center" });
 }
-

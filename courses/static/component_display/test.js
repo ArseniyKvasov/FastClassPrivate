@@ -1,28 +1,46 @@
-export function renderTestTask(task, container) {
+/**
+ * Рендерит тестовую задачу и форму для каждого вопроса.
+ *
+ * task: {
+ *     id: string,
+ *     questions: [
+ *         { question: string, options: [{ option: string, is_correct: boolean }] }
+ *     ]
+ * }
+ */
+function renderTestTask(task, container) {
     if (!container) return;
     container.innerHTML = "";
 
-    // Вопрос
-    const questionDiv = document.createElement("div");
-    questionDiv.className = "test-question fw-semibold mb-3";
-    questionDiv.textContent = task.question;
-    container.appendChild(questionDiv);
+    if (!Array.isArray(task.data.questions) || !task.data.questions.length) {
+        const empty = document.createElement("div");
+        empty.className = "text-danger";
+        empty.textContent = "Нет вопросов для отображения.";
+        container.appendChild(empty);
+        return;
+    }
 
-    // Варианты
-    if (Array.isArray(task.options) && task.options.length) {
+    task.data.questions.forEach((q, qIndex) => {
+        const questionDiv = document.createElement("div");
+        questionDiv.className = "test-question fw-semibold mb-2";
+        questionDiv.textContent = q.question;
+        container.appendChild(questionDiv);
+
         const form = document.createElement("form");
-        form.className = "test-options";
+        form.className = "test-options mb-3";
+        form.dataset.questionIndex = String(qIndex);
 
-        task.options.forEach((option, index) => {
+        q.options.forEach((option, oIndex) => {
             const optionDiv = document.createElement("div");
             optionDiv.className = "form-check mb-2";
 
             const input = document.createElement("input");
             input.className = "form-check-input";
             input.type = "radio";
-            input.name = `test-option-${task.id || 0}`; // уникальное имя для группы
-            input.id = `test-option-${task.id || 0}-${index}`;
-            input.value = option.option;
+            input.name = `test-${task.task_id}-q${qIndex}`;
+            input.id = `test-${task.task_id}-q${qIndex}-o${oIndex}`;
+            input.dataset.optionIndex = String(oIndex);
+            input.dataset.questionIndex = String(qIndex);
 
             const label = document.createElement("label");
             label.className = "form-check-label";
@@ -35,10 +53,11 @@ export function renderTestTask(task, container) {
         });
 
         container.appendChild(form);
-    } else {
-        const empty = document.createElement("div");
-        empty.className = "text-danger";
-        empty.textContent = "Нет вариантов ответа.";
-        container.appendChild(empty);
-    }
+    });
+
+    const checkBtn = document.createElement("button");
+    checkBtn.type = "button";
+    checkBtn.className = "btn btn-primary mt-3";
+    checkBtn.textContent = "Проверить";
+    container.appendChild(checkBtn);
 }

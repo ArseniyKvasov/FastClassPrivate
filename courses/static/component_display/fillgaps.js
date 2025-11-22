@@ -1,4 +1,4 @@
-export function renderFillGapsTask(task, container) {
+function renderFillGapsTask(task, container) {
     if (!container) return;
     container.innerHTML = "";
 
@@ -7,23 +7,23 @@ export function renderFillGapsTask(task, container) {
 
     const cardBody = document.createElement("div");
 
-    if (task.title) {
+    if (task.data.title) {
         const title = document.createElement("h6");
         title.className = "mb-3 fw-semibold text-primary";
-        title.textContent = task.title;
+        title.textContent = task.data.title;
         cardBody.appendChild(title);
     }
 
-    if (task.task_type === "open" && Array.isArray(task.answers) && task.answers.length) {
+    if (task.data.task_type === "open" && Array.isArray(task.data.answers) && task.data.answers.length) {
         const hintBlock = document.createElement("div");
         hintBlock.className = "mb-2";
 
         const list = document.createElement("ul");
         list.className = "list-inline m-0 p-0";
 
-        task.answers.forEach(answer => {
+        task.data.answers.forEach(answer => {
             const li = document.createElement("li");
-            li.className = "list-inline-item badge bg-primary rounded-pill px-3 py-2";
+            li.className = "list-inline-item badge bg-primary rounded-pill px-3 py-2 m-1";
             li.textContent = answer;
             list.appendChild(li);
         });
@@ -34,11 +34,32 @@ export function renderFillGapsTask(task, container) {
 
     const textDiv = document.createElement("div");
     textDiv.className = "fill-gaps-text";
-    textDiv.innerHTML = task.text.replace(/\[([^\]]+)\]/g, () => {
-        return `<input type="text" class="form-control d-inline-block gap-input mx-1 mb-1 text-start" style="width: 110px;">`;
-    });
-    cardBody.appendChild(textDiv);
 
+    let gapIndex = 0;
+
+    const cleanText = task.data.text
+        .replace(/<(\/?)(?!b|i|u|em|strong|ul|ol|li|p|br)(\w+)[^>]*>/gi, '')
+        .replace(/\n/g, '<br>');
+
+    const parts = cleanText.split(/(\[[^\]]+\])/g);
+
+    parts.forEach(part => {
+        if (part.startsWith('[') && part.endsWith(']')) {
+            const input = document.createElement("input");
+            input.type = "text";
+            input.className = "form-control d-inline-block gap-input mx-1 mb-1 text-start";
+            input.style.width = "110px";
+            input.setAttribute("data-gap-index", gapIndex);
+            gapIndex++;
+            textDiv.appendChild(input);
+        } else if (part.trim() !== '') {
+            const span = document.createElement("span");
+            span.innerHTML = part;
+            textDiv.appendChild(span);
+        }
+    });
+
+    cardBody.appendChild(textDiv);
     card.appendChild(cardBody);
     container.appendChild(card);
 }

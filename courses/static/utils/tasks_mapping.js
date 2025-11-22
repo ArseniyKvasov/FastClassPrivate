@@ -1,10 +1,4 @@
-import { renderImageTask } from '/static/component_display/image.js';
-import { renderFillGapsTask } from '/static/component_display/fillgaps.js';
-import { renderNoteTask } from '/static/component_display/note.js';
-import { renderTestTask } from '/static/component_display/test.js';
-import { renderTrueFalseTask } from '/static/component_display/truefalse.js';
-import { renderMatchCardsTask } from '/static/component_display/match.js';
-import { renderTextInputTask } from '/static/component_display/textinput.js';
+/* tasks_mapping.js */
 
 const TASK_RENDERERS = {
     image: renderImageTask,
@@ -13,62 +7,40 @@ const TASK_RENDERERS = {
     test: renderTestTask,
     true_false: renderTrueFalseTask,
     match_cards: renderMatchCardsTask,
-    text_input: renderTextInputTask,
+    text_input: renderTextInputTask
 };
+
 
 const taskListContainer = document.getElementById("task-list");
 
+// Лоадер
 const loader = document.createElement("div");
 loader.className = "loader-overlay";
 loader.innerHTML = `<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Загрузка...</span></div>`;
 document.body.appendChild(loader);
 
-async function fetchTasks() {
-    if (typeof sectionId === "undefined" || !sectionId) {
-        showNotification("Произошла ошибка. Невозможно загрузить задания.");
-        throw new Error("sectionId не определен");
-    }
-
-    try {
-        const res = await fetch(`/courses/get-tasks/${sectionId}/`);
-        const data = await res.json();
-
-        if (!data.success) {
-            showNotification(`❌ Ошибка: ${data.errors}`);
-            return [];
-        }
-
-        return data.tasks;
-    } catch (err) {
-        console.error(err);
-        showNotification("❌ Ошибка сети при загрузке заданий");
-        return [];
-    }
-}
-
-function renderTaskCard(task) {
+// Создаёт карточку задания или заменяет существующую
+function renderTaskCard(task, replaceExisting = false) {
     const card = document.createElement("div");
     card.className = "task-card mb-3 p-2 rounded-3 position-relative overflow-hidden";
     card.dataset.taskId = task.task_id;
     card.dataset.taskType = task.task_type;
 
-    // Контент задания
     const contentContainer = document.createElement("div");
     contentContainer.className = "task-content";
     contentContainer.innerHTML = `<span class="text-secondary">Загрузка...</span>`;
     card.appendChild(contentContainer);
 
-    // Админская панель
-    if (isAdmin) {
+    if (typeof isAdmin !== "undefined" && isAdmin) {
         const adminPanel = document.createElement("div");
         adminPanel.className = "admin-panel position-absolute top-0 end-0 m-2 p-1 d-flex gap-1 align-items-center rounded-3 shadow-sm bg-white opacity-0 transition-opacity";
-        adminPanel.style.zIndex = "10"; // поверх карточки
+        adminPanel.style.zIndex = "10";
 
         const editBtn = document.createElement("button");
         editBtn.className = "btn btn-sm p-1 border-0 bg-transparent";
         editBtn.innerHTML = `<i class="bi bi-pencil"></i>`;
         editBtn.title = "Редактировать";
-        editBtn.onclick = () => console.log("Редактируем", task.task_id);
+        editBtn.onclick = () => editTaskCard(card, task.data);
 
         const removeBtn = document.createElement("button");
         removeBtn.className = "btn btn-sm p-1 border-0 bg-transparent text-danger";
@@ -76,9 +48,7 @@ function renderTaskCard(task) {
         removeBtn.title = "Удалить";
         removeBtn.onclick = async () => {
             const confirmed = await confirmAction("Вы уверены, что хотите удалить это задание?");
-            console.log("Подтверждено:", confirmed);
             if (!confirmed) return;
-
             try {
                 const response = await fetch("/courses/delete-task/", {
                     method: "POST",
@@ -88,7 +58,6 @@ function renderTaskCard(task) {
                     },
                     body: JSON.stringify({ task_id: task.task_id })
                 });
-
                 const result = await response.json();
                 if (result.success) {
                     card.remove();
@@ -106,17 +75,18 @@ function renderTaskCard(task) {
         adminPanel.appendChild(removeBtn);
         card.appendChild(adminPanel);
 
-        // Появление панели при наведении
         card.addEventListener("mouseenter", () => adminPanel.classList.add("opacity-100"));
         card.addEventListener("mouseleave", () => adminPanel.classList.remove("opacity-100"));
     }
 
-    // Рендер задания через соответствующий renderer
     try {
         const renderer = TASK_RENDERERS[task.task_type];
         if (renderer) {
             contentContainer.innerHTML = "";
-            renderer(task.data, contentContainer);
+            renderer(task, contentContainer);
+            if (isClassroom) {
+                attachTaskHandler(contentContainer, task);
+            }
         } else {
             contentContainer.innerHTML = "<span class='text-danger'>Не удалось отобразить задание.</span>";
         }
@@ -125,19 +95,48 @@ function renderTaskCard(task) {
         contentContainer.innerHTML = "<span class='text-danger'>Не удалось отобразить задание.</span>";
     }
 
+    if (replaceExisting) {
+        const existing = taskListContainer.querySelector(`[data-task-id="${task.task_id}"]`);
+        if (existing) {
+            existing.replaceWith(card);
+            return;
+        }
+    }
+
     taskListContainer.appendChild(card);
 }
 
+document.addEventListener("DOMContentLoaded", () => {
+    loadSectionTasks(sectionId);
+});
 
+async function loadSectionTasks(sectionId) {
+    if (!taskListContainer || !sectionId) return;
 
-document.addEventListener("DOMContentLoaded", async () => {
+    const currentSelected = document.querySelector('#section-list .section-link.fw-bold');
+    if (currentSelected && currentSelected.dataset.sectionId === sectionId) return;
+
+    document.querySelectorAll('#section-list .section-link').forEach(btn => {
+        if (btn.dataset.sectionId === sectionId) {
+            btn.classList.add('fw-bold', 'text-primary');
+        } else {
+            btn.classList.remove('fw-bold', 'text-primary');
+        }
+    });
+
+    taskListContainer.innerHTML = "";
     loader.style.display = "flex";
 
-    if (!taskListContainer) return;
+    try {
+        const tasks = await fetchSectionTasks(sectionId);
+        if (Array.isArray(tasks)) {
+            tasks.forEach(task => renderTaskCard(task));
+        }
+    } catch (e) {
+        console.error(e);
+        showNotification('Ошибка при загрузке заданий');
+    } finally {
+        loader.style.display = "none";
+    }
+}
 
-    const tasks = await fetchTasks();
-
-    tasks.forEach(task => renderTaskCard(task));
-
-    loader.style.display = "none";
-});

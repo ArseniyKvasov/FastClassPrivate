@@ -22,48 +22,48 @@
 </head>
 <body>
 
-<nav class="navbar sticky-top navbar-expand-lg navbar-light bg-white border-bottom">
-    <div class="container">
-        <a class="navbar-brand fw-bold ms-2" href="#">FastLesson</a>
+    <nav class="navbar sticky-top navbar-expand-lg navbar-light bg-white border-bottom">
+        <div class="container">
+            <a class="navbar-brand fw-bold ms-2" href="#">FastLesson</a>
 
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-            <span class="navbar-toggler-icon"></span>
-        </button>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
 
-        <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
-            <ul class="navbar-nav align-items-lg-center gap-lg-2">
+            <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+                <ul class="navbar-nav align-items-lg-center gap-lg-2">
 
-                {% if user.is_authenticated %}
-                <li class="nav-item"><a href="#" class="nav-link">Мои курсы</a></li>
-                <li class="nav-item"><a href="#" class="nav-link">Создать курс</a></li>
-                <li class="nav-item"><a href="#" class="nav-link">Выйти</a></li>
-                {% else %}
-                <!-- На десктопе — кнопка -->
-                <li class="nav-item d-none d-lg-block">
-                    <a href="{% url 'login' %}" class="btn btn-outline-primary me-2">Войти</a>
-                </li>
-                <li class="nav-item d-none d-lg-block">
-                    <a href="#" class="btn btn-primary">Регистрация</a>
-                </li>
+                    {% if user.is_authenticated %}
+                    <li class="nav-item"><a href="#" class="nav-link">Мои курсы</a></li>
+                    <li class="nav-item"><a href="#" class="nav-link">Создать курс</a></li>
+                    <li class="nav-item"><a href="#" class="nav-link">Выйти</a></li>
+                    {% else %}
+                    <!-- На десктопе — кнопка -->
+                    <li class="nav-item d-none d-lg-block">
+                        <a href="{% url 'login' %}" class="btn btn-outline-primary me-2">Войти</a>
+                    </li>
+                    <li class="nav-item d-none d-lg-block">
+                        <a href="#" class="btn btn-primary">Регистрация</a>
+                    </li>
 
-                <!-- На мобилке — обычные ссылки -->
-                <li class="nav-item d-lg-none"><a href="#" class="nav-link">Войти</a></li>
-                <li class="nav-item d-lg-none"><a href="#" class="nav-link text-primary fw-semibold">Регистрация</a>
-                </li>
-                {% endif %}
-            </ul>
+                    <!-- На мобилке — обычные ссылки -->
+                    <li class="nav-item d-lg-none"><a href="#" class="nav-link">Войти</a></li>
+                    <li class="nav-item d-lg-none"><a href="#" class="nav-link text-primary fw-semibold">Регистрация</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
         </div>
-    </div>
-</nav>
+    </nav>
 
-<main class="container py-4" style="min-height: 100vh;">
-    {% block content %}{% endblock %}
-</main>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-<footer class="text-center text-muted py-3 border-top">
-    FastLesson © 2025
-</footer>
+    <main class="container py-4" style="min-height: 100vh;">
+        {% block content %}{% endblock %}
+    </main>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <footer class="text-center text-muted py-3 border-top">
+        FastLesson © 2025
+    </footer>
 </body>
 </html>

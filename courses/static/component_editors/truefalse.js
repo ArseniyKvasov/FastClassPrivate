@@ -1,13 +1,18 @@
-function renderTrueFalseTaskEditor(nextTaskId = null) {
-    const taskList = document.getElementById("task-list");
-    if (!taskList) return;
+/**
+ * Рендер редактора задания True / False.
+ * Если передан taskId — открывает модальное окно для редактирования.
+ * taskData может содержать утверждение {text: "...", value: "true"|"false"}
+ */
+function renderTrueFalseTaskEditor(taskId = null, container = null, taskData = null) {
+    const parent = container || document.getElementById("task-list");
+    if (!parent) return;
 
     const card = document.createElement("div");
-    card.className = "task-editor-card mb-4 p-3 bg-white border rounded";
+    card.className = "task-editor-card mb-4 p-3 bg-white border-0 rounded";
 
     card.innerHTML = `
         <div class="d-flex justify-content-between align-items-center mb-3">
-            <h6 class="fw-semibold text-dark mb-0">True / False</h6>
+            <h6 class="fw-semibold text-dark mb-0">Правда или ложь</h6>
             <button class="btn-close remove-task-btn small" title="Удалить задание"></button>
         </div>
 
@@ -24,30 +29,63 @@ function renderTrueFalseTaskEditor(nextTaskId = null) {
 
     const statementsWrapper = card.querySelector("#truefalse-statements");
 
-    card.querySelector(".add-statement-btn")
-        .addEventListener("click", () => addTrueFalseStatement(statementsWrapper));
+    const addBtn = card.querySelector(".add-statement-btn");
 
-    card.querySelector(".remove-task-btn")
-        .addEventListener("click", () => card.remove());
-
-    card.querySelector(".btn-success")
-        .addEventListener("click", () => saveTask("true_false", card));
-
-    for (let i = 0; i < 2; i++) addTrueFalseStatement(statementsWrapper);
-
-    if (nextTaskId) {
-        const nextEl = document.querySelector(`[data-task-id="${nextTaskId}"]`);
-        if (nextEl) {
-            taskList.insertBefore(card, nextEl);
-            return;
-        }
+    if (taskId) {
+        addBtn.style.display = "none";
+    } else {
+        addBtn.addEventListener("click", () => addTrueFalseStatement(statementsWrapper));
     }
 
-    taskList.appendChild(card);
+    card.querySelector(".remove-task-btn")
+        .addEventListener("click", () => {
+            if (taskId && bootstrapEditorModal) {
+                bootstrapEditorModal.hide();
+            } else {
+                card.remove();
+            }
+        });
+
+    card.querySelector(".btn-success")
+        .addEventListener("click", () => saveTask("true_false", card, taskId));
+
+    if (taskData && taskData.statement) {
+        addTrueFalseStatement(statementsWrapper, taskData.statement, taskData.is_true);
+    } else {
+        for (let i = 0; i < 2; i++) addTrueFalseStatement(statementsWrapper);
+    }
+
+    if (taskId) {
+        if (!editorModal) {
+            editorModal = document.createElement("div");
+            editorModal.className = "modal fade";
+            editorModal.tabIndex = -1;
+            editorModal.innerHTML = `
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content p-3"></div>
+                </div>
+            `;
+            document.body.appendChild(editorModal);
+            bootstrapEditorModal = new bootstrap.Modal(editorModal);
+        }
+        const contentEl = editorModal.querySelector(".modal-content");
+        contentEl.innerHTML = "";
+        contentEl.appendChild(card);
+        bootstrapEditorModal.show();
+        return;
+    }
+
+    if (container) {
+        parent.innerHTML = "";
+        parent.appendChild(card);
+    } else {
+        parent.appendChild(card);
+    }
+
     card.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
-function addTrueFalseStatement(container) {
+function addTrueFalseStatement(container, textValue = "", value = "false") {
     const sId = generateId("statement");
 
     const row = document.createElement("div");
@@ -56,10 +94,10 @@ function addTrueFalseStatement(container) {
 
     row.innerHTML = `
         <select class="form-select statement-select" style="width: 120px;">
-            <option value="true">Правда</option>
-            <option value="false" selected>Ложь</option>
+            <option value="true" ${value === "true" ? "selected" : ""}>Правда</option>
+            <option value="false" ${value === "false" ? "selected" : ""}>Ложь</option>
         </select>
-        <input type="text" class="form-control statement-text" placeholder="Утверждение" value="">
+        <input type="text" class="form-control statement-text" placeholder="Утверждение" value="${textValue}">
         <button class="btn-close remove-statement-btn" title="Удалить утверждение" style="transform: scale(0.7);"></button>
     `;
 

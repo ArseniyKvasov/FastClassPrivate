@@ -1,11 +1,10 @@
 import random
 import string
+import uuid
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
-import uuid
-
 from django.utils.timezone import now
 
 User = get_user_model()
@@ -14,7 +13,8 @@ User = get_user_model()
 def generate_course_id():
     """Генерирует уникальный 8-символьный id для курса"""
     chars = string.ascii_letters + string.digits
-    from .models import Course
+    # импорт внутри функции, чтобы избежать циклического импорта при миграциях
+    from .models import Course  # noqa: F401
     while True:
         new_id = ''.join(random.choices(chars, k=8))
         if not Course.objects.filter(id=new_id).exists():
@@ -99,12 +99,20 @@ class Task(models.Model):
 
 class TestTask(models.Model):
     """
-    Содержит:
-     текстовый вопрос
-     варианты ответов options = [{"option": str, is_correct: bool}]
+    Содержит несколько вопросов в формате:
+    [{"question": str, "options": [{"option": str, "is_correct": bool}]}]
     """
-    question = models.TextField()
-    options = models.JSONField()
+    questions = models.JSONField(default=list)
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+
+class TrueFalseTask(models.Model):
+    """
+    Содержит список утверждений для задачи типа "Правда/Ложь":
+    [{"statement": str, "is_true": bool}]
+    """
+    statements = models.JSONField(default=list)
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
@@ -145,14 +153,6 @@ class ImageTask(models.Model):
         super().delete(*args, **kwargs)
 
 
-class TrueFalseTask(models.Model):
-    statement = models.TextField()
-    is_true = models.BooleanField(default=False)
-
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
-
-
 class FillGapsTask(models.Model):
     """
     Тип задания: заполнить пропуски.
@@ -174,7 +174,7 @@ class FillGapsTask(models.Model):
     ]
 
     text = models.TextField()
-    answers = models.JSONField()
+    answers = models.JSONField(default=list)
     task_type = models.CharField(
         max_length=20,
         choices=TYPE_CHOICES,
@@ -187,13 +187,34 @@ class FillGapsTask(models.Model):
 
 class MatchCardsTask(models.Model):
     """
-    Карточки в формате [{"left_card": "cat", "right_card": "кот"}]
+    Карточки в формате:
+    [{"card_left": "cat", "card_right": "кот"}]
     """
-    cards = models.JSONField()
+    cards = models.JSONField(default=list)
+    shuffled_cards = models.JSONField(default=list)
 
     def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
+        source = self.cards or []
 
+        if len(source) > 1:
+            left_parts = [c["card_left"] for c in source]
+            right_parts = [c["card_right"] for c in source]
+
+            random.shuffle(left_parts)
+            random.shuffle(right_parts)
+
+            mixed = []
+            for i in range(len(source)):
+                mixed.append({
+                    "card_left": left_parts[i],
+                    "card_right": right_parts[i]
+                })
+
+            self.shuffled_cards = mixed
+        else:
+            self.shuffled_cards = source[:]
+
+        super().save(*args, **kwargs)
 
 class TextInputTask(models.Model):
     prompt = models.CharField(max_length=255, blank=True)

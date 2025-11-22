@@ -1,70 +1,7 @@
-{% extends 'pages/base.html' %}
+{% extends 'courses/lesson_room.html' %}
 
-{% block content %}
-    <style>
-        #sidebar {
-            position: sticky;
-            top: 80px;
-            height: calc(100vh - 120px);
-        }
-
-        #section-list .list-group-item {
-            cursor: pointer;
-            transition: background-color 0.15s ease;
-        }
-
-        #section-list .list-group-item:hover {
-            background-color: #f6f8fa;
-        }
-
-        .section-link {
-            color: #0d6efd;
-            font-weight: 500;
-        }
-
-        .section-link:hover {
-            color: #0a58ca;
-        }
-    </style>
-
-    <div class="row mt-4 d-flex justify-content-center">
-        <!-- Основной контент страницы -->
-        <div id="main-container" class="col-12 col-xl-9">
-            <div id="task-list" class="bg-white rounded shadow-sm" style="height: 1000px;"></div>
-        </div>
-
-        <!-- Боковая панель -->
-        <div id="sidebar" class="col-12 col-xl-3 mb-4 mb-xl-0 d-flex flex-column">
-
-            <button class="btn btn-primary w-100 mb-3 d-none d-xl-block">
-                Присоединиться
-            </button>
-
-            <div class="card shadow-sm border-0 rounded flex-grow-1 overflow-hidden">
-                <ul id="section-list" class="list-group list-group-flush overflow-y-auto" style="max-height: 100%;">
-                    {% for section in section_list %}
-                        <li class="list-group-item d-flex justify-content-between align-items-center border-0"
-                            data-section-id="{{ section.id }}" data-section-type="{{ section.type }}">
-
-                            <div class="d-flex align-items-center gap-2" style="flex:1; min-width:0;">
-                                <span class="drag-handle me-2" aria-hidden="true" title="Перетащить">☰</span>
-
-                                <button type="button"
-                                        class="btn btn-link section-link text-decoration-none text-truncate p-0 me-2"
-                                        data-section-id="{{ section.id }}">
-                                    {{ section.name }}
-                                </button>
-                            </div>
-                        </li>
-                    {% endfor %}
-                </ul>
-            </div>
-
-            <!-- Мобильная кнопка -->
-            <button class="btn bg-white border shadow-sm text-primary position-fixed d-xl-none"
-                    style="bottom: 20px; right: 16px; border-radius: 50%; width: 56px; height: 56px;">
-                <i class="bi bi-telephone fs-4"></i>
-            </button>
-        </div>
+{% block join-btn-desktop %}
+    <div class="btn btn-primary fw-bold mb-2 d-none d-xl-block">
+        Видеозвонок
     </div>
 {% endblock %}

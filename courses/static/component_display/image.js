@@ -1,4 +1,4 @@
-export function renderImageTask(task, container) {
+function renderImageTask(task, container) {
     if (!container) return;
     container.innerHTML = "";
 
@@ -10,16 +10,16 @@ export function renderImageTask(task, container) {
         cardBody.className = "text-center";
 
         const img = document.createElement("img");
-        img.src = task.image_url;
-        img.alt = task.caption || "Изображение не доступно - обновите страницу.";
+        img.src = task.data.image_url;
+        img.alt = "Изображение не доступно - обновите страницу.";
         img.className = "img-fluid rounded-3 mb-2";
 
         cardBody.appendChild(img);
 
-        if (task.caption) {
+        if (task.data.caption) {
             const caption = document.createElement("div");
             caption.className = "text-secondary";
-            caption.textContent = task.caption;
+            caption.textContent = task.data.caption;
             cardBody.appendChild(caption);
         }
 

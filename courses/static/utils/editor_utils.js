@@ -4,37 +4,43 @@ const TASK_TYPES = [
     { type: "image", label: "Картинка", icon: "bi-image" },
     { type: "true_false", label: "Правда или ложь", icon: "bi-check" },
     { type: "fill_gaps", label: "Заполнить пропуски", icon: "bi-pen" },
-    { type: "match_pairs", label: "Соотнеси слова", icon: "bi-arrow-left-right" },
+    { type: "match_cards", label: "Соотнеси слова", icon: "bi-arrow-left-right" },
     { type: "text_input", label: "Ввод текста", icon: "bi-text-paragraph" }
 ];
 
+// Обработчики, перенаправляют в соответствующие renderer/editor функции.
 const taskTypeHandlers = {
-    test: (nextTaskId) => renderTestTaskEditor(nextTaskId),
-    note: (nextTaskId) => renderNoteTaskEditor(nextTaskId),
-    image: (nextTaskId) => renderImageTaskEditor(nextTaskId),
-    true_false: (nextTaskId) => renderTrueFalseTaskEditor(nextTaskId),
-    fill_gaps: (nextTaskId) => renderFillGapsTaskEditor(nextTaskId),
-    match_pairs: (nextTaskId) => renderMatchCardsTaskEditor(nextTaskId),
-    text_input: (nextTaskId) => renderTextInputTaskEditor(nextTaskId)
+    test:       (taskId, container, taskData) => renderTestTaskEditor?.(taskId, container, taskData),
+    note:       (taskId, container, taskData) => renderNoteTaskEditor?.(taskId, container, taskData),
+    image:      (taskId, container, taskData) => renderImageTaskEditor?.(taskId, container, taskData),
+    true_false: (taskId, container, taskData) => renderTrueFalseTaskEditor?.(taskId, container, taskData),
+    fill_gaps:  (taskId, container, taskData) => renderFillGapsTaskEditor?.(taskId, container, taskData),
+    match_cards:(taskId, container, taskData) => renderMatchCardsTaskEditor?.(taskId, container, taskData),
+    text_input: (taskId, container, taskData) => renderTextInputTaskEditor?.(taskId, container, taskData)
 };
-
 
 let selectorModal = null;
 let bootstrapModal = null;
+let editorModal = null;
+let bootstrapEditorModal = null;
+const sectionList = document.getElementById('section-list');
+const sectionModal = new bootstrap.Modal(document.getElementById('manualSectionModal'));
 
+function ensureSelectorModal() {
+    if (selectorModal && bootstrapModal) return;
+    selectorModal = document.getElementById("taskSelectorModal");
+    if (!selectorModal) return;
+    bootstrapModal = new bootstrap.Modal(selectorModal);
+}
 
-function createTaskTypeSelector(nextTaskId = null) {
-    const taskList = document.getElementById('task-list');
-    if (!taskList) return;
+function createTaskTypeSelector() {
+    ensureSelectorModal();
+    if (!selectorModal) return;
 
-    if (!selectorModal) {
-        selectorModal = document.getElementById('taskSelectorModal');
-        bootstrapModal = new bootstrap.Modal(selectorModal);
-    }
+    const container = document.getElementById("taskTypeSelectorContainer");
+    if (!container) return;
 
-    const container = document.getElementById('taskTypeSelectorContainer');
     container.innerHTML = "";
-
     TASK_TYPES.forEach(item => {
         const col = document.createElement("div");
         col.className = "col-6 col-md-4 col-lg-3 d-flex";
@@ -49,104 +55,116 @@ function createTaskTypeSelector(nextTaskId = null) {
         container.appendChild(col);
     });
 
-    container.addEventListener("click", function handleClick(e) {
+    // Делегирование кликов
+    function onClick(e) {
         const option = e.target.closest(".task-type-option");
         if (!option) return;
-
         const type = option.dataset.type;
         const handler = taskTypeHandlers[type];
+        if (!handler) return;
 
-        if (handler) {
-            const existingEditors = document.querySelectorAll(".task-editor-card");
-            existingEditors.forEach(editor => editor.remove());
+        // Удаляем все открытые редакторы и закрываем модалку
+        document.querySelectorAll(".task-editor-card").forEach(el => el.remove());
+        bootstrapModal.hide();
 
-            bootstrapModal.hide();
-            handler(nextTaskId);
-        }
+        handler(); // открываем редактор создания (без taskId)
+    }
 
-        container.removeEventListener("click", handleClick);
-    });
-
+    container.removeEventListener("click", onClick); // безопасно удалить перед добавлением
+    container.addEventListener("click", onClick);
     bootstrapModal.show();
 }
 
+function editTaskCard(taskCard, taskData) {
+    if (!taskCard) return;
+    const taskType = taskCard.dataset.taskType;
+    const handler = taskTypeHandlers[taskType];
+    if (!handler) return;
 
-document.getElementById('add-task-btn').addEventListener("click", () => {
-    createTaskTypeSelector();
-});
+    const existingEditor = taskCard.querySelector(".task-editor-card");
+    if (existingEditor) existingEditor.remove();
 
-function generateId(prefix = "id") {
-    return prefix + "-" + Math.random().toString(36).substr(2, 9);
+    const taskId = taskCard.dataset.taskId;
+    handler(taskId, taskCard, taskData);
+}
+
+const addTaskBtn = document.getElementById("add-task-btn");
+if (addTaskBtn) addTaskBtn.addEventListener("click", () => createTaskTypeSelector());
+
+function closeTaskEditor() {
+    // Проверяем Bootstrap-модальное окно
+    const modalEl = document.querySelector(".modal.show .task-editor-card");
+    if (modalEl) {
+        const modalInstance = bootstrap.Modal.getInstance(modalEl.closest(".modal"));
+        if (modalInstance) modalInstance.hide();
+        return;
+    }
+
+    // Проверяем обычный редактор на странице
+    const editor = document.querySelector(".task-editor-card");
+    if (editor) {
+        editor.remove(); // удаляем карточку редактора из DOM
+    }
+
+    // Сбрасываем формы, если они есть
+    const form = document.querySelector("#taskEditorForm");
+    if (form && form.reset) form.reset();
+
+    // Убираем состояние редактирования с карточек
+    document.querySelectorAll(".task-card.editing").forEach(el => el.classList.remove("editing"));
 }
 
 const TaskValidators = {
     test: function(taskCard) {
-        const questionBlocks = [...taskCard.querySelectorAll(".question-container")];
-        if (!questionBlocks.length) {
-            showNotification("❌ Добавьте хотя бы один вопрос!");
-            return null;
-        }
+        const blocks = [...taskCard.querySelectorAll(".question-container")];
+        if (!blocks.length) { showNotification("❌ Добавьте хотя бы один вопрос!"); return null; }
 
         const tasks = [];
-
-        for (const block of questionBlocks) {
+        for (const block of blocks) {
             const question = block.querySelector(".question-text")?.value.trim();
-            if (!question) {
-                showNotification("❌ Укажите текст вопроса!");
-                return null;
-            }
+            if (!question) { showNotification("❌ Укажите текст вопроса!"); return null; }
 
             const options = [...block.querySelectorAll(".answer-row")].map(row => {
                 const option = row.querySelector(".answer-text")?.value.trim();
-                const is_correct = row.querySelector(".correct-answer-checkbox")?.checked || false;
+                const is_correct = !!row.querySelector(".correct-answer-checkbox")?.checked;
                 return option ? { option, is_correct } : null;
             }).filter(Boolean);
 
-            if (!options.length) {
-                showNotification("❌ Укажите хотя бы один вариант ответа!");
-                return null;
-            }
-
-            if (!options.some(o => o.is_correct)) {
-                showNotification("❌ Хотя бы один вариант должен быть отмечен как правильный!");
-                return null;
-            }
+            if (!options.length) { showNotification("❌ Укажите хотя бы один вариант ответа!"); return null; }
+            if (!options.some(o => o.is_correct)) { showNotification("❌ Хотя бы один вариант должен быть отмечен как правильный!"); return null; }
 
             tasks.push({ question, options });
         }
-
         return tasks;
     },
 
     note: function(taskCard) {
         const editor = taskCard.querySelector(".note-editor");
         const content = editor?.innerHTML.trim() || "";
-        if (!content) {
-            showNotification("❌ Добавьте текст заметки!");
-            return null;
-        }
-
+        if (!content) { showNotification("❌ Добавьте текст заметки!"); return null; }
         return [{ content }];
     },
 
     image: function(taskCard) {
         const input = taskCard.querySelector(".image-input");
-        if (!input?.files?.length) {
+        const preview = taskCard.querySelector(".preview-img");
+
+        if (!input?.files?.length && !preview?.src) {
             showNotification("❌ Добавьте изображение!");
             return null;
         }
 
-        const file = input.files[0];
-        const caption = taskCard.querySelector(".image-caption")?.value.trim() || "";
+        const file = input.files[0] || null; // null - если изображение не изменилось при редактировании
+        const caption = taskCard.querySelector(".caption-input")?.value.trim() || "";
 
-        const allowed = ["image/png", "image/jpeg", "image/gif", "image/webp"];
-        if (!allowed.includes(file.type)) {
+        const allowed = ["image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp"];
+        if (file && !allowed.includes(file.type)) {
             showNotification("❌ Неподдерживаемый формат изображения");
             return null;
         }
 
         const maxSizeMB = 5;
-        if (file.size > maxSizeMB * 1024 * 1024) {
+        if (file && file.size > maxSizeMB * 1024 * 1024) {
             showNotification(`❌ Изображение не должно превышать ${maxSizeMB} МБ`);
             return null;
         }
@@ -156,90 +174,55 @@ const TaskValidators = {
 
     true_false: function(taskCard) {
         const rows = [...taskCard.querySelectorAll(".statement-row")];
-        if (!rows.length) {
-            showNotification("❌ Добавьте хотя бы одно утверждение!");
-            return null;
-        }
+        if (!rows.length) { showNotification("❌ Добавьте хотя бы одно утверждение!"); return null; }
 
         const tasks = [];
-
         for (const row of rows) {
             const statement = row.querySelector(".statement-text")?.value.trim();
-            if (!statement) {
-                showNotification("❌ Укажите текст утверждения!");
-                return null;
-            }
-
+            if (!statement) { showNotification("❌ Укажите текст утверждения!"); return null; }
             const is_true = row.querySelector(".statement-select")?.value === "true";
             tasks.push({ statement, is_true });
         }
-
         return tasks;
     },
 
     fill_gaps: function(taskCard) {
-        const textEl = taskCard.querySelector(".fill-text-input");
-        const typeEl = taskCard.querySelector(".fill-type-select");
-        const text = textEl?.value.trim() || "";
-
-        if (!text) {
-            showNotification("❌ Введите текст задания!");
-            return null;
-        }
+        const editor = taskCard.querySelector(".fill-text-editor");
+        const text = editor?.innerHTML.trim() || "";
+        if (!text) { showNotification("❌ Введите текст задания!"); return null; }
 
         const answers = [];
         const regex = /\[([^\]]+)\]/g;
         let match;
+        while ((match = regex.exec(text)) !== null) answers.push(match[1]);
 
-        while ((match = regex.exec(text)) !== null) {
-            answers.push(match[1]);
-        }
+        if (!answers.length) { showNotification("❌ Добавьте хотя бы один пропуск в квадратных скобках"); return null; }
 
-        if (!answers.length) {
-            showNotification("❌ Добавьте хотя бы один пропуск в квадратных скобках");
-            return null;
-        }
-
-        const task_type = typeEl?.value || "open";
-        return [{ text, answers, task_type }];
+        return [{ text, answers, task_type: "hidden" }];
     },
+
     match_cards: function(taskCard) {
         const rows = [...taskCard.querySelectorAll(".match-card-row")];
-        if (rows.length < 2) {
-            showNotification("❌ Добавьте как минимум две пары карточек!");
-            return null;
-        }
+        if (rows.length < 2) { showNotification("❌ Добавьте как минимум две пары карточек!"); return null; }
 
         const cards = [];
-
         for (const row of rows) {
             const card_left = row.querySelector(".card-left")?.value.trim();
             const card_right = row.querySelector(".card-right")?.value.trim();
-
-            if (!card_left || !card_right) {
-                showNotification("❌ Каждая карточка должна содержать левую и правую части!");
-                return null;
-            }
-
+            if (!card_left || !card_right) { showNotification("❌ Каждая карточка должна содержать левую и правую части!"); return null; }
             cards.push({ card_left, card_right });
         }
-
         return [{ cards }];
     },
+
     text_input: function(taskCard) {
         const promptEl = taskCard.querySelector(".task-prompt");
         const defaultEl = taskCard.querySelector(".task-default-text");
-
         const prompt = promptEl?.value.trim() || "";
-        const defaultText = defaultEl?.value || "";
-
-        if (!prompt) {
-            showNotification("❌ Введите текст задания!");
-            return null;
-        }
-
-        return [{ prompt, default_text: defaultText }];
-    },
+        const default_text = defaultEl?.value || "";
+        if (!prompt) { showNotification("❌ Введите текст задания!"); return null; }
+        return [{ prompt, default_text }];
+    }
 };
 
 async function saveTask(taskType, taskCard, taskId = null) {
@@ -255,8 +238,6 @@ async function saveTask(taskType, taskCard, taskId = null) {
         let body;
         let headers = { "X-CSRFToken": getCsrfToken() };
 
-        console.log("[DEBUG]: ", taskType);
-
         if (taskType === "image") {
             const fileObj = data[0];
             body = new FormData();
@@ -266,7 +247,12 @@ async function saveTask(taskType, taskCard, taskId = null) {
             body.append("image", fileObj.file);
             body.append("caption", fileObj.caption || "");
         } else {
-            body = JSON.stringify({ task_type: taskType, task_id: taskId, section_id: sectionId, data });
+            body = JSON.stringify({
+                task_type: taskType,
+                task_id: taskId,
+                section_id: sectionId,
+                data
+            });
             headers["Content-Type"] = "application/json";
         }
 
@@ -284,8 +270,34 @@ async function saveTask(taskType, taskCard, taskId = null) {
             return null;
         }
 
-        showNotification("✅ Задача сохранена!");
-        return result.task_id;
+        showNotification("✅ Задание сохранено!");
+        closeTaskEditor?.();
+
+        const replaceExisting = !!taskId;
+
+        if (Array.isArray(result.tasks) && result.tasks.length > 0) {
+            for (const t of result.tasks) {
+                const id = t.task_id;
+                if (!id) continue;
+                try {
+                    const savedTask = await fetchSingleTask(id);
+                    if (savedTask) renderTaskCard(savedTask, replaceExisting);
+                } catch (err) {
+                    console.error(`Ошибка при загрузке задания ${id}:`, err);
+                }
+            }
+        } else if (result.task_id) {
+            try {
+                const savedTask = await fetchSingleTask(result.task_id);
+                if (savedTask) renderTaskCard(savedTask, replaceExisting);
+            } catch (err) {
+                console.error(`Ошибка при загрузке задания ${result.task_id}:`, err);
+            }
+        } else {
+            console.warn("Ответ не содержит заданий:", result);
+        }
+
+        return result.task_id || (result.tasks?.[0]?.task_id) || null;
     } catch (err) {
         console.error(err);
         showNotification("❌ Ошибка сети");
@@ -295,3 +307,185 @@ async function saveTask(taskType, taskCard, taskId = null) {
 
 
 
+
+        // Создание и редактирование разделов
+
+const addSectionBtn = document.getElementById('add-section-btn');
+const saveSectionBtn = document.getElementById('saveManualSection');
+
+addSectionBtn.addEventListener('click', () => {
+    const nameInput = document.getElementById('manualSectionName');
+    nameInput.value = '';
+
+    // Переводим модалку к режиму создания
+    saveSectionBtn.dataset.action = 'create';
+    saveSectionBtn.dataset.sectionId = '';
+    document.getElementById('saveManualSectionText').textContent = 'Создать';
+    document.getElementById('saveManualSectionIcon').className = 'bi bi-plus-circle';
+    document.getElementById('manualSectionModalLabel').textContent = 'Новый раздел';
+
+    sectionModal.show();
+
+    setTimeout(() => nameInput.focus(), 500);
+});
+
+async function createSection(title) {
+    try {
+        const response = await fetch(`/courses/section/create/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({
+                lesson_id: lessonId,
+                title: title
+            })
+        });
+
+        if (!response.ok) {
+            let errorMessage = 'Ошибка при создании раздела';
+            try {
+                const errorData = await response.json();
+                if (errorData.error) errorMessage = errorData.error;
+            } catch (e) {}
+            throw new Error(errorMessage);
+        }
+
+        const data = await response.json();
+
+        // вызываем рендер
+        renderSectionItem(data);
+
+        showNotification('Раздел успешно создан');
+
+        // Автоматически загружаем задачи нового раздела
+        loadSectionTasks(data.id);
+
+    } catch (error) {
+        console.error(error);
+        showNotification(error.message || 'Произошла неизвестная ошибка');
+    }
+}
+
+saveSectionBtn.addEventListener('click', async () => {
+    const title = document.getElementById('manualSectionName').value.trim();
+    if (!title) {
+        showNotification('Введите название раздела');
+        return;
+    }
+
+    const action = saveSectionBtn.dataset.action;
+    const sectionId = saveSectionBtn.dataset.sectionId;
+
+    if (action === 'edit') {
+        await editSection(sectionId, title);
+        sectionModal.hide();
+        return;
+    }
+
+    // Создание
+    await createSection(title);
+    sectionModal.hide();
+});
+
+async function editSection(sectionId, newTitle) {
+    try {
+        const response = await fetch(`/courses/section/edit/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({
+                section_id: sectionId,
+                title: newTitle
+            })
+        });
+
+        if (!response.ok) {
+            let message = 'Ошибка при редактировании раздела';
+            try {
+                const data = await response.json();
+                if (data.error) message = data.error;
+            } catch {}
+            throw new Error(message);
+        }
+
+        const data = await response.json();
+
+        const button = document.querySelector(
+            `.section-link[data-section-id="${sectionId}"]`
+        );
+        if (button) button.textContent = data.title;
+
+        showNotification('Название раздела обновлено');
+    } catch (error) {
+        console.error(error);
+        showNotification(error.message || 'Ошибка при редактировании');
+    }
+}
+
+async function deleteSection(sectionId) {
+    try {
+        const confirmed = await confirmAction('Удалить этот раздел?');
+        if (!confirmed) return;
+
+        const response = await fetch(`/courses/section/delete/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({ section_id: sectionId })
+        });
+
+        if (!response.ok) {
+            let message = 'Ошибка при удалении раздела';
+            try {
+                const data = await response.json();
+                if (data.error) message = data.error;
+            } catch {}
+            throw new Error(message);
+        }
+
+        document.querySelector(`[data-section-id="${sectionId}"]`).remove();
+        showNotification('Раздел удалён');
+    } catch (error) {
+        console.error(error);
+        showNotification(error.message || 'Не удалось удалить раздел');
+    }
+}
+
+sectionList.addEventListener('click', async (event) => {
+    const li = event.target.closest('li[data-section-id]');
+    if (!li) return;
+
+    sectionId = li.dataset.sectionId;
+
+    const editBtn = event.target.closest('.edit-section-button');
+    const deleteBtn = event.target.closest('.delete-btn');
+
+    if (deleteBtn) {
+        await deleteSection(sectionId);
+        return;
+    }
+
+    if (editBtn) {
+        const sectionName = li.querySelector('.section-link')?.textContent.trim();
+
+        document.getElementById('manualSectionName').value = sectionName;
+        saveSectionBtn.dataset.sectionId = sectionId;
+        saveSectionBtn.dataset.action = 'edit';
+        document.getElementById('saveManualSectionText').textContent = 'Сохранить';
+        document.getElementById('saveManualSectionIcon').className = 'bi bi-save';
+
+        document.getElementById('manualSectionModalLabel').textContent = 'Редактирование';
+
+        sectionModal.show();
+        return;
+    }
+
+    // --- Выбор раздела по клику на карточку или текст
+    loadSectionTasks(sectionId);
+});

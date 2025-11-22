@@ -1,4 +1,4 @@
-export function renderTextInputTask(task, container) {
+function renderTextInputTask(task, container) {
     if (!container) return;
 
     container.innerHTML = "";
@@ -7,13 +7,13 @@ export function renderTextInputTask(task, container) {
     wrapper.className = "text-input-task";
 
     const promptLabel = document.createElement("label");
-    promptLabel.className = "form-label fw-semibold mb-1 text-center"; // добавили text-center
-    promptLabel.style.display = "block"; // чтобы text-align работал
-    promptLabel.textContent = task.prompt || "Задание";
+    promptLabel.className = "form-label fw-semibold mb-1 text-center";
+    promptLabel.style.display = "block";
+    promptLabel.textContent = task.data.prompt || "Задание";
 
     const textarea = document.createElement("textarea");
     textarea.className = "form-control";
-    textarea.value = task.default_text || "";
+    textarea.value = task.data.default_text || "";
     textarea.rows = 2;
     textarea.style.resize = "none";
     textarea.style.overflow = "hidden";
