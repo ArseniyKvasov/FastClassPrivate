@@ -756,10 +756,10 @@ function initCheckButton(task, container, userId, classroomId) {
                 container.dataset.isChecked = "true";
 
                 if (task.task_type === "test" && typeof handleTestAnswer === "function") {
-                    const data = fetchTaskAnswer(task.task_id, handleTestAnswer);
+                    const data = fetchTaskAnswer(task.task_id);
                     handleTestAnswer(data);
                 } else if (task.task_type === "true_false" && typeof handleTrueFalseAnswer === "function") {
-                    const data = fetchTaskAnswer(task.task_id, handleTrueFalseAnswer);
+                    const data = fetchTaskAnswer(task.task_id);
                     handleTrueFalseAnswer(data);
                 }
             } else {

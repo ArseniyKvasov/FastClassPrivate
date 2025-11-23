@@ -423,6 +423,39 @@ async function editSection(sectionId, newTitle) {
     }
 }
 
+async function resetStudentAnswers(taskId) {
+    if (!virtualClassId) {
+        return null;
+    }
+
+    try {
+        const response = await fetch(`/classroom/${virtualClassId}/task/${taskId}/delete-all-answers/`, {
+            method: "DELETE",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": getCsrfToken()
+            }
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            showNotification("Ответы учеников успешно сброшены");
+            try {
+                const answerData = await fetchTaskAnswer(taskId);
+                const handler = answerHandlers[answerData.task_type];
+                handler(answerData);
+            } catch (err) {
+                console.warn("Не удалось сбросить ответы в контейнере")
+            }
+        } else {
+            showNotification(`Ошибка: ${result.error || 'Не удалось сбросить ответы'}`);
+        }
+    } catch (e) {
+        console.error("Reset answers error:", e);
+        showNotification("Не удалось сбросить ответы. Попробуйте ещё раз.");
+    }
+}
+
 async function deleteSection(sectionId) {
     try {
         const confirmed = await confirmAction('Удалить этот раздел?');

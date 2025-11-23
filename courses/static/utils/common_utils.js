@@ -14,7 +14,6 @@ function getCsrfToken() {
 
 function confirmAction(text) {
     return new Promise((resolve) => {
-        // Создаём затемнение
         const overlay = document.createElement("div");
         overlay.style.position = "fixed";
         overlay.style.top = "0";
@@ -27,7 +26,6 @@ function confirmAction(text) {
         overlay.style.alignItems = "center";
         overlay.style.zIndex = "1050";
 
-        // Создаём модальное окно
         const modal = document.createElement("div");
         modal.className = "bg-white rounded-3 p-4 shadow";
         modal.style.minWidth = "300px";
@@ -66,25 +64,23 @@ function confirmAction(text) {
 function showNotification(text) {
     let container = document.getElementById("notification-container");
 
-    // Создаём контейнер, если ещё нет
     if (!container) {
         container = document.createElement("div");
         container.id = "notification-container";
         container.style.position = "fixed";
-        container.style.left = "1rem";         // Слева
-        container.style.bottom = "1rem";       // Снизу
+        container.style.left = "1rem";
+        container.style.bottom = "1rem";
         container.style.display = "flex";
-        container.style.flexDirection = "column-reverse"; // новые снизу
+        container.style.flexDirection = "column-reverse";
         container.style.gap = "0.5rem";
         container.style.maxHeight = "60vh";
         container.style.overflowY = "auto";
         container.style.zIndex = "1080";
         container.style.width = "auto";
-        container.style.maxWidth = "calc(100% - 2rem)"; // адаптивно для мобилок
+        container.style.maxWidth = "calc(100% - 2rem)";
         document.body.appendChild(container);
     }
 
-    // Удаляем старые уведомления, если их больше или равно 3
     const existingToasts = container.querySelectorAll(".toast");
     if (existingToasts.length >= 3) {
         existingToasts[0].remove();
@@ -106,12 +102,10 @@ function showNotification(text) {
         </div>
     `;
 
-    // Закрытие по кнопке
     toast.querySelector(".btn-close").addEventListener("click", () => toast.remove());
 
     container.appendChild(toast);
 
-    // Автоудаление через 3 секунды
     setTimeout(() => {
         toast.style.transition = "opacity 0.4s, transform 0.4s";
         toast.style.opacity = "0";

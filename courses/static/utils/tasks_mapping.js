@@ -1,5 +1,3 @@
-/* tasks_mapping.js */
-
 const TASK_RENDERERS = {
     image: renderImageTask,
     fill_gaps: renderFillGapsTask,
@@ -10,10 +8,10 @@ const TASK_RENDERERS = {
     text_input: renderTextInputTask
 };
 
+const interactiveTasks = ["test", "true_false", "fill_gaps", "match_cards", "text_input"]
 
 const taskListContainer = document.getElementById("task-list");
 
-// Лоадер
 const loader = document.createElement("div");
 loader.className = "loader-overlay";
 loader.innerHTML = `<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Загрузка...</span></div>`;
@@ -40,6 +38,20 @@ function renderTaskCard(task, replaceExisting = false) {
         editBtn.innerHTML = `<i class="bi bi-pencil"></i>`;
         editBtn.title = "Редактировать";
         editBtn.onclick = () => editTaskCard(card, task.data);
+        adminPanel.appendChild(editBtn);
+
+        try {
+            if (isClassroom && interactiveTasks.includes(task.task_type)) {
+                const resetBtn = document.createElement("button");
+                resetBtn.className = "btn btn-sm p-1 border-0 bg-transparent text-warning";
+                resetBtn.innerHTML = `<i class="bi bi-arrow-clockwise"></i>`;
+                resetBtn.title = "Сбросить ответы";
+                resetBtn.onclick = async () => resetStudentAnswers(task.task_id);
+                adminPanel.appendChild(resetBtn);
+            }
+        } catch (err) {
+            console.warn("Не удалось отобразить resetBtn");
+        }
 
         const removeBtn = document.createElement("button");
         removeBtn.className = "btn btn-sm p-1 border-0 bg-transparent text-danger";
@@ -69,9 +81,8 @@ function renderTaskCard(task, replaceExisting = false) {
                 showNotification("❌ Не удалось удалить задание. Попробуйте ещё раз.");
             }
         };
-
-        adminPanel.appendChild(editBtn);
         adminPanel.appendChild(removeBtn);
+
         card.appendChild(adminPanel);
 
         card.addEventListener("mouseenter", () => adminPanel.classList.add("opacity-100"));

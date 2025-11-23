@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_http_methods
 
 from courses.models import Section, Task, TestTask, TrueFalseTask, ImageTask
 from courses.tasks_serializers import TASK_SERIALIZER_MAP
@@ -56,6 +56,7 @@ def get_section_answers(request):
         return JsonResponse({"error": "Missing required parameters"}, status=400)
 
     section = get_object_or_404(Section, id=section_id)
+    classroom = get_object_or_404(Classroom, id=classroom_id)
     user = get_object_or_404(User, id=user_id)
     if not check_user_access(request, classroom_id):
         return JsonResponse({"error": "Access denied"}, status=403)
@@ -71,7 +72,7 @@ def get_section_answers(request):
             continue
 
         answer_model = answer_models[task_type]
-        answer = answer_model.objects.filter(task=task, user=user).first()
+        answer = answer_model.objects.filter(task=task, user=user, classroom=classroom).first()
 
         answer_info = {
             "task_id": str(task.id),
@@ -102,6 +103,7 @@ def get_task_answer(request):
 
     task = get_object_or_404(Task, id=task_id)
     user = get_object_or_404(User, id=user_id)
+    classroom = Classroom.objects.get(id=classroom_id)
     if not check_user_access(request, classroom_id):
         return JsonResponse({"error": "Access denied"}, status=403)
 
@@ -111,7 +113,7 @@ def get_task_answer(request):
         return JsonResponse({"error": "Unknown task type"}, status=400)
 
     answer_model = answer_models[task_type]
-    answer = answer_model.objects.filter(task=task, user=user).first()
+    answer = answer_model.objects.filter(task=task, user=user, classroom=classroom).first()
 
     if not answer:
         return JsonResponse({
@@ -155,6 +157,7 @@ def save_answer(request, classroom_id):
         return JsonResponse({"success": False, "errors": "task_id required"}, status=400)
 
     task = get_object_or_404(Task, pk=task_id)
+    classroom = get_object_or_404(Classroom, id=classroom_id)
     task_type = task.task_type
 
     if task_type not in answer_models:
@@ -165,7 +168,8 @@ def save_answer(request, classroom_id):
     try:
         answer, created = answer_model.objects.get_or_create(
             task=task,
-            user=request.user
+            user=request.user,
+            classroom=classroom,
         )
 
         answer.save_answer_data(data)
@@ -203,6 +207,7 @@ def mark_answer_as_checked(request, classroom_id):
 
     task = get_object_or_404(Task, pk=task_id)
     user = get_object_or_404(User, id=user_id)
+    classroom = get_object_or_404(Classroom, id=classroom_id)
 
     if not check_user_access(request, classroom_id):
         return JsonResponse({"error": "Access denied"}, status=403)
@@ -218,7 +223,7 @@ def mark_answer_as_checked(request, classroom_id):
         return JsonResponse({"success": False, "errors": "Task type does not support manual checking"}, status=400)
 
     answer_model = answer_models[task_type]
-    answer = get_object_or_404(answer_model, task=task, user=user)
+    answer = get_object_or_404(answer_model, task=task, user=user, classroom=classroom)
 
     try:
         answer.mark_as_checked()
@@ -228,3 +233,118 @@ def mark_answer_as_checked(request, classroom_id):
         })
     except Exception as e:
         return JsonResponse({"success": False, "errors": "Internal server error"}, status=500)
+
+
+@require_http_methods(["DELETE"])
+def delete_user_task_answers(request, classroom_id, task_id, user_id):
+    """
+    Удаляет ответы конкретного пользователя для конкретного задания в классе
+    """
+    try:
+        classroom = get_object_or_404(Classroom, id=classroom_id)
+        task = get_object_or_404(Task, id=task_id)
+        user = get_object_or_404(User, id=user_id)
+
+        if not check_user_access(request, classroom_id):
+            return JsonResponse({"error": "Access denied"}, status=403)
+
+        deleted_count = 0
+
+        answer_types = [
+            TestTaskAnswer,
+            TrueFalseTaskAnswer,
+            FillGapsTaskAnswer,
+            MatchCardsTaskAnswer,
+            TextInputTaskAnswer
+        ]
+
+        for answer_model in answer_types:
+            try:
+                answer = answer_model.objects.filter(
+                    classroom=classroom,
+                    task=task,
+                    user=user
+                ).first()
+
+                if answer:
+                    answer.delete_answers()
+                    deleted_count += 1
+
+            except answer_model.DoesNotExist:
+                continue
+            except Exception as e:
+                pass
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Удалено ответов из {deleted_count} типов заданий',
+            'deleted_types': deleted_count
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@require_http_methods(["DELETE"])
+def delete_classroom_task_answers(request, classroom_id, task_id):
+    """
+    Удаляет ответы всех пользователей класса для конкретного задания
+    """
+    try:
+        classroom = get_object_or_404(Classroom, id=classroom_id)
+        task = get_object_or_404(Task, id=task_id)
+
+        deleted_users = 0
+        total_deleted_types = 0
+
+        students = classroom.students.all()
+        teacher = classroom.teacher
+
+        answer_types = [
+            TestTaskAnswer,
+            TrueFalseTaskAnswer,
+            FillGapsTaskAnswer,
+            MatchCardsTaskAnswer,
+            TextInputTaskAnswer
+        ]
+
+        for student in  list(students) + [teacher]:
+            user_deleted_types = 0
+
+            for answer_model in answer_types:
+                try:
+                    answer = answer_model.objects.filter(
+                        classroom=classroom,
+                        task=task,
+                        user=student
+                    ).first()
+
+                    if answer:
+                        answer.delete_answers()
+                        user_deleted_types += 1
+                        total_deleted_types += 1
+
+                except answer_model.DoesNotExist:
+                    continue
+                except Exception as e:
+                    pass
+
+            if user_deleted_types > 0:
+                deleted_users += 1
+
+        print(deleted_users, total_deleted_types)
+        return JsonResponse({
+            'success': True,
+            'message': f'Удалены ответы для {deleted_users} пользователей',
+            'deleted_users': deleted_users,
+            'total_deleted_types': total_deleted_types
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)

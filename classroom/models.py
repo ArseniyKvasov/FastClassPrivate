@@ -31,6 +31,7 @@ def generate_invite_code():
         if not Classroom.objects.filter(invite_code=new_code).exists():
             return new_code
 
+
 def normalize_str(s):
     """Нормализация строки для сравнения"""
     if s is None:
@@ -125,8 +126,9 @@ class Classroom(models.Model):
 
 class BaseAnswer(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    task = models.ForeignKey("Task", on_delete=models.CASCADE, related_name="+")
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name = "+")
+    task = models.ForeignKey("courses.Task", on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    classroom = models.ForeignKey(Classroom, on_delete=models.CASCADE)
     answered_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -144,12 +146,14 @@ class BaseAnswer(models.Model):
         """Абстрактный метод для проверки правильности ответа"""
         raise NotImplementedError("Subclasses must implement check_correctness")
 
+    def delete_answers(self):
+        """Абстрактный метод для удаления ответов"""
+        raise NotImplementedError("Subclasses must implement delete_answers")
+
 
 class TestTaskAnswer(BaseAnswer):
-    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="test_answers")
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="test_task_answers")
-
-    answers = models.JSONField(default=list)  # [{"question_index": int, "selected_option": int, "is_correct": bool}, ...]
+    answers = models.JSONField(
+        default=list)  # [{"question_index": int, "selected_option": int, "is_correct": bool}, ...]
     is_checked = models.BooleanField(default=False)
 
     class Meta:
@@ -209,12 +213,16 @@ class TestTaskAnswer(BaseAnswer):
             "is_checked": self.is_checked
         }
 
+    def delete_answers(self):
+        """Удаляет все ответы пользователя для этого теста"""
+        self.answers = []
+        self.is_checked = False
+        self.save()
+
 
 class TrueFalseTaskAnswer(BaseAnswer):
-    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="true_false_answers")
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="true_false_task_answers")
-
-    answers = models.JSONField(default=list)  # [{"statement_index": int, "selected_value": bool, "is_correct": bool}, ...]
+    answers = models.JSONField(
+        default=list)  # [{"statement_index": int, "selected_value": bool, "is_correct": bool}, ...]
     is_checked = models.BooleanField(default=False)
 
     class Meta:
@@ -270,11 +278,14 @@ class TrueFalseTaskAnswer(BaseAnswer):
             "is_checked": self.is_checked
         }
 
+    def delete_answers(self):
+        """Удаляет все ответы пользователя для этого задания True/False"""
+        self.answers = []
+        self.is_checked = False
+        self.save()
+
 
 class FillGapsTaskAnswer(BaseAnswer):
-    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="fill_gaps_answers")
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="fill_gaps_task_answers")
-
     answers = models.JSONField(default=dict)  # {"0": {"value": "...", "is_correct": true}, "1": {...}}
 
     class Meta:
@@ -364,14 +375,16 @@ class FillGapsTaskAnswer(BaseAnswer):
 
         return len(self.answers) >= total_gaps
 
+    def delete_answers(self):
+        """Удаляет все ответы пользователя для этого задания с пропусками"""
+        self.answers = {}
+        self.save()
+
     def __str__(self):
         return f"FillGapsAnswer {self.user} -> {self.task_id}"
 
 
 class MatchCardsTaskAnswer(BaseAnswer):
-    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="match_cards_answers")
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="match_cards_task_answers")
-
     answers = models.JSONField(default=dict)
 
     class Meta:
@@ -451,14 +464,16 @@ class MatchCardsTaskAnswer(BaseAnswer):
 
         return False
 
+    def delete_answers(self):
+        """Удаляет все ответы пользователя для этого задания с карточками"""
+        self.answers = {}
+        self.save()
+
     def __str__(self):
         return f"MatchCardsAnswer {self.user} -> {self.task_id}"
 
 
 class TextInputTaskAnswer(BaseAnswer):
-    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name = "text_input_answers")
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name = "text_input_task_answers")
-
     current_text = models.TextField(blank=True)
 
     class Meta:
@@ -478,6 +493,11 @@ class TextInputTaskAnswer(BaseAnswer):
         return {
             "current_text": self.current_text,
         }
+
+    def delete_answers(self):
+        """Удаляет ответ пользователя для этого текстового задания"""
+        self.current_text = ""
+        self.save()
 
     def __str__(self):
         return f"TextInputAnswer {self.user} -> {self.task_id}"
