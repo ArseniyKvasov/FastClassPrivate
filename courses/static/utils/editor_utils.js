@@ -5,17 +5,19 @@ const TASK_TYPES = [
     { type: "true_false", label: "Правда или ложь", icon: "bi-check" },
     { type: "fill_gaps", label: "Заполнить пропуски", icon: "bi-pen" },
     { type: "match_cards", label: "Соотнеси слова", icon: "bi-arrow-left-right" },
-    { type: "text_input", label: "Ввод текста", icon: "bi-text-paragraph" }
+    { type: "text_input", label: "Ввод текста", icon: "bi-text-paragraph" },
+    { type: "integration", label: "Интеграция", icon: "bi-puzzle" }
 ];
 
 const taskTypeHandlers = {
-    test:       (taskId, container, taskData) => renderTestTaskEditor?.(taskId, container, taskData),
-    note:       (taskId, container, taskData) => renderNoteTaskEditor?.(taskId, container, taskData),
-    image:      (taskId, container, taskData) => renderImageTaskEditor?.(taskId, container, taskData),
-    true_false: (taskId, container, taskData) => renderTrueFalseTaskEditor?.(taskId, container, taskData),
-    fill_gaps:  (taskId, container, taskData) => renderFillGapsTaskEditor?.(taskId, container, taskData),
-    match_cards:(taskId, container, taskData) => renderMatchCardsTaskEditor?.(taskId, container, taskData),
-    text_input: (taskId, container, taskData) => renderTextInputTaskEditor?.(taskId, container, taskData)
+    test:         (taskId, container, taskData) => renderTestTaskEditor?.(taskId, container, taskData),
+    note:         (taskId, container, taskData) => renderNoteTaskEditor?.(taskId, container, taskData),
+    image:        (taskId, container, taskData) => renderImageTaskEditor?.(taskId, container, taskData),
+    true_false:   (taskId, container, taskData) => renderTrueFalseTaskEditor?.(taskId, container, taskData),
+    fill_gaps:    (taskId, container, taskData) => renderFillGapsTaskEditor?.(taskId, container, taskData),
+    match_cards:  (taskId, container, taskData) => renderMatchCardsTaskEditor?.(taskId, container, taskData),
+    text_input:   (taskId, container, taskData) => renderTextInputTaskEditor?.(taskId, container, taskData),
+    integration:  (taskId, container, taskData) => renderIntegrationTaskEditor?.(taskId, container, taskData)
 };
 
 let selectorModal = null;
@@ -42,7 +44,7 @@ function createTaskTypeSelector() {
     container.innerHTML = "";
     TASK_TYPES.forEach(item => {
         const col = document.createElement("div");
-        col.className = "col-6 col-md-4 col-lg-3 d-flex";
+        col.className = "col-6 col-md-4 col-lg-3 col-xl-2 d-flex";
         col.innerHTML = `
             <div class="flex-fill text-center rounded-4 px-2 py-3 bg-white task-type-option"
                  data-type="${item.type}"
@@ -198,15 +200,36 @@ const TaskValidators = {
 
     match_cards: function(taskCard) {
         const rows = [...taskCard.querySelectorAll(".match-card-row")];
-        if (rows.length < 2) { showNotification("❌ Добавьте как минимум две пары карточек!"); return null; }
+        if (rows.length < 2) { showNotification("Добавьте как минимум две пары карточек!"); return null; }
 
         const cards = [];
+        const leftCards = new Set();
+        const rightCards = new Set();
+
         for (const row of rows) {
             const card_left = row.querySelector(".card-left")?.value.trim();
             const card_right = row.querySelector(".card-right")?.value.trim();
-            if (!card_left || !card_right) { showNotification("❌ Каждая карточка должна содержать левую и правую части!"); return null; }
+
+            if (!card_left || !card_right) {
+                showNotification("Каждая карточка должна содержать левую и правую части!");
+                return null;
+            }
+
+            if (leftCards.has(card_left)) {
+                showNotification("Найдены одинаковые левые карточки!");
+                return null;
+            }
+
+            if (rightCards.has(card_right)) {
+                showNotification("Найдены одинаковые правые карточки!");
+                return null;
+            }
+
+            leftCards.add(card_left);
+            rightCards.add(card_right);
             cards.push({ card_left, card_right });
         }
+
         return [{ cards }];
     },
 
@@ -217,6 +240,57 @@ const TaskValidators = {
         const default_text = defaultEl?.value || "";
         if (!prompt) { showNotification("❌ Введите текст задания!"); return null; }
         return [{ prompt, default_text }];
+    },
+
+    integration: function(taskCard) {
+        const embedCodeEl = taskCard.querySelector("textarea");
+        const embedCode = embedCodeEl?.value.trim() || "";
+
+        if (!embedCode) {
+            showNotification("Введите embed-код!");
+            return null;
+        }
+
+        if (!embedCode.includes('<iframe')) {
+            showNotification("Код должен содержать iframe!");
+            return null;
+        }
+
+        const supportedDomains = [
+            'youtube.com', 'youtu.be', 'wordwall.net', 'miro.com',
+            'quizlet.com', 'learningapps.org', 'rutube.ru', 'sboard.online'
+        ];
+
+        const hasSupportedDomain = supportedDomains.some(domain => embedCode.includes(domain));
+        if (!hasSupportedDomain) {
+            showNotification("Код содержит неподдерживаемый ресурс!");
+            return null;
+        }
+
+        let cleanEmbedCode = embedCode;
+
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = embedCode;
+        const iframe = tempDiv.querySelector('iframe');
+
+        if (!iframe) {
+            showNotification("Не удалось найти iframe в коде!");
+            return null;
+        }
+
+        const cleanIframe = document.createElement('iframe');
+        const allowedAttributes = ['src', 'width', 'height', 'frameborder', 'allow', 'allowfullscreen', 'title'];
+
+        allowedAttributes.forEach(attr => {
+            if (iframe.hasAttribute(attr)) {
+                cleanIframe.setAttribute(attr, iframe.getAttribute(attr));
+            }
+        });
+
+        cleanIframe.style.border = 'none';
+        cleanIframe.style.maxWidth = '100%';
+
+        return [{ embed_code: cleanIframe.outerHTML }];
     }
 };
 

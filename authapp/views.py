@@ -1,47 +1,55 @@
-# pages/views.py
 from django.shortcuts import render, redirect
-from django.contrib.auth import authenticate, login
-from django.contrib.auth import get_user_model
+from django.contrib.auth import authenticate, login, get_user_model
+from django.contrib.auth.models import User
 
 User = get_user_model()
-
 
 def login_view(request):
     if request.method == "POST":
         email = request.POST.get("email")
         password = request.POST.get("password")
+        next_url = request.POST.get("next") or request.GET.get("next") or "home"
 
         user = authenticate(request, username=email, password=password)
         if user:
             login(request, user)
-            return redirect("home")
+            return redirect(next_url)
 
-        return render(request, "pages/login.html", {"error": "Неверные данные"})
+        return render(request, "authapp/login.html", {
+            "error": "Неверные данные",
+            "next": next_url
+        })
 
-    return render(request, "authapp/login.html")
-
+    next_url = request.GET.get("next", "home")
+    return render(request, "authapp/login.html", {"next": next_url})
 
 def register_view(request):
     if request.method == "POST":
         email = request.POST.get("email")
         password = request.POST.get("password")
         password2 = request.POST.get("password2")
+        next_url = request.POST.get("next") or request.GET.get("next") or "home"
 
         if password != password2:
-            return render(request, "authapp/register.html", {"error": "Пароли не совпадают"})
+            return render(request, "authapp/register.html", {
+                "error": "Пароли не совпадают",
+                "next": next_url
+            })
 
         if User.objects.filter(username=email).exists():
-            return render(request, "authapp/register.html", {"error": "Пользователь уже существует"})
+            return render(request, "authapp/register.html", {
+                "error": "Пользователь уже существует",
+                "next": next_url
+            })
 
         user = User.objects.create_user(username=email, email=email, password=password)
-
         user.backend = "django.contrib.auth.backends.ModelBackend"
 
         login(request, user)
-        return redirect("home")
+        return redirect(next_url)
 
-    return render(request, "authapp/register.html")
-
+    next_url = request.GET.get("next", "home")
+    return render(request, "authapp/register.html", {"next": next_url})
 
 
 

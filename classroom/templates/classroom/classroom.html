@@ -5,3 +5,38 @@
         Видеозвонок
     </div>
 {% endblock %}
+
+
+{% block admin-classroom %}
+
+<!-- Модальное окно для приглашения -->
+<div class="modal fade" id="invitationModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Пригласить ученика</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Отправьте эту ссылку ученику:</p>
+                <div class="input-group">
+                    <input type="text" class="form-control" id="inviteLink" value="{{ invite_url }}" readonly>
+                    <button class="btn btn-outline-secondary" type="button" onclick="copyInviteLink()">
+                        <i class="bi bi-clipboard"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyInviteLink() {
+    const input = document.getElementById('inviteLink');
+    input.select();
+    document.execCommand('copy');
+    showNotification('Ссылка скопирована');
+}
+</script>
+
+{% endblock %}

@@ -14,7 +14,8 @@ async function sendAnswer({ taskId, data }) {
     const url = `/classroom/${virtualClassId}/save-answer/`;
     const payload = {
         task_id: taskId,
-        data: data
+        data: data,
+        user_id: currentUserId
     };
 
     try {
@@ -233,7 +234,7 @@ const answerHandlers = {
     match_cards: handleMatchCardsAnswer
 };
 
-async function handleSectionAnswers(sectionId) {
+async function handleSectionAnswers(sectionId, userId = currentUserId) {
     if (!virtualClassId) {
         showNotification("Произошла ошибка. Не указан виртуальный класс.");
         return;
@@ -361,7 +362,7 @@ async function handleTestAnswer(data) {
         }
 
         try {
-            initCheckButton(data, container, currentUserId, virtualClassId);
+            initCheckButton(data, container, virtualClassId);
         } catch (err) {
             console.error("Не удалось инициализировать кнопку checkButton: ", err);
         }
@@ -460,7 +461,7 @@ async function handleTrueFalseAnswer(data) {
         }
 
         try {
-            initCheckButton(data, container, currentUserId, virtualClassId);
+            initCheckButton(data, container, virtualClassId);
         } catch (err) {
             console.error("Не удалось инициализировать кнопку checkButton: ", err);
         }
@@ -560,77 +561,114 @@ async function handleFillGapsAnswer(data) {
 
 async function handleMatchCardsAnswer(data) {
     /**
-     * Обрабатывает ответ на задание с сопоставлением карточек
-     * @param {Object} data - Данные ответа
-     * @param {string} data.task_id - ID задания
+     * Обрабатывает визуальное отображение ответов для задания типа "match_cards"
+     *
+     * Функция анализирует полученные данные ответа и соответствующим образом обновляет
+     * стили карточек в интерфейсе:
+     * - Правильно сопоставленные карточки отмечаются зеленым цветом и блокируются
+     * - Неправильно сопоставленные карточки возвращаются в исходное состояние
+     * - Последняя неправильная пара временно подсвечивается анимацией
+     *
+     * @param {Object} data - Объект с данными ответа
+     * @param {string} data.task_id - Уникальный идентификатор задания
      * @param {string} data.task_type - Тип задания (должен быть "match_cards")
-     * @param {Object} data.answer - Данные ответа
-     * @param {Object} data.answer.answers - Объект с сопоставлениями карточек
-     * @param {string} data.answer.answers[].card_right - Сопоставленная правая карточка
-     * @param {boolean} data.answer.answers[].is_correct - Правильность сопоставления
+     * @param {Object} data.answer - Данные ответа пользователя
+     * @param {Object} data.answer.answers - Объект с информацией о сопоставлениях
+     * @param {Object} data.answer.answers[leftCardId] - Данные для конкретной левой карточки
+     * @param {string} data.answer.answers[leftCardId].card_right - текст сопоставленной правой карточки
+     * @param {boolean|null} data.answer.answers[leftCardId].is_correct - Флаг правильности сопоставления
+     * @param {Object} [data.answer.last_pair] - Информация о последней неправильной паре для подсветки
+     * @param {string} data.answer.last_pair.card_left - текст левой карточки последней неправильной пары
+     * @param {string} data.answer.last_pair.card_right - текст правой карточки последней неправильной пары
+     *
+     * @example
+     * // Пример данных для обработки
+     * handleMatchCardsAnswer({
+     *   task_id: "task_123",
+     *   task_type: "match_cards",
+     *   answer: {
+     *     answers: {
+     *       "left_1": { card_right: "right_2", is_correct: true },
+     *       "left_2": { card_right: "right_1", is_correct: false },
+     *       "left_3": { card_right: null, is_correct: null }
+     *     },
+     *     last_pair: { card_left: "left_2", card_right: "right_1" }
+     *   }
+     * });
      */
     try {
         if (!data || data.task_type !== "match_cards" || !data.answer) return;
-
-        const answers = data.answer.answers ?? {};
-
         const container = document.querySelector(`[data-task-id="${data.task_id}"]`);
         if (!container) return;
 
+        if (container.lastPairTimer) {
+            clearTimeout(container.lastPairTimer);
+            container.lastPairTimer = null;
+        }
+
         const leftButtons = Array.from(container.querySelectorAll(".left-card"));
         const rightButtons = Array.from(container.querySelectorAll(".right-card"));
+        const { answers, last_pair } = data.answer;
 
-        const currentStates = new Map();
         leftButtons.forEach(btn => {
-            const isSuccess = btn.classList.contains("bg-success");
-            currentStates.set(btn.dataset.left, { isSuccess });
+            btn.classList.remove("btn-success", "fw-bold", "btn-danger", "flash-animation", "disabled");
+            btn.classList.add("btn-outline-secondary");
+            btn.disabled = false;
         });
 
-        Object.entries(answers).forEach(([leftCard, answerData]) => {
-            const leftBtn = leftButtons.find(btn => btn.dataset.left === leftCard);
-            const rightBtn = rightButtons.find(btn => btn.dataset.right === answerData.card_right);
-            const isCorrect = answerData.is_correct;
-            const currentState = currentStates.get(leftCard);
+        rightButtons.forEach(btn => {
+            btn.classList.remove("btn-success", "fw-bold", "btn-danger", "flash-animation", "disabled");
+            btn.classList.add("btn-outline-secondary");
+            btn.disabled = false;
+        });
 
-            if (leftBtn && rightBtn) {
-                if (isCorrect === true) {
-                    if (!currentState?.isSuccess) {
-                        leftBtn.classList.remove("bg-primary", "bg-danger", "border-1");
-                        rightBtn.classList.remove("bg-primary", "bg-danger", "border-1");
-                        leftBtn.classList.add("bg-success", "text-light", "fw-bold", "border-0");
-                        rightBtn.classList.add("bg-success", "text-light", "fw-bold", "border-0");
-                    }
+        // Обработка правильно сопоставленных карточек
+        Object.entries(answers).forEach(([leftCard, answerData]) => {
+            if (answerData.is_correct === true) {
+                const leftBtn = leftButtons.find(btn => btn.dataset.left === leftCard);
+                const rightBtn = rightButtons.find(btn => btn.dataset.right === answerData.card_right);
+
+                if (leftBtn) {
+                    leftBtn.classList.remove("btn-outline-secondary");
+                    leftBtn.classList.add("btn-success", "fw-bold");
                     leftBtn.disabled = true;
+                }
+
+                if (rightBtn) {
+                    rightBtn.classList.remove("btn-outline-secondary");
+                    rightBtn.classList.add("btn-success", "fw-bold");
                     rightBtn.disabled = true;
-                } else {
-                    leftBtn.classList.remove("bg-primary", "bg-success", "bg-danger", "text-light", "fw-bold", "border-0");
-                    rightBtn.classList.remove("bg-primary", "bg-success", "bg-danger", "text-light", "fw-bold", "border-0");
-                    leftBtn.classList.add("border-1");
-                    rightBtn.classList.add("border-1");
-                    leftBtn.disabled = false;
-                    rightBtn.disabled = false;
                 }
             }
         });
 
-        leftButtons.forEach(btn => {
-            if (!answers[btn.dataset.left]) {
-                btn.classList.remove("bg-primary", "bg-success", "bg-danger", "text-light", "fw-bold", "border-0");
-                btn.classList.add("border-1");
-                btn.disabled = false;
+        // Обработка последней неправильной пары с анимацией
+        if (last_pair) {
+            const { card_left: left, card_right: right } = last_pair;
+            const leftBtn = leftButtons.find(btn => btn.dataset.left === left);
+            const rightBtn = rightButtons.find(btn => btn.dataset.right === right);
+
+            if (leftBtn && rightBtn && !leftBtn.disabled && !rightBtn.disabled) {
+                leftBtn.classList.remove("btn-outline-secondary");
+                leftBtn.classList.add("btn-danger", "flash-animation", "disabled");
+                rightBtn.classList.remove("btn-outline-secondary");
+                rightBtn.classList.add("btn-danger", "flash-animation", "disabled");
+
+                container.lastPairTimer = setTimeout(() => {
+                    if (!leftBtn.classList.contains("btn-success")) {
+                        leftBtn.classList.remove("btn-danger", "flash-animation", "disabled");
+                        leftBtn.classList.add("btn-outline-secondary");
+                    }
+                    if (!rightBtn.classList.contains("btn-success")) {
+                        rightBtn.classList.remove("btn-danger", "flash-animation", "disabled");
+                        rightBtn.classList.add("btn-outline-secondary");
+                    }
+                    container.lastPairTimer = null;
+                }, 1500);
             }
-        });
-        rightButtons.forEach(btn => {
-            const hasMatch = Object.values(answers).some(answer => answer.card_right === btn.dataset.right);
-            if (!hasMatch) {
-                btn.classList.remove("bg-primary", "bg-success", "bg-danger", "text-light", "fw-bold", "border-0");
-                btn.classList.add("border-1");
-                btn.disabled = false;
-            }
-        });
+        }
     } catch (error) {
-        console.error(`Ошибка в handleMatchCardsAnswer для task ${data.task_id}:`, error);
-        showNotification("Не удалось отобразить ответ.");
+        console.error("Error processing match cards answer:", error);
     }
 }
 
@@ -708,7 +746,7 @@ function collectAnswers(task, container) {
     return answers;
 }
 
-function initCheckButton(task, container, userId, classroomId) {
+async function initCheckButton(task, container, classroomId) {
     const checkBtn = container.querySelector("button.btn-primary");
     if (!checkBtn) return;
 
@@ -746,20 +784,21 @@ function initCheckButton(task, container, userId, classroomId) {
                 },
                 body: JSON.stringify({
                     task_id: task.task_id,
-                    user_id: userId,
+                    user_id: currentUserId,
                     answers
                 })
             });
 
             const result = await response.json();
+            console.log(result);
             if (result.success) {
                 container.dataset.isChecked = "true";
 
                 if (task.task_type === "test" && typeof handleTestAnswer === "function") {
-                    const data = fetchTaskAnswer(task.task_id);
+                    const data = await fetchTaskAnswer(task.task_id);
                     handleTestAnswer(data);
                 } else if (task.task_type === "true_false" && typeof handleTrueFalseAnswer === "function") {
-                    const data = fetchTaskAnswer(task.task_id);
+                    const data = await fetchTaskAnswer(task.task_id);
                     handleTrueFalseAnswer(data);
                 }
             } else {

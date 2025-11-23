@@ -86,6 +86,10 @@ def serialize_task_data(task):
                 "prompt": getattr(obj, "prompt", ""),
                 "default_text": getattr(obj, "default_text", "") or ""
             }
+        elif task.task_type == "integration":
+            return {
+                "embed_code": getattr(obj, "embed_code", "")
+            }
         else:
             return {}
     except Exception as e:
@@ -128,7 +132,7 @@ def _handle_multipart_request(request):
     item["caption"] = caption
     data = [item]
 
-    return _process_task_data(section_id, task_type, task_id, data)
+    return _process_task_data(request, section_id, task_type, task_id, data)
 
 
 def _handle_json_request(request):
@@ -146,7 +150,7 @@ def _handle_json_request(request):
     if not isinstance(data, list):
         data = [data]
 
-    return _process_task_data(section_id, task_type, task_id, data)
+    return _process_task_data(request, section_id, task_type, task_id, data)
 
 
 def _process_task_data(request, section_id, task_type, task_id, data):
@@ -159,7 +163,6 @@ def _process_task_data(request, section_id, task_type, task_id, data):
     except Section.DoesNotExist:
         return JsonResponse({"success": False, "errors": "Раздел не найден"}, status=404)
 
-    # Проверяем, что пользователь - создатель курса
     if section.lesson.course.creator != request.user:
         return JsonResponse({"success": False, "errors": "Доступ запрещен. Только создатель курса может редактировать задания"}, status=403)
 

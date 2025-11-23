@@ -5,8 +5,9 @@ import re
 from django.db import models
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.core.exceptions import ValidationError
 from django.utils import timezone
+from django.core.exceptions import ValidationError
+import time
 
 from courses.models import Task, TestTask, TrueFalseTask, FillGapsTask, MatchCardsTask, TextInputTask
 
@@ -386,6 +387,8 @@ class FillGapsTaskAnswer(BaseAnswer):
 
 class MatchCardsTaskAnswer(BaseAnswer):
     answers = models.JSONField(default=dict)
+    last_pair = models.JSONField(null=True, blank=True)
+    last_pair_timestamp = models.FloatField(null=True, blank=True)
 
     class Meta:
         constraints = [
@@ -393,16 +396,7 @@ class MatchCardsTaskAnswer(BaseAnswer):
         ]
 
     def save_answer_data(self, data):
-        """Сохраняет выбранную пару карточек
-
-        data должен быть в формате:
-        {
-            "selected_pair": {
-                "card_left": "значение левой карточки",
-                "card_right": "значение правой карточки"
-            }
-        }
-        """
+        """Сохраняет выбранную пару карточек"""
         selected_pair = data.get("selected_pair")
         if not isinstance(selected_pair, dict):
             raise ValidationError("selected_pair должен быть объектом")
@@ -414,6 +408,13 @@ class MatchCardsTaskAnswer(BaseAnswer):
             raise ValidationError("В selected_pair нужны поля card_left и card_right")
 
         current_answers = dict(self.answers or {})
+
+        self.last_pair = {
+            "card_left": left,
+            "card_right": right
+        }
+        self.last_pair_timestamp = time.time()
+
         current_answers[left] = {
             "card_right": right,
             "is_correct": None
@@ -425,10 +426,24 @@ class MatchCardsTaskAnswer(BaseAnswer):
         self.save()
 
     def get_answer_data(self):
-        """Возвращает все выбранные пары карточек с флагами правильности"""
-        return {
+        """Возвращает все выбранные пары карточек с флагами правильности
+        Возвращает поле last_pair (хранится 1 секунду), если последний ответ был некорректен
+        """
+        response_data = {
             "answers": self.answers
         }
+
+        current_time = time.time()
+        if (self.last_pair and self.last_pair_timestamp and
+                current_time - self.last_pair_timestamp <= 1.2):
+
+            last_left = self.last_pair.get("card_left")
+            if last_left and last_left in self.answers:
+                answer_data = self.answers[last_left]
+                if answer_data.get("is_correct") is False:
+                    response_data["last_pair"] = self.last_pair
+
+        return response_data
 
     def check_correctness(self):
         """Проверяет правильность всех выбранных пар карточек"""
@@ -467,6 +482,8 @@ class MatchCardsTaskAnswer(BaseAnswer):
     def delete_answers(self):
         """Удаляет все ответы пользователя для этого задания с карточками"""
         self.answers = {}
+        self.last_pair = None
+        self.last_pair_timestamp = None
         self.save()
 
     def __str__(self):

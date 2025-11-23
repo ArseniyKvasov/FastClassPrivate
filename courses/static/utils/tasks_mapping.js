@@ -5,7 +5,8 @@ const TASK_RENDERERS = {
     test: renderTestTask,
     true_false: renderTrueFalseTask,
     match_cards: renderMatchCardsTask,
-    text_input: renderTextInputTask
+    text_input: renderTextInputTask,
+    integration: renderIntegrationTask
 };
 
 const interactiveTasks = ["test", "true_false", "fill_gaps", "match_cards", "text_input"]

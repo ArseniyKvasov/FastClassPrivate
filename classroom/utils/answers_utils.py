@@ -24,19 +24,19 @@ answer_models = {
 }
 
 
-def check_user_access(request, classroom_id):
+def check_user_access(request, classroom_id, student):
     """
     Проверяет доступ пользователя к классу
     Возвращает True если доступ есть, False при любой ошибке или отсутствии доступа
     """
     try:
-        if not request.user.is_authenticated:
+        if not request.user.is_authenticated or not student.is_authenticated:
             return False
 
         classroom = Classroom.objects.get(id=classroom_id)
         available_users = classroom.get_available_users(request.user)
 
-        return request.user in available_users
+        return request.user in available_users and student in available_users
 
     except (Classroom.DoesNotExist, Exception):
         return False
@@ -58,7 +58,7 @@ def get_section_answers(request):
     section = get_object_or_404(Section, id=section_id)
     classroom = get_object_or_404(Classroom, id=classroom_id)
     user = get_object_or_404(User, id=user_id)
-    if not check_user_access(request, classroom_id):
+    if not check_user_access(request, classroom_id, user):
         return JsonResponse({"error": "Access denied"}, status=403)
 
     tasks = Task.objects.filter(section=section).select_related('section')
@@ -104,7 +104,7 @@ def get_task_answer(request):
     task = get_object_or_404(Task, id=task_id)
     user = get_object_or_404(User, id=user_id)
     classroom = Classroom.objects.get(id=classroom_id)
-    if not check_user_access(request, classroom_id):
+    if not check_user_access(request, classroom_id, user):
         return JsonResponse({"error": "Access denied"}, status=403)
 
     task_type = task.task_type
@@ -138,7 +138,8 @@ def save_answer(request, classroom_id):
     Принимает JSON-структуру:
         {
             "task_id": "...",
-            "data": {...}
+            "data": {...},
+            "user_id": "..."
         }
     """
     try:
@@ -148,10 +149,14 @@ def save_answer(request, classroom_id):
 
     task_id = payload.get("task_id")
     data = payload.get("data", {})
+    user_id = payload.get("user_id")
 
     if not classroom_id:
         return JsonResponse({"success": False, "errors": "virtual_class_id required"}, status=400)
-    if not check_user_access(request, classroom_id):
+
+    user = get_object_or_404(User, id=user_id)
+
+    if not check_user_access(request, classroom_id, user):
         return JsonResponse({"error": "Access denied"}, status=403)
     if not task_id:
         return JsonResponse({"success": False, "errors": "task_id required"}, status=400)
@@ -168,7 +173,7 @@ def save_answer(request, classroom_id):
     try:
         answer, created = answer_model.objects.get_or_create(
             task=task,
-            user=request.user,
+            user=user,
             classroom=classroom,
         )
 
@@ -200,6 +205,8 @@ def mark_answer_as_checked(request, classroom_id):
     task_id = payload.get("task_id")
     user_id = payload.get("user_id")
 
+    print(user_id)
+
     if not classroom_id:
         return JsonResponse({"success": False, "errors": "virtual_class_id required"}, status=400)
     if not task_id or not user_id:
@@ -209,7 +216,7 @@ def mark_answer_as_checked(request, classroom_id):
     user = get_object_or_404(User, id=user_id)
     classroom = get_object_or_404(Classroom, id=classroom_id)
 
-    if not check_user_access(request, classroom_id):
+    if not check_user_access(request, classroom_id, user):
         return JsonResponse({"error": "Access denied"}, status=403)
 
     task_type = task.task_type
@@ -245,7 +252,7 @@ def delete_user_task_answers(request, classroom_id, task_id, user_id):
         task = get_object_or_404(Task, id=task_id)
         user = get_object_or_404(User, id=user_id)
 
-        if not check_user_access(request, classroom_id):
+        if not check_user_access(request, classroom_id, user):
             return JsonResponse({"error": "Access denied"}, status=403)
 
         deleted_count = 0

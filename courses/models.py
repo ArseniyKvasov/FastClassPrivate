@@ -107,6 +107,7 @@ class TestTask(models.Model):
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
 
+
 class TrueFalseTask(models.Model):
     """
     Содержит список утверждений для задачи типа "Правда/Ложь":
@@ -216,9 +217,21 @@ class MatchCardsTask(models.Model):
 
         super().save(*args, **kwargs)
 
+
 class TextInputTask(models.Model):
     prompt = models.CharField(max_length=255, blank=True)
     default_text = models.TextField("Текст по умолчанию", blank=True)
 
     def __str__(self):
         return self.prompt or "Без названия"
+
+
+class IntegrationTask(models.Model):
+    """
+    Задание интеграции с внешними ресурсами.
+    embed_code - очищенный HTML код для встраивания
+    """
+    embed_code = models.TextField(verbose_name="Встроенный код")
+
+    def __str__(self):
+        return f"Integration Task ({self.id})"

@@ -126,11 +126,22 @@ class MatchCardsTaskSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Карточки должны быть списком")
 
         normalized = []
+        left_cards = set()
+        right_cards = set()
+
         for item in value:
             left = self._sanitize_text(item.get("card_left", ""))
             right = self._sanitize_text(item.get("card_right", ""))
 
             if left and right:
+                if left in left_cards:
+                    raise serializers.ValidationError("Найдены одинаковые левые карточки")
+
+                if right in right_cards:
+                    raise serializers.ValidationError("Найдены одинаковые правые карточки")
+
+                left_cards.add(left)
+                right_cards.add(right)
                 normalized.append({
                     "card_left": left,
                     "card_right": right
@@ -138,6 +149,9 @@ class MatchCardsTaskSerializer(serializers.ModelSerializer):
 
         if not normalized:
             raise serializers.ValidationError("Нужно хотя бы одну заполненную пару")
+
+        if len(normalized) < 2:
+            raise serializers.ValidationError("Добавьте как минимум две пары карточек")
 
         return normalized
 
@@ -184,6 +198,109 @@ class TextInputTaskSerializer(serializers.ModelSerializer):
         return value
 
 
+class IntegrationTaskSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IntegrationTask
+        fields = ["embed_code"]
+
+    def validate_embed_code(self, value):
+        """
+        Валидация embed-кода:
+        1. Проверяем наличие iframe
+        2. Проверяем поддерживаемые домены
+        3. Очищаем от опасного кода
+        """
+        if not value:
+            raise serializers.ValidationError("Embed-код не может быть пустым")
+
+        if '<iframe' not in value:
+            raise serializers.ValidationError("Код должен содержать iframe")
+
+        supported_domains = [
+            'youtube.com', 'youtu.be', 'wordwall.net', 'miro.com',
+            'quizlet.com', 'learningapps.org', 'rutube.ru', 'sboard.online'
+        ]
+
+        has_supported_domain = any(domain in value for domain in supported_domains)
+        if not has_supported_domain:
+            raise serializers.ValidationError(
+                f"Неподдерживаемый ресурс. Поддерживаются: {', '.join(supported_domains)}"
+            )
+
+        cleaned_code = self._clean_embed_code(value)
+
+        return cleaned_code
+
+    def _clean_embed_code(self, code):
+        """
+        Очистка embed-кода с помощью регулярных выражений
+        """
+        import re
+
+        iframe_match = re.search(r'<iframe[^>]*(?:/>|>.*?</iframe>)', code, re.DOTALL)
+        if not iframe_match:
+            raise serializers.ValidationError("Не удалось найти корректный iframe в коде")
+
+        iframe_full = iframe_match.group(0)
+
+        iframe_open_match = re.search(r'<iframe[^>]*>', iframe_full)
+        iframe_open = iframe_open_match.group(0) if iframe_open_match else iframe_full
+
+        allowed_attrs = {
+            'src', 'width', 'height', 'frameborder', 'allow',
+            'allowfullscreen', 'title', 'style', 'class', 'sandbox'
+        }
+
+        safe_css_props = {
+            'width', 'height', 'border', 'max-width', 'max-height',
+            'display', 'margin', 'padding', 'background'
+        }
+
+        attrs = {}
+        for attr in allowed_attrs:
+            attr_match = re.search(r'\b' + attr + r'=(["\'])(.*?)\1', iframe_open)
+            if not attr_match:
+                attr_match = re.search(r'\b' + attr + r'=([^\s>]+)', iframe_open)
+
+            if attr_match:
+                attr_value = attr_match.group(2) if '"' in iframe_open else attr_match.group(1)
+                attrs[attr] = attr_value
+
+        if 'style' in attrs:
+            safe_css_props = {'width', 'height', 'border', 'max-width', 'max-height',
+                              'display', 'margin', 'padding', 'background'}
+            styles = attrs['style'].split(';')
+            clean_styles = []
+            for style in styles:
+                if ':' in style:
+                    prop, val = style.split(':', 1)
+                    prop = prop.strip().lower()
+                    if prop in safe_css_props:
+                        val = re.sub(r'[<>{}]', '', val.strip())
+                        clean_styles.append(f"{prop}:{val}")
+            attrs['style'] = '; '.join(clean_styles)
+
+        attrs['sandbox'] = 'allow-scripts allow-same-origin allow-popups allow-forms'
+
+        base_style = 'border: none; max-width: 100%;'
+        if 'style' in attrs:
+            if 'border' not in attrs['style'].lower():
+                attrs['style'] += '; border: none;'
+            if 'max-width' not in attrs['style'].lower():
+                attrs['style'] += '; max-width: 100%;'
+        else:
+            attrs['style'] = base_style
+
+        if any(domain in attrs.get('src', '') for domain in ['youtube.com', 'youtu.be', 'rutube.ru']):
+            attrs['allowfullscreen'] = 'true'
+            attrs['allow'] = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture'
+
+        clean_attrs = ' '.join([f'{k}="{v}"' for k, v in attrs.items()])
+        clean_iframe = f'<iframe {clean_attrs}></iframe>'
+
+        return clean_iframe
+
+
 TASK_SERIALIZER_MAP = {
     "test": TestTaskSerializer,
     "note": NoteTaskSerializer,
@@ -192,4 +309,5 @@ TASK_SERIALIZER_MAP = {
     "fill_gaps": FillGapsTaskSerializer,
     "match_cards": MatchCardsTaskSerializer,
     "text_input": TextInputTaskSerializer,
+    "integration": IntegrationTaskSerializer,
 }

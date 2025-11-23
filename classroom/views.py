@@ -1,9 +1,8 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.shortcuts import get_object_or_404
 
 from .models import Classroom
 from courses.models import Section, Task
-
 
 def classroom_view(request, classroom_id):
     classroom = get_object_or_404(Classroom, pk=classroom_id)
@@ -12,6 +11,17 @@ def classroom_view(request, classroom_id):
     sections = lesson.sections.order_by("order") if lesson else []
     first_section = sections.first() if lesson else None
     section_id = first_section.id if first_section else None
+
+    students = classroom.students.all().values('id', 'username')
+
+    students_list = []
+    for student in students:
+        students_list.append({
+            'id': student['id'],
+            'name': student['username']
+        })
+
+    invite_url = request.build_absolute_uri(f'/classroom/join/{classroom.invite_code}/')
 
     return render(
         request,
@@ -24,6 +34,24 @@ def classroom_view(request, classroom_id):
             "is_admin": True,
             "room_type": "Classroom",
             "current_user_id": request.user.id,
+            "students_list": students_list,
+            "invite_url": invite_url,
         }
     )
 
+
+def join_classroom(request, invite_code):
+    if not request.user.is_authenticated:
+        return redirect(f'/auth/login/?next=/classroom/join/{invite_code}/')
+
+    try:
+        classroom = Classroom.objects.get(invite_code=invite_code)
+
+        if request.user == classroom.teacher or classroom.students.filter(id=request.user.id).exists():
+            return redirect('classroom_view', classroom_id=classroom.id)
+
+        classroom.students.add(request.user)
+        return redirect('classroom_view', classroom_id=classroom.id)
+
+    except Classroom.DoesNotExist:
+        return redirect('home')
