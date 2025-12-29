@@ -11,11 +11,16 @@ async function sendAnswer({ taskId, data }) {
         return null;
     }
 
+    if (getId() === "all") {
+        showNotification("Вы не можете отправлять ответы всему классу");
+        return null;
+    }
+
     const url = `/classroom/${virtualClassId}/save-answer/`;
     const payload = {
         task_id: taskId,
         data: data,
-        user_id: currentUserId
+        user_id: getId()
     };
 
     try {
@@ -42,6 +47,8 @@ async function sendAnswer({ taskId, data }) {
 
             const handler = answerHandlers[taskType];
             if (handler) handler(responseData);
+
+            notifyAnswerSubmitted(taskId);
         }
 
         return result;
@@ -53,7 +60,10 @@ async function sendAnswer({ taskId, data }) {
 }
 
 async function fetchSectionAnswers(sectionId) {
-    const url = `/classroom/get-section-answers/?section_id=${sectionId}&classroom_id=${virtualClassId}&user_id=${currentUserId}`;
+    if (getId() === "all") {
+        return;
+    }
+    const url = `/classroom/get-section-answers/?section_id=${sectionId}&classroom_id=${virtualClassId}&user_id=${getId()}`;
     const response = await fetch(url);
 
     if (!response.ok) {
@@ -73,7 +83,11 @@ async function fetchTaskAnswer(taskId) {
         throw new Error("Не указан виртуальный класс");
     }
 
-    const url = `/classroom/get-task-answer/?task_id=${taskId}&classroom_id=${virtualClassId}&user_id=${currentUserId}`;
+    if (getId() === "all") {
+        return;
+    }
+
+    const url = `/classroom/get-task-answer/?task_id=${taskId}&classroom_id=${virtualClassId}&user_id=${getId()}`;
     const response = await fetch(url);
 
     if (!response.ok) {
@@ -86,6 +100,47 @@ async function fetchTaskAnswer(taskId) {
     }
 
     return data;
+}
+
+async function loadSectionTasksAnswers(sectionId) {
+    try {
+        if (getId() === "all") {
+            loadSectionStatistics();
+        } else {
+            const data = await fetchSectionAnswers(sectionId);
+
+            if (!data || !Array.isArray(data.answers)) {
+                showNotification("Нет данных для отображения.");
+                return;
+            }
+
+            data.answers.forEach(answerData => {
+                const { task_id, task_type, answer } = answerData;
+
+                const container = document.querySelector(`[data-task-id="${task_id}"]`);
+                if (!container) {
+                    console.warn(`Контейнер не найден для task_id: ${task_id}`);
+                    return;
+                }
+
+                const handler = answerHandlers[task_type];
+                if (typeof handler === "function") {
+                    try {
+                        handler(answerData);
+                    } catch (error) {
+                        console.warn(`Ошибка в обработчике для task_type ${task_type}, task_id ${task_id}:`, error);
+                        showNotification("Не удалось отобразить ответ.");
+                    }
+                } else {
+                    console.warn(`Не найден обработчик для типа задания: ${task_type}`);
+                    showNotification("Не удалось отобразить ответ.");
+                }
+            });
+        }
+    } catch (error) {
+        console.warn("Ошибка в handleSectionAnswers:", error);
+        showNotification("Не удалось загрузить ответы раздела.");
+    }
 }
 
 // ==================== ОБРАБОТЧИКИ ВВОДА ОТВЕТОВ ====================
@@ -234,7 +289,7 @@ const answerHandlers = {
     match_cards: handleMatchCardsAnswer
 };
 
-async function handleSectionAnswers(sectionId, userId = currentUserId) {
+async function handleSectionAnswers(sectionId, userId = getId()) {
     if (!virtualClassId) {
         showNotification("Произошла ошибка. Не указан виртуальный класс.");
         return;
@@ -758,7 +813,7 @@ async function initCheckButton(task, container, classroomId) {
 
     function updateButtonState() {
         const isChecked = container.dataset.isChecked === "true";
-        checkBtn.disabled = !allFormsAnswered() || isChecked;
+        checkBtn.disabled = !allFormsAnswered() || isChecked || getId() === "all";
     }
 
     container.querySelectorAll("form").forEach(form => {
@@ -784,13 +839,13 @@ async function initCheckButton(task, container, classroomId) {
                 },
                 body: JSON.stringify({
                     task_id: task.task_id,
-                    user_id: currentUserId,
+                    user_id: getId(),
                     answers
                 })
             });
 
             const result = await response.json();
-            console.log(result);
+
             if (result.success) {
                 container.dataset.isChecked = "true";
 
@@ -801,6 +856,8 @@ async function initCheckButton(task, container, classroomId) {
                     const data = await fetchTaskAnswer(task.task_id);
                     handleTrueFalseAnswer(data);
                 }
+
+                notifyAnswerSubmitted(task.task_id);
             } else {
                 console.error(result.errors);
                 checkBtn.disabled = false;
@@ -809,5 +866,279 @@ async function initCheckButton(task, container, classroomId) {
             console.error(err);
             checkBtn.disabled = false;
         }
+    });
+}
+
+
+// ==================== СТАТИСТИКА ====================
+
+const taskClearHandlers = {
+    test: clearTestTask,
+    true_false: clearTrueFalseTask,
+    fill_gaps: clearFillGapsTask,
+    match_cards: clearMatchCardsTask
+};
+
+function showStatistics(taskId, stats) {
+    try {
+        const container = document.querySelector(`[data-task-id="${taskId}"]`);
+        if (!container) {
+            console.warn(`Task container not found for taskId ${taskId}`);
+            return;
+        }
+
+        const taskType = container.dataset.taskType;
+        if (!taskClearHandlers[taskType]) return;
+
+        let statsContainer = container.querySelector('.horizontal-cards');
+        if (statsContainer) statsContainer.remove();
+
+        statsContainer = document.createElement('div');
+        statsContainer.className = 'horizontal-cards';
+
+        // Сортируем статистику по проценту выполнения (от максимума к минимуму)
+        const sortedStats = [...stats].sort((a, b) => {
+            return b.success_percentage - a.success_percentage;
+        });
+
+        sortedStats.forEach(student => {
+            const card = document.createElement('div');
+            card.className = 'student-card';
+
+            const nameDiv = document.createElement('div');
+            nameDiv.className = 'name';
+            nameDiv.textContent = student.user.username;
+
+            const statsDiv = document.createElement('div');
+            statsDiv.className = 'stats';
+            statsDiv.innerHTML = `
+                <span class="correct text-success">${student.correct_answers}</span>
+                <span>|</span>
+                <span class="wrong text-danger">${student.wrong_answers}</span>
+                <span>|</span>
+                <span class="percent text-primary">${student.success_percentage}%</span>
+            `;
+
+            card.appendChild(nameDiv);
+            card.appendChild(statsDiv);
+            statsContainer.appendChild(card);
+        });
+
+        container.appendChild(statsContainer);
+    } catch (error) {
+        console.error('Ошибка при отображении статистики:', error);
+        showNotification('Не удалось отобразить статистику');
+    }
+}
+
+function clearStatistics(taskId = null) {
+    try {
+        if (taskId) {
+            const container = document.querySelector(`[data-task-id="${taskId}"]`);
+            if (!container) return;
+
+            const statsContainer = container.querySelector('.horizontal-cards');
+            if (statsContainer) statsContainer.remove();
+        } else {
+            document.querySelectorAll('.task-card .horizontal-cards').forEach(statsContainer => {
+                statsContainer.remove();
+            });
+        }
+    } catch (error) {
+        console.error('Ошибка при очистке статистики:', error);
+    }
+}
+
+async function loadSectionStatistics() {
+    try {
+        clearSectionTasks();
+
+        const response = await fetch(`/classroom/${virtualClassId}/section/${sectionId}/statistics/`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const data = await response.json();
+
+        if (!data.tasks) return;
+
+        data.tasks.forEach(task => {
+            showStatistics(task.id, task.statistics);
+        });
+    } catch (error) {
+        console.error("Ошибка загрузки статистики раздела:", error);
+        showNotification("Не удалось отобразить статистику");
+    }
+}
+
+async function loadTaskStatistics(taskId) {
+    try {
+        clearTask(taskId);
+
+        const response = await fetch(`/classroom/${classroomId}/task/${taskId}/statistics/`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const data = await response.json();
+
+        const container = document.querySelector(`[data-task-id="${taskId}"]`);
+        if (!container) return;
+
+        const taskType = container.dataset.taskType;
+        if (!taskClearHandlers[taskType]) {
+            return;
+        }
+
+        showStatistics(data.task.id, data.statistics);
+    } catch (error) {
+        console.error(`Ошибка загрузки статистики для задания ${taskId}:`, error);
+        showNotification("Не удалось отобразить статистику");
+    }
+}
+
+function clearSectionTasks() {
+    const list = document.getElementById('task-list');
+    if (!list) return;
+
+    const cards = list.querySelectorAll('.task-card');
+    cards.forEach(card => {
+        const taskId = card.dataset.taskId;
+        const taskType = card.dataset.taskType;
+        const handler = taskClearHandlers[taskType];
+
+        if (handler) {
+            handler(card);
+        }
+    });
+}
+
+function clearTask(taskId) {
+    const container = document.querySelector(`[data-task-id="${taskId}"]`);
+    if (!container) return;
+
+    const taskType = container.dataset.taskType;
+    const handler = taskClearHandlers[taskType];
+
+    if (handler) {
+        handler(container, taskId);
+    }
+}
+
+function clearTaskInternalState(container) {
+    const stateKeys = [
+        "isChecked",
+        "currentSelection",
+        "selectedLeft",
+        "selectedRight",
+        "selectedOption",
+        "lastPair",
+        "answersCache",
+        "userInput",
+        "temp",
+        "progress",
+        "state",
+        "selected",
+        "checked",
+        "pairs",
+        "matches",
+        "connected",
+        "pendingTimeout",
+        "pendingTimer",
+        "timer",
+        "lastPairTimer"
+    ];
+
+    stateKeys.forEach(key => {
+        if (container[key] !== undefined) {
+            try { delete container[key]; } catch (e) {}
+        }
+    });
+
+    Object.keys(container.dataset).forEach(k => {
+        if (k !== "taskId" && k !== "taskType") {
+            delete container.dataset[k];
+        }
+    });
+}
+
+function clearTestTask(container) {
+    container.dataset.isChecked = "false";
+
+    container.querySelectorAll("[data-option-index]").forEach(el => {
+        el.checked = false;
+        el.disabled = false;
+        el.classList.remove("bg-success", "bg-danger", "text-white", "fw-bold");
+        el.style.border = "";
+        el.style.outline = "";
+        el.style.borderColor = "";
+        el.style.boxShadow = "";
+    });
+
+    const btn = container.querySelector("button.btn-primary");
+    if (btn) btn.style.display = "";
+}
+
+function clearTrueFalseTask(container) {
+    container.dataset.isChecked = "false";
+
+    container.querySelectorAll("[data-tf]").forEach(el => {
+        el.checked = false;
+        el.disabled = false;
+        el.readOnly = false;
+        el.classList.remove("bg-success", "bg-danger", "text-white", "fw-bold");
+        el.style.border = "";
+        el.style.outline = "";
+        el.style.borderColor = "";
+        el.style.boxShadow = "";
+    });
+
+    const btn = container.querySelector("button.btn-primary");
+    if (btn) btn.style.display = "";
+}
+
+function clearTextInputTask(container) {
+    console.log(container);
+    const textarea = container.querySelector("textarea, input[type='text']");
+    if (!textarea) return;
+
+    textarea.value = "";
+    textarea.readOnly = false;
+    textarea.disabled = false;
+}
+
+function clearFillGapsTask(container) {
+    container.querySelectorAll(".gap-input").forEach(input => {
+        input.value = "";
+        input.disabled = false;
+        input.readOnly = false;
+        input.classList.remove(
+            "bg-success",
+            "bg-danger",
+            "bg-opacity-25",
+            "border",
+            "border-success",
+            "border-danger",
+            "text-white"
+        );
+    });
+
+    container.querySelectorAll(".badge").forEach(badge => {
+        badge.classList.remove("text-decoration-line-through", "bg-secondary");
+    });
+}
+
+function clearMatchCardsTask(container) {
+    if (container.lastPairTimer) {
+        clearTimeout(container.lastPairTimer);
+        container.lastPairTimer = null;
+    }
+
+    container.querySelectorAll(".left-card, .right-card").forEach(btn => {
+        btn.disabled = false;
+        btn.classList.remove(
+            "btn-success",
+            "btn-danger",
+            "fw-bold",
+            "flash-animation",
+            "disabled"
+        );
+        btn.classList.add("btn-outline-secondary");
     });
 }

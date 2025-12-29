@@ -24,7 +24,6 @@ let selectorModal = null;
 let bootstrapModal = null;
 let editorModal = null;
 let bootstrapEditorModal = null;
-const sectionList = document.getElementById('section-list');
 const sectionModal = new bootstrap.Modal(document.getElementById('manualSectionModal'));
 
 function ensureSelectorModal() {
@@ -185,17 +184,25 @@ const TaskValidators = {
 
     fill_gaps: function(taskCard) {
         const editor = taskCard.querySelector(".fill-text-editor");
+        const taskType = taskCard.querySelector(".fill-gaps-type-select")?.value || "hidden";
         const text = editor?.innerHTML.trim() || "";
-        if (!text) { showNotification("❌ Введите текст задания!"); return null; }
+
+        if (!text) {
+            showNotification("Введите текст задания!");
+            return null;
+        }
 
         const answers = [];
         const regex = /\[([^\]]+)\]/g;
         let match;
         while ((match = regex.exec(text)) !== null) answers.push(match[1]);
 
-        if (!answers.length) { showNotification("❌ Добавьте хотя бы один пропуск в квадратных скобках"); return null; }
+        if (!answers.length) {
+            showNotification("Добавьте хотя бы один пропуск в квадратных скобках");
+            return null;
+        }
 
-        return [{ text, answers, task_type: "hidden" }];
+        return [{ text, answers, task_type: taskType }];
     },
 
     match_cards: function(taskCard) {
@@ -425,12 +432,10 @@ async function createSection(title) {
 
         const data = await response.json();
 
-        // вызываем рендер
         renderSectionItem(data);
 
         showNotification('Раздел успешно создан');
 
-        // Автоматически загружаем задачи нового раздела
         loadSectionTasks(data.id);
 
     } catch (error) {
@@ -497,37 +502,98 @@ async function editSection(sectionId, newTitle) {
     }
 }
 
-async function resetStudentAnswers(taskId) {
-    if (!virtualClassId) {
-        return null;
-    }
+async function resetStudentAnswers(taskId, studentId = "all") {
+    if (!virtualClassId) return null;
 
     try {
-        const response = await fetch(`/classroom/${virtualClassId}/task/${taskId}/delete-all-answers/`, {
-            method: "DELETE",
-            headers: {
-                "Content-Type": "application/json",
-                "X-CSRFToken": getCsrfToken()
+        const response = await fetch(
+            `/classroom/${virtualClassId}/task/${taskId}/delete-all-answers/`,
+            {
+                method: "DELETE",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": getCsrfToken()
+                },
+                body: JSON.stringify({ student_id: studentId })
             }
-        });
+        );
 
         const result = await response.json();
-        if (result.success) {
-            showNotification("Ответы учеников успешно сброшены");
-            try {
-                const answerData = await fetchTaskAnswer(taskId);
-                const handler = answerHandlers[answerData.task_type];
-                handler(answerData);
-            } catch (err) {
-                console.warn("Не удалось сбросить ответы в контейнере")
-            }
-        } else {
-            showNotification(`Ошибка: ${result.error || 'Не удалось сбросить ответы'}`);
+
+        if (!result.success) {
+            showNotification(`Ошибка: ${result.error || "Не удалось сбросить ответы"}`);
+            return;
         }
+
+        showNotification("Ответы успешно сброшены");
+
+        clearTask(taskId);
+        notifyTaskCleared(taskId, studentId);
     } catch (e) {
         console.error("Reset answers error:", e);
         showNotification("Не удалось сбросить ответы. Попробуйте ещё раз.");
     }
+}
+
+function confirmResetStudentAnswers(taskId) {
+    if (!isTeacher) return;
+
+    if (!Array.isArray(studentsList) || studentsList.length <= 1) {
+        resetStudentAnswers(taskId, getId());
+        return;
+    }
+
+    showResetAnswersModal(taskId);
+}
+
+function showResetAnswersModal(taskId) {
+    const modalId = "resetAnswersModal";
+
+    document.getElementById(modalId)?.remove();
+
+    const modalHtml = `
+        <div class="modal fade" id="${modalId}" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Сброс ответов</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Какие ответы нужно сбросить?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button id="reset-current-btn" class="btn btn-outline-primary">
+                            Текущему ученику
+                        </button>
+                        <button id="reset-all-btn" class="btn btn-danger">
+                            Всем ученикам
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML("beforeend", modalHtml);
+
+    const modalEl = document.getElementById(modalId);
+    const modal = new bootstrap.Modal(modalEl);
+    modal.show();
+
+    modalEl.querySelector("#reset-current-btn").onclick = () => {
+        modal.hide();
+        resetStudentAnswers(taskId, getId());
+    };
+
+    modalEl.querySelector("#reset-all-btn").onclick = () => {
+        modal.hide();
+        resetStudentAnswers(taskId, "all");
+    };
+
+    modalEl.addEventListener("hidden.bs.modal", () => {
+        modalEl.remove();
+    });
 }
 
 async function deleteSection(sectionId) {
@@ -560,36 +626,3 @@ async function deleteSection(sectionId) {
         showNotification(error.message || 'Не удалось удалить раздел');
     }
 }
-
-sectionList.addEventListener('click', async (event) => {
-    const li = event.target.closest('li[data-section-id]');
-    if (!li) return;
-
-    sectionId = li.dataset.sectionId;
-
-    const editBtn = event.target.closest('.edit-section-button');
-    const deleteBtn = event.target.closest('.delete-btn');
-
-    if (deleteBtn) {
-        await deleteSection(sectionId);
-        return;
-    }
-
-    if (editBtn) {
-        const sectionName = li.querySelector('.section-link')?.textContent.trim();
-
-        document.getElementById('manualSectionName').value = sectionName;
-        saveSectionBtn.dataset.sectionId = sectionId;
-        saveSectionBtn.dataset.action = 'edit';
-        document.getElementById('saveManualSectionText').textContent = 'Сохранить';
-        document.getElementById('saveManualSectionIcon').className = 'bi bi-save';
-
-        document.getElementById('manualSectionModalLabel').textContent = 'Редактирование';
-
-        sectionModal.show();
-        return;
-    }
-
-    // --- Выбор раздела по клику на карточку или текст
-    loadSectionTasks(sectionId);
-});

@@ -1,3 +1,13 @@
+const sectionList = document.getElementById('section-list');
+
+function getId() {
+    if (typeof currentStudentId !== "undefined" && currentStudentId) {
+        return currentStudentId;
+    }
+
+    return userId;
+}
+
 function getCsrfToken() {
     const name = "csrftoken=";
     const decoded = decodeURIComponent(document.cookie);
@@ -125,7 +135,7 @@ function renderSectionItem(section) {
 
     let innerHTML = `
         <div class="d-flex align-items-center gap-2" style="flex:1; min-width:0;">
-            ${isAdmin && !isClassroom ? `<span class="drag-handle me-2" aria-hidden="true" title="Перетащить">☰</span>` : ''}
+            ${isTeacher && !isClassroom ? `<span class="drag-handle me-2" aria-hidden="true" title="Перетащить">☰</span>` : ''}
             <button type="button"
                     class="btn btn-link section-link text-decoration-none text-truncate p-0 me-2"
                     data-section-id="${section.id}">
@@ -134,7 +144,7 @@ function renderSectionItem(section) {
         </div>
     `;
 
-    if (isAdmin && !isClassroom) {
+    if (isTeacher && !isClassroom) {
         innerHTML += `
             <div class="section-action-buttons align-items-center" style="display: flex; gap: 0.5rem;">
                 <button type="button" class="btn btn-link p-0 edit-section-button" data-section-id="${section.id}" title="Редактировать">
@@ -150,6 +160,44 @@ function renderSectionItem(section) {
     li.innerHTML = innerHTML;
     sectionList.appendChild(li);
 }
+
+sectionList.addEventListener('click', async (event) => {
+    const li = event.target.closest('li[data-section-id]');
+    if (!li) return;
+
+    sectionId = li.dataset.sectionId;
+
+    const editBtn = event.target.closest('.edit-section-button');
+    const deleteBtn = event.target.closest('.delete-btn');
+
+    if (deleteBtn) {
+        await deleteSection(sectionId);
+        return;
+    }
+
+    if (editBtn) {
+        const sectionName = li.querySelector('.section-link')?.textContent.trim();
+
+        document.getElementById('manualSectionName').value = sectionName;
+        saveSectionBtn.dataset.sectionId = sectionId;
+        saveSectionBtn.dataset.action = 'edit';
+        document.getElementById('saveManualSectionText').textContent = 'Сохранить';
+        document.getElementById('saveManualSectionIcon').className = 'bi bi-save';
+
+        document.getElementById('manualSectionModalLabel').textContent = 'Редактирование';
+
+        sectionModal.show();
+        return;
+    }
+
+    try {
+        loadSectionTasks(sectionId);
+    } catch (err) {
+        console.warn("Задания не были загружены", err);
+        showNotification("Произошла ошибка");
+    }
+});
+
 
 async function fetchSectionTasks(sectionId) {
     if (typeof sectionId === "undefined" || !sectionId) {

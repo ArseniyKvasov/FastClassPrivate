@@ -1,8 +1,3 @@
-/**
- * Рендер редактора задания "Заполни пропуски".
- * Если передан taskId — открывает редактор в модальном окне для редактирования.
- * Если container не указан — вставляет редактор в список заданий.
- */
 function renderFillGapsTaskEditor(taskId = null, container = null, taskData = null) {
     const parent = container || document.getElementById("task-list");
     if (!parent) return;
@@ -11,6 +6,7 @@ function renderFillGapsTaskEditor(taskId = null, container = null, taskData = nu
     card.className = "task-editor-card mb-4 p-3 bg-white border-0 rounded";
 
     const htmlContent = taskData?.text || "";
+    const taskType = taskData?.task_type || "hidden";
 
     card.innerHTML = `
         <div class="d-flex justify-content-between align-items-center mb-3">
@@ -18,35 +14,47 @@ function renderFillGapsTaskEditor(taskId = null, container = null, taskData = nu
             <button class="btn-close remove-task-btn small" title="Удалить задание"></button>
         </div>
 
+        <div class="mb-3">
+            <select class="form-select fill-gaps-type-select">
+                <option value="hidden" ${taskType === "hidden" ? "selected" : ""}>Скрытый список слов</option>
+                <option value="open" ${taskType === "open" ? "selected" : ""}>Открытый ввод</option>
+            </select>
+        </div>
+
         <div class="toolbar mb-2 d-flex flex-wrap gap-2">
-            <button class="btn btn-sm btn-light border format-btn" data-cmd="bold" title="Жирный">
+            <button class="btn btn-sm btn-light border format-btn" data-cmd="bold">
                 <i class="bi bi-type-bold"></i>
             </button>
-            <button class="btn btn-sm btn-light border format-btn" data-cmd="italic" title="Курсив">
+            <button class="btn btn-sm btn-light border format-btn" data-cmd="italic">
                 <i class="bi bi-type-italic"></i>
             </button>
-            <button class="btn btn-sm btn-light border format-btn" data-cmd="underline" title="Подчеркнутый">
+            <button class="btn btn-sm btn-light border format-btn" data-cmd="underline">
                 <i class="bi bi-type-underline"></i>
             </button>
-            <button class="btn btn-sm btn-light border format-btn" data-cmd="insertUnorderedList" title="Маркированный список">
+            <button class="btn btn-sm btn-light border format-btn" data-cmd="insertUnorderedList">
                 <i class="bi bi-list-ul"></i>
             </button>
-            <button class="btn btn-sm btn-light border format-btn" data-cmd="insertOrderedList" title="Нумерованный список">
+            <button class="btn btn-sm btn-light border format-btn" data-cmd="insertOrderedList">
                 <i class="bi bi-list-ol"></i>
             </button>
-            <button class="btn btn-sm btn-light border insert-gap-btn" title="Вставить пропуск">
+            <button class="btn btn-sm btn-light border insert-gap-btn">
                 <i class="bi bi-square"></i> Пропуск
             </button>
-            <button class="btn btn-sm btn-light border clear-format-btn" title="Сбросить стили">
+            <button class="btn btn-sm btn-light border clear-format-btn">
                 <i class="bi bi-eraser"></i>
             </button>
         </div>
 
         <div class="mb-3">
-            <label class="form-label mb-1">Текст с пропусками</label>
             <div class="fill-text-editor border rounded p-2"
                  contenteditable="true"
                  style="min-height: 120px; outline: none;">${htmlContent}</div>
+        </div>
+
+        <div class="mb-3">
+            <div class="border rounded p-2 bg-light">
+                <div id="gaps_preview_list"></div>
+            </div>
         </div>
 
         <button class="btn btn-success mt-3 w-100 fw-semibold save-btn">
@@ -55,72 +63,87 @@ function renderFillGapsTaskEditor(taskId = null, container = null, taskData = nu
     `;
 
     const editor = card.querySelector(".fill-text-editor");
+    const gapsPreviewList = card.querySelector("#gaps_preview_list");
+
+    function updateGapsPreview() {
+        const text = editor.innerHTML;
+        const answers = [];
+        const regex = /\[([^\]]*)\]/g;
+        let match;
+
+        while ((match = regex.exec(text)) !== null) {
+            answers.push(match[1]);
+        }
+
+        if (answers.length > 0) {
+            gapsPreviewList.innerHTML = answers
+                .map((answer, index) => `<div class="badge bg-primary me-1 mb-1">${answer}</div>`)
+                .join("");
+        } else {
+            gapsPreviewList.innerHTML = '<span class="text-muted">Пропуски не найдены</span>';
+        }
+    }
 
     if (htmlContent) {
         editor.innerHTML = htmlContent;
+        updateGapsPreview();
     }
 
     card.querySelectorAll(".format-btn").forEach(btn => {
         btn.addEventListener("click", () => {
             document.execCommand(btn.dataset.cmd, false, null);
             editor.focus();
+            updateGapsPreview();
         });
     });
 
     card.querySelector(".insert-gap-btn").addEventListener("click", () => {
-        const selection = window.getSelection();
-        if (selection.rangeCount > 0) {
-            const range = selection.getRangeAt(0);
-
-            const gapSpan = document.createElement('span');
-            gapSpan.className = 'gap-placeholder';
-            gapSpan.contentEditable = 'false';
-            gapSpan.innerHTML = '[]';
-            gapSpan.style.display = 'inline-block';
-            gapSpan.style.minWidth = '30px';
-            gapSpan.style.borderBottom = '2px solid #000';
-            gapSpan.style.textAlign = 'center';
-            gapSpan.style.margin = '0 2px';
-            gapSpan.style.padding = '0 4px';
-
-            range.insertNode(gapSpan);
-
-            const textNode = document.createTextNode('\u00A0');
-            range.insertNode(textNode);
-
-            range.setStartAfter(gapSpan);
-            range.setEndAfter(gapSpan);
-            selection.removeAllRanges();
-            selection.addRange(range);
-        }
         editor.focus();
+
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) return;
+
+        const range = selection.getRangeAt(0);
+        range.deleteContents();
+
+        const startBracket = document.createTextNode("[");
+        const textNode = document.createTextNode("текст");
+        const endBracket = document.createTextNode("]");
+
+        range.insertNode(endBracket);
+        range.insertNode(textNode);
+        range.insertNode(startBracket);
+    
+        range.setStart(textNode, 0);
+        range.setEnd(textNode, textNode.length);
+
+        selection.removeAllRanges();
+        selection.addRange(range);
+
+        updateGapsPreview();
     });
 
     card.querySelector(".clear-format-btn").addEventListener("click", () => {
-        const content = editor.innerHTML;
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = content;
-
-        const gaps = tempDiv.querySelectorAll('.gap-placeholder');
-        gaps.forEach(gap => {
-            gap.outerHTML = '[]';
-        });
-
-        editor.innerHTML = tempDiv.innerHTML;
+        const text = editor.innerText;
+        editor.innerHTML = text.replace(/\n/g, "<br>");
         editor.focus();
+        updateGapsPreview();
     });
 
-    card.querySelector(".remove-task-btn")
-        .addEventListener("click", () => {
-            if (taskId && bootstrapEditorModal) {
-                bootstrapEditorModal.hide();
-            } else {
-                card.remove();
-            }
-        });
+    editor.addEventListener("input", updateGapsPreview);
+    editor.addEventListener("paste", () => setTimeout(updateGapsPreview, 50));
 
-    card.querySelector(".btn-success")
-        .addEventListener("click", () => saveTask("fill_gaps", card, taskId));
+    card.querySelector(".remove-task-btn").addEventListener("click", () => {
+        if (taskId && bootstrapEditorModal) {
+            bootstrapEditorModal.hide();
+        } else {
+            card.remove();
+        }
+    });
+
+    card.querySelector(".save-btn").addEventListener("click", () => {
+        saveTask("fill_gaps", card, taskId);
+    });
 
     if (taskId) {
         if (!editorModal) {
@@ -154,8 +177,11 @@ function renderFillGapsTaskEditor(taskId = null, container = null, taskData = nu
 }
 
 function collectFillGapsData(card) {
-    const editor = card.querySelector('.fill-text-editor');
+    const editor = card.querySelector(".fill-text-editor");
+    const taskType = card.querySelector(".fill-gaps-type-select")?.value || "hidden";
+
     return {
-        text: editor.innerHTML
+        text: editor.innerHTML,
+        task_type: taskType
     };
 }

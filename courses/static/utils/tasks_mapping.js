@@ -29,7 +29,7 @@ function renderTaskCard(task, replaceExisting = false) {
     contentContainer.innerHTML = `<span class="text-secondary">Загрузка...</span>`;
     card.appendChild(contentContainer);
 
-    if (typeof isAdmin !== "undefined" && isAdmin) {
+    if (typeof isTeacher !== "undefined" && isTeacher) {
         const adminPanel = document.createElement("div");
         adminPanel.className = "admin-panel position-absolute top-0 end-0 m-2 p-1 d-flex gap-1 align-items-center rounded-3 shadow-sm bg-white opacity-0 transition-opacity";
         adminPanel.style.zIndex = "10";
@@ -47,7 +47,7 @@ function renderTaskCard(task, replaceExisting = false) {
                 resetBtn.className = "btn btn-sm p-1 border-0 bg-transparent text-warning";
                 resetBtn.innerHTML = `<i class="bi bi-arrow-clockwise"></i>`;
                 resetBtn.title = "Сбросить ответы";
-                resetBtn.onclick = async () => resetStudentAnswers(task.task_id);
+                resetBtn.onclick = async () => confirmResetStudentAnswers(task.task_id);
                 adminPanel.appendChild(resetBtn);
             }
         } catch (err) {
@@ -144,41 +144,7 @@ async function loadSectionTasks(sectionId) {
             tasks.forEach(task => renderTaskCard(task));
         }
         if (isClassroom) {
-            try {
-                const data = await fetchSectionAnswers(sectionId);
-
-                if (!data || !Array.isArray(data.answers)) {
-                    showNotification("Нет данных для отображения.");
-                    return;
-                }
-
-                data.answers.forEach(answerData => {
-                    const { task_id, task_type, answer } = answerData;
-
-                    const container = document.querySelector(`[data-task-id="${task_id}"]`);
-                    if (!container) {
-                        console.warn(`Контейнер не найден для task_id: ${task_id}`);
-                        return;
-                    }
-
-                    const handler = answerHandlers[task_type];
-                    if (typeof handler === "function") {
-                        try {
-                            handler(answerData);
-                        } catch (error) {
-                            console.warn(`Ошибка в обработчике для task_type ${task_type}, task_id ${task_id}:`, error);
-                            showNotification("Не удалось отобразить ответ.");
-                        }
-                    } else {
-                        console.warn(`Не найден обработчик для типа задания: ${task_type}`);
-                        showNotification("Не удалось отобразить ответ.");
-                    }
-                });
-
-            } catch (error) {
-                console.warn("Ошибка в handleSectionAnswers:", error);
-                showNotification("Не удалось загрузить ответы раздела.");
-            }
+            await loadSectionTasksAnswers(sectionId);
         } else {
             console.warn('Ответы не загружены, так как пользователь находится вне режима виртуального класса.');
         }

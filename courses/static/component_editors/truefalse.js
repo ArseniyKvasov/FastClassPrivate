@@ -4,7 +4,6 @@
  * taskData может содержать массив утверждений [{statement: "...", is_true: bool}, ...]
  */
 function renderTrueFalseTaskEditor(taskId = null, container = null, taskData = null) {
-    console.log(taskData);
     const parent = container || document.getElementById("task-list");
     if (!parent) return;
 

@@ -25,6 +25,20 @@ function initStudentPanel(studentsList) {
         dropdownMenu.appendChild(addStudentLi);
     }
 
+    setTimeout(() => {
+        if (typeof currentStudentId !== 'undefined' && currentStudentId) {
+            const studentOption = document.querySelector(`.student-option[data-student-id="${currentStudentId}"]`);
+            if (studentOption) {
+                studentOption.click();
+            } else {
+                const allStudentsOption = document.querySelector('.student-option[data-student-id="all"]');
+                if (allStudentsOption) {
+                    allStudentsOption.click();
+                }
+            }
+        }
+    }, 0);
+
     document.querySelectorAll('#studentDropdownMenu .dropdown-item').forEach(item => {
         item.addEventListener('click', function(e) {
             if (this.id === 'addStudentButton') {
@@ -47,7 +61,13 @@ function initStudentPanel(studentsList) {
 
             button.textContent = studentName;
 
-            loadStudentData(studentId);
+            if (studentId === 'all') {
+                currentStudentId = 'all';
+                loadSectionStatistics();
+            } else {
+                clearStatistics();
+                loadStudentData(studentId);
+            }
         });
     });
 
@@ -90,7 +110,7 @@ function initStudentPanel(studentsList) {
  */
 function loadStudentData(studentId) {
     try {
-        currentUserId = studentId
+        currentStudentId = studentId;
         handleSectionAnswers(sectionId);
     } catch (error) {
         console.error('Ошибка при загрузке данных ученика:', error);
