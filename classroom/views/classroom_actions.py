@@ -9,27 +9,27 @@ def classroom_view(request, classroom_id):
     lesson = classroom.lesson
 
     sections = lesson.sections.order_by("order") if lesson else []
-    first_section = sections.first() if lesson else None
+    first_section = sections.first() if sections else None
     section_id = first_section.id if first_section else None
 
-    students = classroom.students.all().values('id', 'username')
+    students_qs = classroom.students.all().values("id", "username")
+    students_list = [
+        {"id": student["id"], "name": student["username"]}
+        for student in students_qs
+    ]
 
-    students_list = []
-    for student in students:
-        students_list.append({
-            'id': student['id'],
-            'name': student['username']
-        })
+    invite_url = request.build_absolute_uri(
+        f"/classroom/join/{classroom.invite_code}/"
+    )
 
-    invite_url = request.build_absolute_uri(f'/classroom/join/{classroom.invite_code}/')
     is_teacher = request.user == classroom.teacher
+
     if is_teacher:
-        if students_list:
-            first_student_id = students_list[0]['id']
-        else:
-            first_student_id = "all"
+        viewed_user_id = (
+            students_list[0]["id"] if students_list else "all"
+        )
     else:
-        first_student_id = None
+        viewed_user_id = request.user.id
 
     return render(
         request,
@@ -39,9 +39,8 @@ def classroom_view(request, classroom_id):
             "lesson_id": lesson.id if lesson else None,
             "sections": sections,
             "section_id": section_id,
-            "is_teacher": request.user == classroom.teacher,
-            "first_student_id": first_student_id,
-            "user_id": request.user.id,
+            "is_teacher": is_teacher,
+            "viewed_user_id": viewed_user_id,
             "students_list": students_list,
             "invite_url": invite_url,
         }

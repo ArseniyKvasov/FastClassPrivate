@@ -19,6 +19,6 @@ def page_editor_view(request, lesson_id):
             "sections": sections,
             "section_id": section_id,
             "is_teacher": lesson.course.creator == request.user,
-            "user_id": request.user.id,
+            "viewed_user_id": request.user.id,
         }
     )

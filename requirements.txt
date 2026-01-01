@@ -1,21 +1,22 @@
 # Django
-django~=4.2.25
-djangorestframework==3.16.1
+Django>=5.2,<6.1
+djangorestframework>=3.16
 
 # Database
-psycopg2-binary==2.9.11
+psycopg2-binary>=2.9,<3.0
 
 # Images & safe HTML
-Pillow==11.3.0
-bleach==6.0.0
+Pillow>=11.3.0
+bleach>=6.0.0
+tinycss2
 
 # Channels & redis
-channels==4.3.0
-channels-redis==4.3.0
-websockets==11.0.3
+channels>=4.3.2,<5.0
+channels-redis>=4.3.0
+websockets>=11.0.3
 
 # ASGI server
-uvicorn[standard]==0.30.6
+uvicorn[standard]>=0.30.6
 
 # Static files
-whitenoise
+whitenoise>=6.11.0

@@ -40,7 +40,7 @@ INSTALLED_APPS = [
     'authapp',
     'classroom',
     'courses',
-    'pages',
+    'core',
     'channels',
 ]
 

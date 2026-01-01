@@ -5,7 +5,7 @@ from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path("", include("pages.urls")),
+    path("", include("core.urls")),
     path("auth/", include("authapp.urls")),
     path("classroom/", include("classroom.urls")),
     path("courses/", include("courses.urls")),
@@ -13,3 +13,7 @@ urlpatterns = [
 
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATICFILES_DIRS[0])
+    urlpatterns += static(
+        settings.MEDIA_URL,
+        document_root=settings.MEDIA_ROOT
+    )

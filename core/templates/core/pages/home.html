@@ -1,0 +1,15 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Главная - FastLesson{% endblock %}
+
+{% block content %}
+{% include 'core/pages/_hero.html' %}
+{% include 'core/pages/_courses.html' %}
+
+{% if user.is_authenticated %}
+{% include 'core/pages/_classes.html' %}
+{% include 'core/pages/_tariff.html' %}
+{% include 'core/pages/_support.html' %}
+{% endif %}
+
+{% endblock %}

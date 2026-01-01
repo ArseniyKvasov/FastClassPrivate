@@ -29,75 +29,11 @@ function renderTaskCard(task, replaceExisting = false) {
     contentContainer.innerHTML = `<span class="text-secondary">Загрузка...</span>`;
     card.appendChild(contentContainer);
 
-    if (typeof isTeacher !== "undefined" && isTeacher) {
-        const adminPanel = document.createElement("div");
-        adminPanel.className = "admin-panel position-absolute top-0 end-0 m-2 p-1 d-flex gap-1 align-items-center rounded-3 shadow-sm bg-white opacity-0 transition-opacity";
-        adminPanel.style.zIndex = "10";
-
-        const editBtn = document.createElement("button");
-        editBtn.className = "btn btn-sm p-1 border-0 bg-transparent";
-        editBtn.innerHTML = `<i class="bi bi-pencil"></i>`;
-        editBtn.title = "Редактировать";
-        editBtn.onclick = () => editTaskCard(card, task.data);
-        adminPanel.appendChild(editBtn);
-
-        try {
-            if (isClassroom && interactiveTasks.includes(task.task_type)) {
-                const resetBtn = document.createElement("button");
-                resetBtn.className = "btn btn-sm p-1 border-0 bg-transparent text-warning";
-                resetBtn.innerHTML = `<i class="bi bi-arrow-clockwise"></i>`;
-                resetBtn.title = "Сбросить ответы";
-                resetBtn.onclick = async () => confirmResetStudentAnswers(task.task_id);
-                adminPanel.appendChild(resetBtn);
-            }
-        } catch (err) {
-            console.warn("Не удалось отобразить resetBtn");
-        }
-
-        const removeBtn = document.createElement("button");
-        removeBtn.className = "btn btn-sm p-1 border-0 bg-transparent text-danger";
-        removeBtn.innerHTML = `<i class="bi bi-trash"></i>`;
-        removeBtn.title = "Удалить";
-        removeBtn.onclick = async () => {
-            const confirmed = await confirmAction("Вы уверены, что хотите удалить это задание?");
-            if (!confirmed) return;
-            try {
-                const response = await fetch("/courses/delete-task/", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-CSRFToken": getCsrfToken()
-                    },
-                    body: JSON.stringify({ task_id: task.task_id })
-                });
-                const result = await response.json();
-                if (result.success) {
-                    card.remove();
-                    showNotification("✅ Задание успешно удалено");
-                } else {
-                    showNotification(`❌ Ошибка: ${result.errors}`);
-                }
-            } catch (e) {
-                console.error(e);
-                showNotification("❌ Не удалось удалить задание. Попробуйте ещё раз.");
-            }
-        };
-        adminPanel.appendChild(removeBtn);
-
-        card.appendChild(adminPanel);
-
-        card.addEventListener("mouseenter", () => adminPanel.classList.add("opacity-100"));
-        card.addEventListener("mouseleave", () => adminPanel.classList.remove("opacity-100"));
-    }
-
     try {
         const renderer = TASK_RENDERERS[task.task_type];
         if (renderer) {
             contentContainer.innerHTML = "";
             renderer(task, contentContainer);
-            if (isClassroom) {
-                attachTaskHandler(contentContainer, task);
-            }
         } else {
             contentContainer.innerHTML = "<span class='text-danger'>Не удалось отобразить задание.</span>";
         }
@@ -142,11 +78,6 @@ async function loadSectionTasks(sectionId) {
         const tasks = await fetchSectionTasks(sectionId);
         if (Array.isArray(tasks)) {
             tasks.forEach(task => renderTaskCard(task));
-        }
-        if (isClassroom) {
-            await loadSectionTasksAnswers(sectionId);
-        } else {
-            console.warn('Ответы не загружены, так как пользователь находится вне режима виртуального класса.');
         }
     } catch (e) {
         console.error(e);

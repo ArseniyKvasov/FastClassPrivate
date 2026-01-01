@@ -3,29 +3,55 @@ from courses.models import Lesson, Section, Task, TestTask, NoteTask, ImageTask,
     TextInputTask
 import json
 from django.views.decorators.http import require_POST
+from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from courses.task_serializers import TASK_SERIALIZER_MAP
 
 
-@require_POST
-def create_section_view(request):
+@login_required
+def lesson_sections(request, lesson_id):
     """
-    Создание нового раздела для урока.
-    Ожидает JSON с полями:
-      - lesson_id: UUID урока
-      - title: название раздела
-    Возвращает JSON с данными созданного раздела.
+    Возвращает список разделов для указанного урока.
+    Формат: { success: True, sections: [ {id, title, order}, ... ] }
+    """
+    lesson = get_object_or_404(Lesson, id=lesson_id)
+
+    sections_qs = lesson.sections.all().order_by('order')
+
+    sections = [
+        {
+            "id": str(section.id),
+            "title": section.title,
+            "order": section.order,
+        }
+        for section in sections_qs
+    ]
+
+    return JsonResponse({"success": True, "sections": sections})
+
+
+@require_POST
+def create_section(request):
+    """
+    Создание нового раздела.
+    Ожидает JSON:
+      - lesson_id
+      - title
     """
     try:
         data = json.loads(request.body)
         lesson_id = data.get("lesson_id")
-        title = data.get("title", "").strip()
+        title = (data.get("title") or "").strip()
+
+        if not lesson_id:
+            return JsonResponse({"error": "Не указан lesson_id"}, status=400)
 
         if not title:
-            return JsonResponse({"error": "Название раздела не может быть пустым."}, status=400)
+            return JsonResponse({"error": "Название раздела не может быть пустым"}, status=400)
 
         lesson = get_object_or_404(Lesson, id=lesson_id)
+
         order = lesson.sections.count()
 
         section = Section.objects.create(
@@ -37,36 +63,31 @@ def create_section_view(request):
         return JsonResponse({
             "id": str(section.id),
             "title": section.title,
-            "order": section.order,
-            "lesson_id": str(lesson.id)
+            "order": section.order
         })
 
     except json.JSONDecodeError:
-        return JsonResponse({"error": "Некорректный формат данных."}, status=400)
-    except Lesson.DoesNotExist:
-        return JsonResponse({"error": "Урок не найден."}, status=404)
+        return JsonResponse({"error": "Некорректный JSON"}, status=400)
     except Exception as e:
-        return JsonResponse({"error": f"Ошибка при создании раздела: {e}"}, status=500)
+        return JsonResponse({"error": str(e)}, status=500)
 
 
 @require_POST
-def edit_section_view(request):
+def edit_section(request, section_id):
     """
     Редактирование названия раздела
+    URL: /section/<section_id>/edit/
     """
     try:
         data = json.loads(request.body)
-        section_id = data.get("section_id")
-        new_title = data.get("title", "").strip()
+        title = (data.get("title") or "").strip()
 
-        if not section_id:
-            return JsonResponse({"error": "Не указан ID раздела"}, status=400)
-        if not new_title:
+        if not title:
             return JsonResponse({"error": "Название не может быть пустым"}, status=400)
 
         section = get_object_or_404(Section, id=section_id)
-        section.title = new_title
-        section.save()
+        section.title = title
+        section.save(update_fields=["title"])
 
         return JsonResponse({
             "id": str(section.id),
@@ -74,29 +95,22 @@ def edit_section_view(request):
         })
 
     except json.JSONDecodeError:
-        return JsonResponse({"error": "Некорректный формат данных"}, status=400)
+        return JsonResponse({"error": "Некорректный JSON"}, status=400)
     except Exception as e:
-        return JsonResponse({"error": f"Ошибка при редактировании раздела: {e}"}, status=500)
+        return JsonResponse({"error": str(e)}, status=500)
 
 
 @require_POST
-def delete_section_view(request):
+def delete_section(request, section_id):
     """
-    Удаление раздела по ID
+    Удаление раздела
+    URL: /section/<section_id>/delete/
     """
     try:
-        data = json.loads(request.body)
-        section_id = data.get("section_id")
-
-        if not section_id:
-            return JsonResponse({"error": "Не указан ID раздела"}, status=400)
-
         section = get_object_or_404(Section, id=section_id)
         section.delete()
 
         return JsonResponse({"success": True})
 
-    except json.JSONDecodeError:
-        return JsonResponse({"error": "Некорректный формат данных"}, status=400)
     except Exception as e:
-        return JsonResponse({"error": f"Ошибка при удалении раздела: {e}"}, status=500)
+        return JsonResponse({"error": str(e)}, status=500)

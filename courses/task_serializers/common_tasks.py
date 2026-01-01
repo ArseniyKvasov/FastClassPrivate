@@ -1,26 +1,48 @@
+import re
 import bleach
+from bleach.css_sanitizer import CSSSanitizer
 from django.utils.html import strip_tags
 from rest_framework import serializers
-import re
-from courses.models import TestTask, TrueFalseTask, FillGapsTask, MatchCardsTask, NoteTask, ImageTask, TextInputTask, \
-    IntegrationTask
+from courses.models import (
+    TestTask, TrueFalseTask, FillGapsTask, MatchCardsTask,
+    NoteTask, ImageTask, TextInputTask, IntegrationTask
+)
 
-SAFE_TAGS = [
-    "b", "i", "u", "em", "strong",
-    "ul", "ol", "li",
-    "p", "br",
-    "h1", "h2", "h3", "h4", "h5", "h6",
-    "div", "span",
-    "blockquote", "code", "pre",
-    "table", "thead", "tbody", "tr", "th", "td",
-    "a", "img"
-]
+# Разрешённые теги и атрибуты
+SAFE_TAGS = ["b", "i", "u", "em", "strong", "ul", "ol", "li",
+             "p", "br", "h1", "h2", "h3", "h4", "h5", "h6",
+             "blockquote", "code", "pre", "table", "thead", "tbody", "tr", "th", "td",
+             "a", "img", "div", "span"]
 
 SAFE_ATTRIBUTES = {
+    "*": ["class", "id"],
     "a": ["href", "title", "target"],
     "img": ["src", "alt", "title", "width", "height"],
-    "*": ["class", "style", "id"]
 }
+
+CSS_SANITIZER = CSSSanitizer(
+    allowed_css_properties=[
+        "font-weight", "font-style", "text-decoration",
+        "color", "background-color",
+        "width", "height", "border", "max-width", "max-height",
+        "display", "margin", "padding"
+    ]
+)
+
+def clean_text_style(text: str) -> str:
+    """
+    Очистка текста от опасного HTML и стилей.
+    Все тексты будут в едином стиле <p>...</p>.
+    """
+    cleaned = bleach.clean(
+        text,
+        tags=SAFE_TAGS,
+        attributes=SAFE_ATTRIBUTES,
+        css_sanitizer=CSS_SANITIZER,
+        strip=True
+    )
+    lines = [line.strip() for line in cleaned.splitlines() if line.strip()]
+    return "".join(f"{line}" for line in lines)
 
 
 class TestTaskSerializer(serializers.ModelSerializer):
@@ -29,13 +51,12 @@ class TestTaskSerializer(serializers.ModelSerializer):
         fields = ["questions"]
 
     def validate_questions(self, value):
-        print(value)
         if not isinstance(value, list) or not value:
             raise serializers.ValidationError("Нужно хотя бы один вопрос")
 
         for q in value:
-            question = q.get("question", "").strip()
-            if not question:
+            q["question"] = clean_text_style(q.get("question", "").strip())
+            if not q["question"]:
                 raise serializers.ValidationError("Вопрос не может быть пустым")
 
             options = [o for o in q.get("options", []) if o.get("option", "").strip()]
@@ -43,9 +64,9 @@ class TestTaskSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("Нужно хотя бы один вариант ответа")
             if not any(o.get("is_correct") for o in options):
                 raise serializers.ValidationError("Хотя бы один вариант должен быть правильным")
-
+            for o in options:
+                o["option"] = clean_text_style(o.get("option", "").strip())
             q["options"] = options
-            q["question"] = question
 
         return value
 
@@ -60,10 +81,9 @@ class TrueFalseTaskSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Нужно хотя бы одно утверждение")
 
         for stmt in value:
-            text = stmt.get("statement", "").strip()
-            if not text:
+            stmt["statement"] = clean_text_style(stmt.get("statement", "").strip())
+            if not stmt["statement"]:
                 raise serializers.ValidationError("Утверждение не может быть пустым")
-            stmt["statement"] = text
             stmt["is_true"] = bool(stmt.get("is_true", False))
 
         return value
@@ -73,31 +93,21 @@ class FillGapsTaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = FillGapsTask
         fields = ["text", "answers", "task_type"]
+        read_only_fields = ["answers"]
 
     def validate(self, data):
-        text = data.get("text", "").strip()
-        answers = data.get("answers", [])
-        task_type = data.get("task_type", "open")
-
+        text = clean_text_style(data.get("text", "").strip())
         if not text:
             raise serializers.ValidationError({"text": "Текст не может быть пустым"})
 
-        if task_type == "open":
-            blanks_count = len(re.findall(r"\[(.*?)\]", text))
-            if blanks_count == 0:
-                raise serializers.ValidationError({
-                    "text": "Текст должен содержать пропуски в формате [текст]"
-                })
-        else:
-            if not answers:
-                raise serializers.ValidationError({"answers": "Нужно хотя бы один правильный ответ"})
+        found_blanks = re.findall(r"\[(.*?)\]", text)
+        if not found_blanks:
+            raise serializers.ValidationError({
+                "text": "Текст должен содержать хотя бы один пропуск в формате [текст]"
+            })
 
-            blanks_count = len(re.findall(r"\[(.*?)\]", text))
-            if blanks_count != len(answers):
-                raise serializers.ValidationError({
-                    "answers": f"Количество пропусков {blanks_count} не соответствует числу ответов {len(answers)}"
-                })
-
+        data["text"] = text
+        data["answers"] = found_blanks
         return data
 
 
@@ -107,52 +117,31 @@ class MatchCardsTaskSerializer(serializers.ModelSerializer):
         fields = ["cards"]
 
     def _sanitize_text(self, text: str) -> str:
-        """
-        Полная очистка текста для безопасного отображения без JS escape.
-        1. Удаляет HTML-теги (<script>, <div>, ...)
-        2. Убирает JS-опасные символы
-        3. Чистит невидимые Unicode-символы, ломающие JS
-        """
         text = strip_tags(text)
-
-        dangerous = r"[<>/{}[\]();]"
-        text = re.sub(dangerous, "", text)
-
+        text = re.sub(r"[<>/{}[\]();]", "", text)
         text = text.replace("\u2028", "").replace("\u2029", "")
-
         return text.strip()
 
     def validate_cards(self, value):
         if not isinstance(value, list):
             raise serializers.ValidationError("Карточки должны быть списком")
 
-        normalized = []
-        left_cards = set()
-        right_cards = set()
+        normalized, left_set, right_set = [], set(), set()
 
         for item in value:
             left = self._sanitize_text(item.get("card_left", ""))
             right = self._sanitize_text(item.get("card_right", ""))
-
             if left and right:
-                if left in left_cards:
+                if left in left_set:
                     raise serializers.ValidationError("Найдены одинаковые левые карточки")
-
-                if right in right_cards:
+                if right in right_set:
                     raise serializers.ValidationError("Найдены одинаковые правые карточки")
-
-                left_cards.add(left)
-                right_cards.add(right)
-                normalized.append({
-                    "card_left": left,
-                    "card_right": right
-                })
-
-        if not normalized:
-            raise serializers.ValidationError("Нужно хотя бы одну заполненную пару")
+                left_set.add(left)
+                right_set.add(right)
+                normalized.append({"card_left": left, "card_right": right})
 
         if len(normalized) < 2:
-            raise serializers.ValidationError("Добавьте как минимум две пары карточек")
+            raise serializers.ValidationError("Добавьте как минимум две заполненные пары карточек")
 
         return normalized
 
@@ -163,16 +152,10 @@ class NoteTaskSerializer(serializers.ModelSerializer):
         fields = ["content"]
 
     def validate_content(self, value):
+        value = clean_text_style(value)
         if not value.strip():
             raise serializers.ValidationError("Содержимое заметки не может быть пустым")
-
-        cleaned_value = bleach.clean(
-            value,
-            tags=SAFE_TAGS,
-            attributes=SAFE_ATTRIBUTES,
-            strip=True
-        )
-        return cleaned_value
+        return value
 
 
 class ImageTaskSerializer(serializers.ModelSerializer):
@@ -187,6 +170,9 @@ class ImageTaskSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Допустимые форматы: PNG, JPG, JPEG, GIF, WEBP")
         return value
 
+    def validate_caption(self, value):
+        return clean_text_style(value)
+
 
 class TextInputTaskSerializer(serializers.ModelSerializer):
     class Meta:
@@ -194,9 +180,13 @@ class TextInputTaskSerializer(serializers.ModelSerializer):
         fields = ["prompt", "default_text"]
 
     def validate_prompt(self, value):
+        value = clean_text_style(value)
         if not value.strip():
             raise serializers.ValidationError("Текст задания не может быть пустым")
         return value
+
+    def validate_default_text(self, value):
+        return clean_text_style(value)
 
 
 class IntegrationTaskSerializer(serializers.ModelSerializer):
@@ -205,98 +195,42 @@ class IntegrationTaskSerializer(serializers.ModelSerializer):
         fields = ["embed_code"]
 
     def validate_embed_code(self, value):
-        """
-        Валидация embed-кода:
-        1. Проверяем наличие iframe
-        2. Проверяем поддерживаемые домены
-        3. Очищаем от опасного кода
-        """
         if not value:
             raise serializers.ValidationError("Embed-код не может быть пустым")
-
         if '<iframe' not in value:
             raise serializers.ValidationError("Код должен содержать iframe")
 
-        supported_domains = [
+        allowed_domains = [
             'youtube.com', 'youtu.be', 'wordwall.net', 'miro.com',
             'quizlet.com', 'learningapps.org', 'rutube.ru', 'sboard.online'
         ]
-
-        has_supported_domain = any(domain in value for domain in supported_domains)
-        if not has_supported_domain:
+        if not any(domain in value for domain in allowed_domains):
             raise serializers.ValidationError(
-                f"Неподдерживаемый ресурс. Поддерживаются: {', '.join(supported_domains)}"
+                f"Неподдерживаемый ресурс. Поддерживаются: {', '.join(allowed_domains)}"
             )
 
-        cleaned_code = self._clean_embed_code(value)
+        return self._clean_embed_code(value)
 
-        return cleaned_code
-
-    def _clean_embed_code(self, code):
-        """
-        Очистка embed-кода с помощью регулярных выражений
-        """
+    def _clean_embed_code(self, code: str) -> str:
         import re
-
         iframe_match = re.search(r'<iframe[^>]*(?:/>|>.*?</iframe>)', code, re.DOTALL)
         if not iframe_match:
             raise serializers.ValidationError("Не удалось найти корректный iframe в коде")
 
-        iframe_full = iframe_match.group(0)
-
-        iframe_open_match = re.search(r'<iframe[^>]*>', iframe_full)
-        iframe_open = iframe_open_match.group(0) if iframe_open_match else iframe_full
+        iframe = iframe_match.group(0)
 
         allowed_attrs = {
             'src', 'width', 'height', 'frameborder', 'allow',
             'allowfullscreen', 'title', 'style', 'class', 'sandbox'
         }
 
-        safe_css_props = {
-            'width', 'height', 'border', 'max-width', 'max-height',
-            'display', 'margin', 'padding', 'background'
-        }
-
-        attrs = {}
+        clean_attrs = {}
         for attr in allowed_attrs:
-            attr_match = re.search(r'\b' + attr + r'=(["\'])(.*?)\1', iframe_open)
-            if not attr_match:
-                attr_match = re.search(r'\b' + attr + r'=([^\s>]+)', iframe_open)
+            match = re.search(rf'{attr}=(["\'])(.*?)\1', iframe)
+            if match:
+                clean_attrs[attr] = match.group(2)
+        clean_attrs['sandbox'] = 'allow-scripts allow-same-origin allow-popups allow-forms'
 
-            if attr_match:
-                attr_value = attr_match.group(2) if '"' in iframe_open else attr_match.group(1)
-                attrs[attr] = attr_value
+        clean_attrs['style'] = clean_attrs.get('style', 'border: none; max-width: 100%;')
 
-        if 'style' in attrs:
-            safe_css_props = {'width', 'height', 'border', 'max-width', 'max-height',
-                              'display', 'margin', 'padding', 'background'}
-            styles = attrs['style'].split(';')
-            clean_styles = []
-            for style in styles:
-                if ':' in style:
-                    prop, val = style.split(':', 1)
-                    prop = prop.strip().lower()
-                    if prop in safe_css_props:
-                        val = re.sub(r'[<>{}]', '', val.strip())
-                        clean_styles.append(f"{prop}:{val}")
-            attrs['style'] = '; '.join(clean_styles)
-
-        attrs['sandbox'] = 'allow-scripts allow-same-origin allow-popups allow-forms'
-
-        base_style = 'border: none; max-width: 100%;'
-        if 'style' in attrs:
-            if 'border' not in attrs['style'].lower():
-                attrs['style'] += '; border: none;'
-            if 'max-width' not in attrs['style'].lower():
-                attrs['style'] += '; max-width: 100%;'
-        else:
-            attrs['style'] = base_style
-
-        if any(domain in attrs.get('src', '') for domain in ['youtube.com', 'youtu.be', 'rutube.ru']):
-            attrs['allowfullscreen'] = 'true'
-            attrs['allow'] = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture'
-
-        clean_attrs = ' '.join([f'{k}="{v}"' for k, v in attrs.items()])
-        clean_iframe = f'<iframe {clean_attrs}></iframe>'
-
-        return clean_iframe
+        return f'<iframe {" ".join(f"{k}=\"{v}\"" for k, v in clean_attrs.items())}></iframe>'

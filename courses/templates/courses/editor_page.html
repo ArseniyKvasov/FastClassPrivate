@@ -1,4 +1,4 @@
-{% extends 'pages/base.html' %}
+{% extends 'core/base.html' %}
 {% load static %}
 
 {% block content %}
@@ -45,13 +45,49 @@
         }
     </style>
 
-    <script>
-        let sectionId = `{{ section_id }}`;
-        let isTeacher = `{{ is_teacher }}`;
-        let lessonId = `{{ lesson_id }}`;
-        let userId = {{ user_id|default:"null" }};
-        const isClassroom = false;
+    <div id="info"
+         data-section-id="{{ section_id }}"
+         data-is-teacher="{{ is_teacher|yesno:'true,false' }}"
+         data-lesson-id="{{ lesson_id }}"
+         data-viewed-user-id="{{ viewed_user_id }}"
+         data-is-classroom="false"
+    >
+    </div>
+
+    <!-- Отображение заданий -->
+    <script type="module">
+        import { loadSectionTasks } from "{% static 'js/tasks/display/showTasks.js' %}";
+
+        document.addEventListener("DOMContentLoaded", () => {
+            loadSectionTasks(`{{ section_id }}`);
+        });
     </script>
+
+    <!-- Отображение списка разделов -->
+    <script type="module">
+        import { initRenderSections } from "{% static 'js/tasks/display/renderSections.js' %}";
+
+        initRenderSections();
+    </script>
+
+    {% if is_teacher %}
+        <!-- Загрузка модальных окон для редактирования -->
+        {% include 'core/tasks/task_selection_modal.html' %}
+        {% include 'core/tasks/section_create_modal.html' %}
+
+        <!-- Редактирование заданий -->
+        <script type="module">
+            import { initEditTasks } from "{% static 'js/tasks/editor/edit.js' %}";
+
+            document.addEventListener("DOMContentLoaded", () => {
+                initEditTasks();
+            });
+        </script>
+    {% endif %}
+
+
+
+
 
     <div class="row mt-4 d-flex justify-content-center">
         <div id="main-container" class="col-12 col-xl-9">
@@ -74,55 +110,9 @@
                  style="max-height: 80vh; overflow-y: hidden;">
 
                 <ul id="section-list"
-                    class="list-group list-group-flush mb-2"
+                    class="list-group list-group-flush"
                     style="overflow-y: auto; max-height: calc(80vh - 60px);">
-
-                    {% for section in sections %}
-                        <li class="list-group-item d-flex justify-content-between align-items-center border-0 px-2 my-1 rounded"
-                            data-section-id="{{ section.id }}"
-                            data-section-type="{{ section.type|default:'default' }}">
-
-                            <div class="d-flex align-items-center gap-2" style="flex:1; min-width:0;">
-                                {% if is_teacher %}
-                                    <span class="drag-handle me-2" title="Перетащить">☰</span>
-                                {% endif %}
-
-                                <button type="button"
-                                        class="btn btn-link section-link text-decoration-none text-truncate p-0 me-2"
-                                        data-section-id="{{ section.id }}">
-                                    {{ section.title }}
-                                </button>
-                            </div>
-
-                            {% if is_teacher %}
-                                <div class="d-flex gap-2">
-                                    <button type="button"
-                                            class="btn btn-link p-0 edit-section-button"
-                                            data-section-id="{{ section.id }}">
-                                        <i class="bi bi-pencil-fill text-secondary"></i>
-                                    </button>
-                                    <button type="button"
-                                            class="btn btn-link p-0 delete-btn"
-                                            data-section-id="{{ section.id }}">
-                                        <i class="bi bi-trash3-fill text-secondary"></i>
-                                    </button>
-                                </div>
-                            {% endif %}
-                        </li>
-                    {% endfor %}
                 </ul>
-
-                {% if is_teacher %}
-                    <div id="section-create-wrapper">
-                        <button id="add-section-btn"
-                                class="btn btn-sm text-primary border-0 fw-bold w-100 text-start mb-2">
-                            <i class="bi bi-plus-circle me-1"></i>
-                            Добавить раздел
-                        </button>
-                        <div id="section-create-container"
-                             class="w-80 mx-auto d-flex align-items-center gap-2"></div>
-                    </div>
-                {% endif %}
             </div>
         </div>
     </div>
@@ -132,33 +122,4 @@
          style="z-index: 1155; max-height: 60vh; max-width: 70vw; overflow-y: auto;">
     </div>
 
-    {% if is_teacher %}
-        {% include 'courses/editor/task_selection_modal.html' %}
-        {% include 'courses/editor/section_create_modal.html' %}
-
-        <script src="{% static 'component_editors/test.js' %}"></script>
-        <script src="{% static 'component_editors/truefalse.js' %}"></script>
-        <script src="{% static 'component_editors/note.js' %}"></script>
-        <script src="{% static 'component_editors/match.js' %}"></script>
-        <script src="{% static 'component_editors/image.js' %}"></script>
-        <script src="{% static 'component_editors/fillgaps.js' %}"></script>
-        <script src="{% static 'component_editors/textinput.js' %}"></script>
-        <script src="{% static 'component_editors/integration.js' %}"></script>
-    {% endif %}
-
-    <script src="{% static 'utils/common_utils.js' %}"></script>
-
-    {% if is_teacher %}
-        <script src="{% static 'utils/editor_utils.js' %}"></script>
-    {% endif %}
-
-    <script src="{% static 'component_display/test.js' %}"></script>
-    <script src="{% static 'component_display/truefalse.js' %}"></script>
-    <script src="{% static 'component_display/note.js' %}"></script>
-    <script src="{% static 'component_display/match.js' %}"></script>
-    <script src="{% static 'component_display/image.js' %}"></script>
-    <script src="{% static 'component_display/fillgaps.js' %}"></script>
-    <script src="{% static 'component_display/textinput.js' %}"></script>
-    <script src="{% static 'component_display/integration.js' %}"></script>
-    <script src="{% static 'utils/tasks_mapping.js' %}"></script>
 {% endblock %}
