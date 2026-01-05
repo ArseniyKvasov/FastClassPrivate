@@ -3,6 +3,7 @@ import { showNotification, confirmAction, getSectionId } from "@tasks/utils";
 import { ANSWER_HANDLER_MAP, getClassroomId, getViewedUserId } from "@classroom/answers/utils.js";
 import { loadAnswerModule, fetchSectionAnswers } from "@classroom/answers/api.js";
 import { clearTask } from "./handlers/clearAnswers.js"
+import { loadSectionStatistics } from "@classroom/answers/handlers/statistics.js";
 
 /**
  * Инициализация обработчиков ответа для одной карточки задания
@@ -34,6 +35,11 @@ export async function handleSectionAnswers() {
 
     if (!classroomId || !userId) {
         showNotification("Произошла ошибка. Не указан виртуальный класс.");
+        return;
+    }
+
+    if (userId === "all") {
+        loadSectionStatistics();
         return;
     }
 

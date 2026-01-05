@@ -1,10 +1,16 @@
-import { showNotification, escapeHtml, getSectionId, getInfoElement } from "@tasks/utils";
+import {
+    showNotification,
+    escapeHtml,
+    getInfoElement
+} from "@tasks/utils";
+
 import { getViewedUserId } from "@classroom/answers/utils.js";
 import { handleSectionAnswers } from "@classroom/answers/handleAnswer.js";
 import { clearAllTaskContainers } from "@classroom/answers/handlers/clearAnswers.js";
+import { clearStatistics } from "@classroom/answers/handlers/statistics.js";
 
 /**
- * Инициализирует панель управления учениками.
+ * Инициализирует панель управления учениками
  *
  * @param {Array<{id: number|string, name: string}>} studentsList
  */
@@ -19,17 +25,22 @@ export async function initStudentPanel(studentsList = []) {
     if (!dropdownMenu || !dropdownButton || !infoEl) return;
 
     dropdownMenu.innerHTML = "";
+
     appendMenuItem(dropdownMenu, { id: "all", name: "Все ученики" });
 
     if (Array.isArray(studentsList) && studentsList.length > 0) {
         studentsList.forEach(s => {
-            appendMenuItem(dropdownMenu, { id: String(s.id), name: s.name });
+            appendMenuItem(dropdownMenu, {
+                id: String(s.id),
+                name: s.name
+            });
         });
+
         appendDivider(dropdownMenu);
         dropdownMenu.appendChild(createAddStudentButton());
     }
 
-    dropdownMenu.addEventListener("click", (event) => {
+    dropdownMenu.addEventListener("click", event => {
         const item = event.target.closest(".dropdown-item");
         if (!item) return;
 
@@ -42,8 +53,15 @@ export async function initStudentPanel(studentsList = []) {
         }
 
         event.preventDefault();
+
         const studentId = item.dataset.studentId;
-        selectStudent(studentId, item, dropdownMenu, dropdownButton, infoEl);
+        selectStudent(
+            studentId,
+            item,
+            dropdownMenu,
+            dropdownButton,
+            infoEl
+        );
     });
 
     if (disableCopyingButton) {
@@ -56,11 +74,22 @@ export async function initStudentPanel(studentsList = []) {
 
     const initialId = String(getViewedUserId());
     const initialOption =
-        dropdownMenu.querySelector(`.student-option[data-student-id="${initialId}"]`) ||
-        dropdownMenu.querySelector(`.student-option[data-student-id="all"]`);
+        dropdownMenu.querySelector(
+            `.student-option[data-student-id="${initialId}"]`
+        ) ||
+        dropdownMenu.querySelector(
+            `.student-option[data-student-id="all"]`
+        );
 
     if (initialOption) {
-        selectStudent(initialOption.dataset.studentId, initialOption, dropdownMenu, dropdownButton, infoEl, true);
+        selectStudent(
+            initialOption.dataset.studentId,
+            initialOption,
+            dropdownMenu,
+            dropdownButton,
+            infoEl,
+            true
+        );
     }
 }
 
@@ -69,16 +98,16 @@ export function loadStudentData() {
         handleSectionAnswers();
     } catch (err) {
         console.error("Ошибка при загрузке данных ученика:", err);
-        try {
-            showNotification("Не удалось загрузить данные ученика");
-        } catch (e) {}
+        showNotification("Не удалось загрузить данные ученика");
     }
 }
 
 function appendMenuItem(menu, { id, name }) {
     const li = document.createElement("li");
     li.innerHTML = `
-        <a class="dropdown-item student-option text-black" href="#" data-student-id="${id}">
+        <a class="dropdown-item student-option text-black"
+           href="#"
+           data-student-id="${id}">
             ${escapeHtml(String(name))}
         </a>
     `;
@@ -94,21 +123,31 @@ function appendDivider(menu) {
 function createAddStudentButton() {
     const li = document.createElement("li");
     li.innerHTML = `
-        <button class="dropdown-item text-warning" id="addStudentButton" type="button"
-                data-bs-toggle="modal" data-bs-target="#invitationModal">
-            <i class="bi bi-person-plus me-2" aria-hidden="true"></i>
+        <button class="dropdown-item text-warning"
+                id="addStudentButton"
+                type="button"
+                data-bs-toggle="modal"
+                data-bs-target="#invitationModal">
+            <i class="bi bi-person-plus me-2"></i>
             Добавить ученика
         </button>
     `;
     return li;
 }
 
-async function selectStudent(studentId, itemEl, dropdownMenu, dropdownButton, infoEl, isInitial = false) {
-    dropdownMenu.querySelectorAll(".student-option").forEach(i => {
-        i.classList.remove("active");
-    });
+async function selectStudent(
+    studentId,
+    itemEl,
+    dropdownMenu,
+    dropdownButton,
+    infoEl,
+    isInitial = false
+) {
+    dropdownMenu
+        .querySelectorAll(".student-option")
+        .forEach(i => i.classList.remove("active"));
 
-    if (itemEl) itemEl.classList.add("active");
+    itemEl?.classList.add("active");
 
     dropdownButton.textContent = itemEl
         ? itemEl.textContent.trim()
@@ -118,14 +157,15 @@ async function selectStudent(studentId, itemEl, dropdownMenu, dropdownButton, in
 
     infoEl.dataset.viewedUserId = String(studentId);
 
-    if (!isInitial) {
-        await clearAllTaskContainers();
-        if (studentId === "all") {
-            safeInvoke(() => handleSectionAnswers(), "Не удалось загрузить статистику по разделу");
-        } else {
-            safeInvoke(loadStudentData, "Не удалось загрузить данные ученика");
-        }
-    }
+    if (isInitial) return;
+
+    await clearAllTaskContainers();
+    clearStatistics();
+
+    safeInvoke(
+        loadStudentData,
+        "Не удалось загрузить данные ученика"
+    );
 }
 
 function toggleCopying(e) {
@@ -140,14 +180,14 @@ function toggleCopying(e) {
         document.body.classList.remove("copy-allowed");
         document.body.style.userSelect = "none";
         icon?.classList.replace("bi-check-lg", "bi-ban");
-        if (textEl) textEl.textContent = "Разрешить копирование";
+        textEl && (textEl.textContent = "Разрешить копирование");
         btn.classList.replace("text-success", "text-danger");
         showNotification("Копирование запрещено");
     } else {
         document.body.classList.add("copy-allowed");
         document.body.style.userSelect = "text";
         icon?.classList.replace("bi-ban", "bi-check-lg");
-        if (textEl) textEl.textContent = "Запретить копирование";
+        textEl && (textEl.textContent = "Запретить копирование");
         btn.classList.replace("text-danger", "text-success");
         showNotification("Копирование разрешено");
     }
@@ -158,8 +198,6 @@ function safeInvoke(fn, message) {
         fn();
     } catch (err) {
         console.error(message, err);
-        try {
-            showNotification(message);
-        } catch (e) {}
+        showNotification(message);
     }
 }

@@ -57,7 +57,7 @@ export function renderTestTask(task, container) {
 
     const checkBtn = document.createElement("button");
     checkBtn.type = "button";
-    checkBtn.className = "btn btn-primary mt-3";
+    checkBtn.className = "btn btn-primary mt-3 check-task-btn";
     checkBtn.textContent = "Проверить";
     checkBtn.style.display = "none";
     container.appendChild(checkBtn);

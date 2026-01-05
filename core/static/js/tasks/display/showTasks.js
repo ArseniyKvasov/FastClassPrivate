@@ -114,6 +114,7 @@ export async function renderTaskCard(task, replaceExisting = false) {
         const existing = taskListContainer.querySelector(`[data-task-id="${task.task_id}"]`);
         if (existing) {
             existing.replaceWith(card);
+            eventBus.emit('taskCardRendered', { taskCard: card, task });
             return;
         }
     }

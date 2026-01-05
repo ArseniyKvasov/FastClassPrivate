@@ -51,7 +51,7 @@ export const TaskValidators = {
     note: function(taskCard) {
         const editor = taskCard.querySelector(".note-editor");
         const content = editor?.innerHTML.trim() || "";
-        if (!content) { showNotification("❌ Добавьте текст заметки!"); return null; }
+        if (!content) { showNotification("Добавьте текст заметки!"); return null; }
         return [{ content }];
     },
 
@@ -60,7 +60,7 @@ export const TaskValidators = {
         const preview = taskCard.querySelector(".preview-img");
 
         if (!input?.files?.length && !preview?.src) {
-            showNotification("❌ Добавьте изображение!");
+            showNotification("Добавьте изображение!");
             return null;
         }
 
@@ -69,13 +69,13 @@ export const TaskValidators = {
 
         const allowed = ["image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp"];
         if (file && !allowed.includes(file.type)) {
-            showNotification("❌ Неподдерживаемый формат изображения");
+            showNotification("Неподдерживаемый формат изображения");
             return null;
         }
 
         const maxSizeMB = 5;
         if (file && file.size > maxSizeMB * 1024 * 1024) {
-            showNotification(`❌ Изображение не должно превышать ${maxSizeMB} МБ`);
+            showNotification(`Изображение не должно превышать ${maxSizeMB} МБ`);
             return null;
         }
 

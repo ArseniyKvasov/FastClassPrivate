@@ -2,11 +2,26 @@ import { loadAnswerModule, fetchTaskAnswer } from "./api.js";
 import { showNotification, postJSON } from "@tasks/utils";
 
 export const ANSWER_HANDLER_MAP = {
-    match_cards: { file: "common/matchCards.js" },
-    fill_gaps: { file: "common/fillGaps.js" },
-    test: { file: "common/test.js" },
-    true_false: { file: "common/trueFalse.js" },
-    text_input: { file: "common/textInput.js" }
+    match_cards: {
+        file: "common/matchCards.js",
+        statistics: true
+    },
+    fill_gaps: {
+        file: "common/fillGaps.js",
+        statistics: true
+    },
+    test: {
+        file: "common/test.js",
+        statistics: true
+    },
+    true_false: {
+        file: "common/trueFalse.js",
+        statistics: true
+    },
+    text_input: {
+        file: "common/textInput.js",
+        statistics: false
+    }
 };
 
 export function debounce(fn, delay) {
