@@ -46,28 +46,24 @@
     </style>
 
     <div id="info"
-         data-section-id="{{ section_id }}"
          data-is-teacher="{{ is_teacher|yesno:'true,false' }}"
          data-lesson-id="{{ lesson_id }}"
          data-viewed-user-id="{{ viewed_user_id }}"
-         data-is-classroom="false"
-    >
+         data-is-classroom="false">
     </div>
 
     <!-- Отображение заданий -->
     <script type="module">
         import { loadSectionTasks } from "{% static 'js/tasks/display/showTasks.js' %}";
-
-        document.addEventListener("DOMContentLoaded", () => {
-            loadSectionTasks(`{{ section_id }}`);
-        });
     </script>
 
     <!-- Отображение списка разделов -->
     <script type="module">
-        import { initRenderSections } from "{% static 'js/tasks/display/renderSections.js' %}";
+        import { initRenderSections, selectSection } from "{% static 'js/tasks/display/renderSections.js' %}";
 
-        initRenderSections();
+        document.addEventListener("DOMContentLoaded", () => {
+            initRenderSections();
+        });
     </script>
 
     {% if is_teacher %}

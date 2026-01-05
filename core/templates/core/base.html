@@ -26,7 +26,7 @@
 
     <nav class="navbar sticky-top navbar-expand-lg navbar-light bg-white border-bottom">
         <div class="container">
-            <a class="navbar-brand fw-bold ms-2" href="#">FastLesson</a>
+            <a class="navbar-brand fw-bold ms-2" href="{% url 'home' %}">FastLesson</a>
 
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -60,12 +60,22 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
+    <script type="importmap">
+        {
+            "imports": {
+                "@tasks/utils": "/static/js/tasks/utils.js",
+                "@events/eventBus": "/static/js/tasks/events/eventBus.js",
+                "@classroom/": "/static/classroom/"
+            }
+        }
+    </script>
+
     <main class="container py-4" style="min-height: 100vh;">
         {% block content %}{% endblock %}
     </main>
 
     <footer class="text-center text-muted py-3 border-top">
-        FastLesson © 2025
+        FastLesson © 2026
     </footer>
 </body>
 </html>

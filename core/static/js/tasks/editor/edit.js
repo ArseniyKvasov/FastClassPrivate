@@ -6,9 +6,9 @@
  *  - Редактор при редактировании всегда в модалке.
  */
 
-import { showNotification, fetchSingleTask, TASK_MAP, confirmAction } from "../utils.js";
+import { showNotification, fetchSingleTask, TASK_MAP, confirmAction } from "@tasks/utils";
 import { saveTask, deleteTask } from "./api.js";
-import { eventBus } from '../events/eventBus.js';
+import { eventBus } from '@events/eventBus';
 
 const loadingTypes = new Set();
 const editorModuleCache = new Map();
@@ -335,19 +335,31 @@ export function attachControlsToTaskCard(taskCard) {
         </button>
     `;
 
-    if (!taskCard.style.position) taskCard.style.position = "relative";
+    if (!taskCard.style.position) {
+        taskCard.style.position = "relative";
+    }
+
     taskCard.appendChild(controls);
+
+    eventBus.emit("taskCardControlsRendered", {
+        taskCard,
+        panel: controls
+    });
 
     controls.addEventListener("click", async (ev) => {
         ev.stopPropagation();
+
         const id = taskCard.dataset.taskId;
         if (!id) return;
 
         if (ev.target.closest(".edit-task-btn")) {
             taskCard.classList.add("editing");
             await openEditorForTask(id);
-        } else if (ev.target.closest(".delete-task-btn")) {
-            const confirmed = await confirmAction("Удалить задание?");
+            return;
+        }
+
+        if (ev.target.closest(".delete-task-btn")) {
+            const confirmed = await confirmAction("Вы уверены, что хотите удалить задание?");
             if (!confirmed) return;
 
             try {

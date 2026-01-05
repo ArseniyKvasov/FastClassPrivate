@@ -1,4 +1,15 @@
-function debounce(fn, delay) {
+import { loadAnswerModule, fetchTaskAnswer } from "./api.js";
+import { showNotification, postJSON } from "@tasks/utils";
+
+export const ANSWER_HANDLER_MAP = {
+    match_cards: { file: "common/matchCards.js" },
+    fill_gaps: { file: "common/fillGaps.js" },
+    test: { file: "common/test.js" },
+    true_false: { file: "common/trueFalse.js" },
+    text_input: { file: "common/textInput.js" }
+};
+
+export function debounce(fn, delay) {
     let timer = null;
     return function (...args) {
         clearTimeout(timer);
@@ -6,19 +17,19 @@ function debounce(fn, delay) {
     };
 }
 
-function adjustTextareaHeight(textarea) {
+export function adjustTextareaHeight(textarea) {
     textarea.rows = 2;
     const lineHeight = parseInt(getComputedStyle(textarea).lineHeight) || 20;
     const lines = Math.ceil(textarea.scrollHeight / lineHeight);
     textarea.rows = Math.min(Math.max(lines, 2), 8);
 }
 
-function getTaskTypeFromContainer(taskId) {
+export function getTaskTypeFromContainer(taskId) {
     const container = document.querySelector(`[data-task-id="${taskId}"]`);
     return container?.dataset?.taskType;
 }
 
-function updateBadgesStrikethrough(container, answers) {
+export function updateBadgesStrikethrough(container, answers) {
     const badges = container.querySelectorAll(".badge.bg-primary");
     const usedBadges = new Set();
 
@@ -42,47 +53,46 @@ function updateBadgesStrikethrough(container, answers) {
     });
 }
 
-function collectAnswers(task, container) {
-    const answers = [];
-    if (!container || !task) return answers;
+export async function initCheckButton(task, container) {
+    const classroomId = getClassroomId();
+    const userId = getViewedUserId();
 
-    if (task.task_type === "test") {
-        const forms = container.querySelectorAll('form[data-question-index]');
-        forms.forEach(form => {
-            const qIndex = Number(form.dataset.questionIndex);
-            const selected = form.querySelector('input[type="radio"]:checked');
-            answers.push({
-                question_index: qIndex,
-                selected_option: selected ? Number(selected.dataset.optionIndex) : null
-            });
-        });
-    } else if (task.task_type === "true_false") {
-        const forms = container.querySelectorAll('form[data-statement-index]');
-        forms.forEach(form => {
-            const sIndex = Number(form.dataset.statementIndex);
-            const selected = form.querySelector('input[type="radio"]:checked');
-            answers.push({
-                statement_index: sIndex,
-                selected_value: selected ? (selected.dataset.tf === 'true') : null
-            });
-        });
+    if (!classroomId) {
+        showNotification("Контекст класса не найден");
+        return;
     }
-    return answers;
-}
 
-async function initCheckButton(task, container, classroomId) {
     const checkBtn = container.querySelector("button.btn-primary");
-    if (!checkBtn) return;
+    if (!checkBtn) {
+        showNotification("Кнопка проверки не найдена");
+        return;
+    }
+
+    const answerModule = await loadAnswerModule(task.task_type);
+    if (!answerModule) {
+        showNotification("Модуль обработки задания не найден");
+        return;
+    }
+
+    const { collectAnswers, handleAnswer } = answerModule;
+
+    if (typeof collectAnswers !== "function") {
+        showNotification("Сбор ответов для этого задания не поддерживается");
+        return;
+    }
 
     function allFormsAnswered() {
         const forms = Array.from(container.querySelectorAll("form"));
         if (!forms.length) return false;
-        return forms.every(f => f.querySelector('input[type="radio"]:checked') !== null);
+
+        return forms.every(form =>
+            form.querySelector('input[type="radio"]:checked') !== null
+        );
     }
 
     function updateButtonState() {
         const isChecked = container.dataset.isChecked === "true";
-        checkBtn.disabled = !allFormsAnswered() || isChecked || getId() === "all";
+        checkBtn.disabled = !allFormsAnswered() || isChecked || userId === "all";
     }
 
     container.querySelectorAll("form").forEach(form => {
@@ -94,46 +104,58 @@ async function initCheckButton(task, container, classroomId) {
     checkBtn.addEventListener("click", async () => {
         if (checkBtn.disabled) return;
 
-        const answers = collectAnswers(task, container);
-        if (!answers.length) return;
+        let answers;
+
+        try {
+            answers = collectAnswers(task, container);
+        } catch (err) {
+            console.error("collectAnswers error:", err);
+            showNotification("Ошибка при сборе ответов");
+            return;
+        }
+
+        if (!Array.isArray(answers) || !answers.length) {
+            showNotification("Ответы не заполнены");
+            return;
+        }
 
         checkBtn.disabled = true;
 
         try {
-            const response = await fetch(`/classroom/${classroomId}/mark-answer-as-checked/`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-CSRFToken": getCsrfToken()
-                },
-                body: JSON.stringify({
+            const result = await postJSON(
+                `/classroom/${classroomId}/mark-answer-as-checked/`,
+                {
                     task_id: task.task_id,
-                    user_id: getId(),
+                    user_id: userId,
                     answers
-                })
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                container.dataset.isChecked = "true";
-
-                if (task.task_type === "test" && typeof handleTestAnswer === "function") {
-                    const data = await fetchTaskAnswer(task.task_id);
-                    handleTestAnswer(data);
-                } else if (task.task_type === "true_false" && typeof handleTrueFalseAnswer === "function") {
-                    const data = await fetchTaskAnswer(task.task_id);
-                    handleTrueFalseAnswer(data);
                 }
+            );
 
-                notifyAnswerSubmitted(task.task_id);
-            } else {
-                console.error(result.errors);
-                checkBtn.disabled = false;
+            if (!result?.success) {
+                console.error("Backend error response:", result);
+                throw new Error("Backend error");
+            }
+
+            container.dataset.isChecked = "true";
+
+            if (typeof handleAnswer === "function") {
+                const data = await fetchTaskAnswer(task.task_id);
+                handleAnswer(data, container);
             }
         } catch (err) {
-            console.error(err);
+            console.error("Save answer failed:", err);
+            showNotification("Не удалось сохранить ответы");
             checkBtn.disabled = false;
         }
     });
+}
+
+export function getClassroomId() {
+    const info = document.getElementById("info");
+    return info?.dataset?.classroomId || null;
+}
+
+export function getViewedUserId() {
+    const info = document.getElementById("info");
+    return info?.dataset?.viewedUserId || null;
 }

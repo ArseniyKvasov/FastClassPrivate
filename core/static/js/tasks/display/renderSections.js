@@ -1,18 +1,20 @@
-import { getCsrfToken, showNotification, confirmAction } from '../utils.js';
+import { getCsrfToken, showNotification, confirmAction, getInfoElement, getIsTeacher, getIsClassroom, getLessonId, getSectionId } from '@tasks/utils';
 import { loadSectionTasks } from './showTasks.js';
+import { eventBus } from '@events/eventBus';
 
-const infoEl = document.getElementById('info') || {};
-const isTeacher = infoEl?.dataset?.isTeacher === 'true';
-const isClassroom = infoEl?.dataset?.isClassroom === 'true';
-const lessonId = infoEl?.dataset?.lessonId || null;
+const infoEl = getInfoElement();
+const isTeacher = getIsTeacher();
+const isClassroom = getIsClassroom();
+const lessonId = getLessonId();
 
 const sectionList = document.getElementById('section-list');
 const saveSectionBtn = document.getElementById('saveManualSection');
 const sectionModalEl = document.getElementById('manualSectionModal');
 const sectionModal = sectionModalEl ? new bootstrap.Modal(sectionModalEl) : null;
 const nameInput = document.getElementById('manualSectionName');
+const modalTitleEl = sectionModalEl ? sectionModalEl.querySelector('.modal-title') : null;
 
-let currentSectionId = infoEl?.dataset?.sectionId || null;
+let currentSectionId = getSectionId();
 let isSubmitting = false;
 
 function renderSectionItem(section) {
@@ -33,7 +35,7 @@ function renderSectionItem(section) {
                 ${section.title}
             </button>
         </div>
-        ${isTeacher && !isClassroom ? `
+        ${isTeacher ? `
             <div class="d-flex gap-2">
                 <button type="button" class="btn btn-link p-0 edit-section-button">
                     <i class="bi bi-pencil-fill text-secondary"></i>
@@ -60,17 +62,21 @@ async function renderSectionsList(sections) {
 
 async function fetchSections() {
     if (!lessonId) return [];
-    const res = await fetch(`/courses/lesson/${lessonId}/sections/`);
-    if (!res.ok) return [];
-    const data = await res.json();
-    return Array.isArray(data.sections) ? data.sections : [];
+    try {
+        const res = await fetch(`/courses/lesson/${lessonId}/sections/`);
+        if (!res.ok) return [];
+        const data = await res.json();
+        return Array.isArray(data.sections) ? data.sections : [];
+    } catch (err) {
+        return [];
+    }
 }
 
 function highlightSelectedSection(sectionId) {
     currentSectionId = sectionId;
 
     sectionList?.querySelectorAll('.section-link').forEach(btn => {
-        const active = btn.dataset.sectionId === sectionId;
+        const active = btn.dataset.sectionId == sectionId;
         btn.classList.toggle('fw-bold', active);
         btn.classList.toggle('text-primary', active);
     });
@@ -79,12 +85,16 @@ function highlightSelectedSection(sectionId) {
     else delete infoEl.dataset.sectionId;
 }
 
-function selectSection(sectionId) {
+export async function selectSection(sectionId) {
     if (!sectionId || sectionId === currentSectionId) return;
     highlightSelectedSection(sectionId);
-    loadSectionTasks?.(sectionId);
+    await loadSectionTasks(sectionId);
+    eventBus.emit('sectionAnswersRequested', { sectionId });
 }
 
+/**
+ * Создаёт раздел на сервере и обновляет список.
+ */
 async function createSection(title) {
     const res = await fetch('/courses/section/create/', {
         method: 'POST',
@@ -95,7 +105,7 @@ async function createSection(title) {
         body: JSON.stringify({ lesson_id: lessonId, title })
     });
 
-    if (!res.ok) throw new Error();
+    if (!res.ok) throw new Error('create failed');
 
     const data = await res.json();
     const sections = await fetchSections();
@@ -103,7 +113,16 @@ async function createSection(title) {
     selectSection(data.id);
 }
 
+/**
+ * Редактирует раздел на сервере и обновляет список.
+ *
+ * Поведение: после редактирования выделение останется на том разделе,
+ * который был выделен до редактирования (если он всё ещё существует).
+ * В противном случае — выделяется отредактированный раздел.
+ */
 async function editSection(sectionId, title) {
+    const prevSelected = currentSectionId;
+
     const res = await fetch(`/courses/section/${sectionId}/edit/`, {
         method: 'POST',
         headers: {
@@ -113,46 +132,74 @@ async function editSection(sectionId, title) {
         body: JSON.stringify({ title })
     });
 
-    if (!res.ok) throw new Error();
-
-    const sections = await fetchSections();
-    await renderSectionsList(sections);
-    highlightSelectedSection(sectionId);
-}
-
-async function deleteSection(sectionId) {
-    const confirmed = await confirmAction('Вы уверены, что хотите удалить раздел?');
-    if (!confirmed) return;
-
-    await fetch(`/courses/section/${sectionId}/delete/`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCsrfToken()
-        }
-    });
+    if (!res.ok) throw new Error('edit failed');
 
     const sections = await fetchSections();
     await renderSectionsList(sections);
 
-    if (currentSectionId === sectionId && sections.length) {
-        selectSection(sections[0].id);
+    if (prevSelected && sections.some(s => String(s.id) === String(prevSelected))) {
+        highlightSelectedSection(prevSelected);
+    } else {
+        highlightSelectedSection(sectionId);
     }
 }
 
+/**
+ * Удаляет раздел.
+ *
+ * Нельзя удалить единственный раздел — пользователю показывается уведомление.
+ * Если удаляется текущий выделенный раздел — загружается первый из оставшихся.
+ */
+async function deleteSection(sectionId) {
+    const sectionsBefore = await fetchSections();
+    if (sectionsBefore.length <= 1) {
+        showNotification('Нельзя удалить единственный раздел');
+        return;
+    }
+
+    const confirmed = await confirmAction('Вы уверены, что хотите удалить раздел?');
+    if (!confirmed) return;
+
+    try {
+        const res = await fetch(`/courses/section/${sectionId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            }
+        });
+
+        if (!res.ok) throw new Error('delete failed');
+
+        const sections = await fetchSections();
+        await renderSectionsList(sections);
+
+        if (String(currentSectionId) === String(sectionId) && sections.length) {
+            selectSection(sections[0].id);
+        } else if (!sections.length) {
+            highlightSelectedSection('');
+        }
+    } catch (err) {
+        showNotification('Ошибка при удалении раздела');
+    }
+}
+
+/**
+ * Отправляет форму создания/редактирования раздела.
+ */
 async function submitSectionForm() {
     if (isSubmitting) return;
     isSubmitting = true;
 
     try {
-        const title = nameInput.value.trim();
+        const title = (nameInput?.value || '').trim();
         if (!title) {
             showNotification('Введите название раздела');
             return;
         }
 
-        const action = saveSectionBtn.dataset.action;
-        const sid = saveSectionBtn.dataset.sectionId;
+        const action = saveSectionBtn?.dataset?.action;
+        const sid = saveSectionBtn?.dataset?.sectionId;
 
         if (action === 'edit' && sid) {
             await editSection(sid, title);
@@ -161,7 +208,7 @@ async function submitSectionForm() {
         }
 
         sectionModal?.hide();
-    } catch {
+    } catch (err) {
         showNotification('Ошибка сохранения');
     } finally {
         isSubmitting = false;
@@ -180,16 +227,19 @@ function handleSectionListClick(e) {
     }
 
     if (e.target.closest('.edit-section-button')) {
-        nameInput.value = li.querySelector('.section-link')?.textContent.trim() || '';
-        saveSectionBtn.dataset.action = 'edit';
-        saveSectionBtn.dataset.sectionId = sectionId;
-        sectionModal.show();
+        const title = li.querySelector('.section-link')?.textContent.trim() || '';
+        nameInput.value = title;
 
-        sectionModalEl.addEventListener(
-            'shown.bs.modal',
-            () => nameInput.focus(),
-            { once: true }
-        );
+        if (modalTitleEl) modalTitleEl.textContent = 'Изменение раздела';
+        if (saveSectionBtn) {
+            saveSectionBtn.dataset.action = 'edit';
+            saveSectionBtn.dataset.sectionId = sectionId;
+        }
+
+        if (sectionModal) {
+            sectionModalEl.addEventListener('shown.bs.modal', () => nameInput.focus(), { once: true });
+            sectionModal.show();
+        }
         return;
     }
 
@@ -197,7 +247,7 @@ function handleSectionListClick(e) {
 }
 
 function initAddSectionButton() {
-    if (!isTeacher || isClassroom) return;
+    if (!isTeacher) return;
 
     let wrapper = document.getElementById('section-create-wrapper');
     if (!wrapper) {
@@ -218,26 +268,31 @@ function initAddSectionButton() {
     }
 
     addBtn.addEventListener('click', () => {
-        saveSectionBtn.dataset.action = 'create';
-        saveSectionBtn.dataset.sectionId = '';
-        nameInput.value = '';
-        sectionModal.show();
+        if (modalTitleEl) modalTitleEl.textContent = 'Новый раздел';
+        if (saveSectionBtn) {
+            saveSectionBtn.dataset.action = 'create';
+            saveSectionBtn.dataset.sectionId = '';
+        }
+        if (nameInput) nameInput.value = '';
 
-        sectionModalEl.addEventListener(
-            'shown.bs.modal',
-            () => nameInput.focus(),
-            { once: true }
-        );
+        if (sectionModal) {
+            sectionModalEl.addEventListener('shown.bs.modal', () => nameInput.focus(), { once: true });
+            sectionModal.show();
+        }
     });
 }
 
 function initSectionEditor() {
-    if (!isTeacher || isClassroom) return;
+    if (!isTeacher) return;
+    if (!saveSectionBtn) return;
 
     saveSectionBtn.type = 'button';
-    saveSectionBtn.addEventListener('click', submitSectionForm);
+    saveSectionBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        submitSectionForm();
+    });
 
-    nameInput.addEventListener('keydown', (e) => {
+    nameInput?.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
             submitSectionForm();

@@ -294,3 +294,27 @@ export function escapeHtml(str = "") {
 export function generateId(prefix = "id") {
     return prefix + "-" + Math.random().toString(36).substr(2, 9);
 }
+
+export function getInfoElement() {
+    return document.getElementById("info");
+}
+
+export function getIsTeacher() {
+    const infoEl = getInfoElement();
+    return infoEl?.dataset?.isTeacher === "true";
+}
+
+export function getIsClassroom() {
+    const infoEl = getInfoElement();
+    return Boolean(infoEl?.dataset?.classroomId);
+}
+
+export function getLessonId() {
+    const infoEl = getInfoElement();
+    return infoEl?.dataset?.lessonId || null;
+}
+
+export function getSectionId() {
+    const infoEl = getInfoElement();
+    return infoEl?.dataset?.sectionId || null;
+}

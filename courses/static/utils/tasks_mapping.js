@@ -16,7 +16,7 @@ const taskListContainer = document.getElementById("task-list");
 const loader = document.createElement("div");
 loader.className = "loader-overlay";
 loader.innerHTML = `<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Загрузка...</span></div>`;
-document.body.appendChild(loader);
+taskListContainer.appendChild(loader);
 
 function renderTaskCard(task, replaceExisting = false) {
     const card = document.createElement("div");

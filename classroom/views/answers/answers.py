@@ -177,7 +177,8 @@ def save_answer(request, classroom_id):
 
     except ValidationError as exc:
         return JsonResponse({"success": False, "errors": str(exc)}, status=400)
-    except Exception:
+    except Exception as e:
+        print(e)
         return JsonResponse({"success": False, "errors": "Internal server error"}, status=500)
 
 

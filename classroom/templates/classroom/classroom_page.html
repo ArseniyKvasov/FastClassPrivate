@@ -77,18 +77,7 @@
         }
     </style>
 
-    <script>
-        let sectionId = `{{ section_id }}`;
-        let isTeacher = {{ is_teacher|yesno:"true,false" }};
-        let lessonId = `{{ lesson_id }}`;
-        let userId = {{ user_id|default:"null" }};
-        let currentStudentId = {{ first_student_id|default:"null" }};
-        let virtualClassId = `{{ classroom_id }}`;
-        const isClassroom = true;
-    </script>
-
     <div id="info"
-         data-section-id="{{ section_id }}"
          data-is-teacher="{{ is_teacher|yesno:'true,false' }}"
          data-lesson-id="{{ lesson_id }}"
          data-viewed-user-id="{{ viewed_user_id }}"
@@ -96,21 +85,20 @@
          data-classroom-id="{{ classroom_id }}"
     >
     </div>
+    {{ students_list|json_script:"students-data" }}
 
     <!-- Отображение заданий -->
     <script type="module">
         import { loadSectionTasks } from "{% static 'js/tasks/display/showTasks.js' %}";
-
-        document.addEventListener("DOMContentLoaded", () => {
-            loadSectionTasks(`{{ section_id }}`);
-        });
     </script>
 
     <!-- Отображение списка разделов -->
     <script type="module">
-        import { initRenderSections } from "{% static 'js/tasks/display/renderSections.js' %}";
+        import { initRenderSections, selectSection } from "{% static 'js/tasks/display/renderSections.js' %}";
 
-        initRenderSections();
+        document.addEventListener("DOMContentLoaded", () => {
+            initRenderSections();
+        });
     </script>
 
     {% if is_teacher %}
@@ -122,14 +110,29 @@
         <script type="module">
             import { initEditTasks } from "{% static 'js/tasks/editor/edit.js' %}";
 
-            document.addEventListener("DOMContentLoaded", () => {
-                initEditTasks();
-            });
+            initEditTasks();
         </script>
 
         <!-- Загрузка панели управления учениками -->
         {% include 'core/tasks/teacher_panel.html' %}
+
+        <script type="module">
+            import { initStudentPanel } from "{% static 'classroom/answers/teacherPanel.js' %}";
+
+            const studentsList = JSON.parse(
+                document.getElementById("students-data").textContent
+            );
+
+            initStudentPanel(studentsList);
+        </script>
     {% endif %}
+
+    <!-- Ответы -->
+    <script type="module">
+        import { registerAnswerEvents } from "@classroom/answers/handleAnswer.js";
+
+        registerAnswerEvents();
+    </script>
 
     <div class="row mt-4 d-flex justify-content-center">
         <div id="main-container" class="col-12 col-xl-9">

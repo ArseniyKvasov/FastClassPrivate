@@ -24,7 +24,7 @@ def delete_user_task_answers(request, classroom_id, task_id, user_id):
         task = get_object_or_404(Task, id=task_id)
         user = get_object_or_404(User, id=user_id)
 
-        if not check_user_access(request.user, classroom_id, user):
+        if not check_user_access(request.user, classroom, user):
             return JsonResponse({"error": "Access denied"}, status=403)
 
         deleted_count = 0
@@ -61,6 +61,7 @@ def delete_user_task_answers(request, classroom_id, task_id, user_id):
         })
 
     except Exception as e:
+        print(e)
         return JsonResponse({
             'success': False,
             'error': str(e)

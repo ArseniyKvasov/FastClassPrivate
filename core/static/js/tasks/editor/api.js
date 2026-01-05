@@ -1,4 +1,4 @@
-import { postJSON, showNotification, getCsrfToken, readSectionId, fetchSingleTask } from "../utils.js";
+import { postJSON, showNotification, getCsrfToken, readSectionId, fetchSingleTask } from "@tasks/utils";
 import { renderTaskCard } from "../display/showTasks.js";
 
 /**

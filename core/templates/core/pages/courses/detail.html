@@ -1,0 +1,44 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% block title %}{{ course.title }}{% endblock %}
+
+{% block content %}
+    <!-- Название курса -->
+    <div class="mb-4">
+        <h1 class="fw-bold">{{ course.title }}</h1>
+        <p class="text-secondary">{{ course.description }}</p>
+        <p class="text-muted small">Создатель: {{ course.creator.get_full_name|default:course.creator.username }}</p>
+    </div>
+
+    <!-- Список уроков -->
+    <h4 class="mb-3">Уроки</h4>
+    <div class="row g-3">
+        {% for lesson in lessons %}
+        <div class="col-md-6 col-lg-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title">{{ lesson.title }}</h5>
+                    <p class="card-text text-truncate">{{ lesson.description }}</p>
+                    <p class="mb-2">
+                        {% if lesson.is_free %}
+                            <span class="badge bg-success">Бесплатно</span>
+                        {% endif %}
+                        {% if lesson.is_open %}
+                            <span class="badge bg-primary">Открыт</span>
+                        {% endif %}
+                    </p>
+                    <a href="{% url 'page_editor_view' lesson.id %}" class="btn btn-outline-primary mt-auto">Открыть урок</a>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <p>Уроков пока нет.</p>
+        {% endfor %}
+    </div>
+
+    <!-- Кнопка назад -->
+    <div class="mt-4">
+        <a href="{% url 'home' %}" class="btn btn-secondary">Вернуться к курсам</a>
+    </div>
+
+{% endblock %}

@@ -8,13 +8,10 @@
  * Экспорт:
  * - loadSectionTasks(sectionId) — загрузка и рендер всех заданий раздела
  * - renderTaskCard(task, replaceExisting) — рендер отдельной карточки
- *
- * Внешние зависимости:
- * import { getCsrfToken, showNotification, TASK_MAP } from "../utils.js";
  */
 
-import { getCsrfToken, showNotification, TASK_MAP } from "../utils.js";
-import { eventBus } from '../events/eventBus.js';
+import { getCsrfToken, showNotification, TASK_MAP } from "@tasks/utils";
+import { eventBus } from '@events/eventBus';
 
 const taskListContainer = document.getElementById("task-list");
 
@@ -25,7 +22,7 @@ loader.innerHTML = `
         <span class="visually-hidden">Загрузка...</span>
     </div>
 `;
-document.body.appendChild(loader);
+taskListContainer.appendChild(loader);
 
 /**
  * Кеш загруженных рендереров по task_type
