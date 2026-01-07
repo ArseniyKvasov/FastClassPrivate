@@ -1,5 +1,5 @@
-import { showNotification, getSectionId } from '@tasks/utils.js';
-import { getClassroomId, ANSWER_HANDLER_MAP } from '@classroom/answers/utils.js';
+import { showNotification, getSectionId } from '/static/js/tasks/utils.js';
+import { getClassroomId, ANSWER_HANDLER_MAP } from '/static/classroom/answers/utils.js';
 
 /**
  * Отображает статистику по заданию

@@ -49,17 +49,18 @@
          data-is-teacher="{{ is_teacher|yesno:'true,false' }}"
          data-lesson-id="{{ lesson_id }}"
          data-viewed-user-id="{{ viewed_user_id }}"
-         data-is-classroom="false">
+         data-is-classroom="false"
+    >
     </div>
 
     <!-- Отображение заданий -->
     <script type="module">
-        import { loadSectionTasks } from "{% static '@tasks/display/showTasks.js' %}";
+        import { loadSectionTasks } from "{% static 'js/tasks/display/showTasks.js' %}";
     </script>
 
     <!-- Отображение списка разделов -->
     <script type="module">
-        import { initRenderSections, selectSection } from "{% static '@tasks/display/renderSections.js' %}";
+        import { initRenderSections, selectSection } from "{% static 'js/tasks/display/renderSections.js' %}";
 
         document.addEventListener("DOMContentLoaded", () => {
             initRenderSections();
@@ -73,15 +74,11 @@
 
         <!-- Редактирование заданий -->
         <script type="module">
-            import { initEditTasks } from "{% static '@tasks/editor/edit.js' %}";
+            import { initEditTasks } from "{% static 'js/tasks/editor/edit.js' %}";
 
-            document.addEventListener("DOMContentLoaded", () => {
-                initEditTasks();
-            });
+            initEditTasks();
         </script>
     {% endif %}
-
-
 
 
 

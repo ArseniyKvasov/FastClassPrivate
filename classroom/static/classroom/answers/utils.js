@@ -1,6 +1,6 @@
-import { loadAnswerModule, fetchTaskAnswer } from "@classroom/answers/api.js";
-import { showNotification, postJSON } from "@tasks/utils.js";
-import { eventBus } from "@tasks/events/eventBus.js";
+import { showNotification, postJSON } from "/static/js/tasks/utils.js";
+import { eventBus } from "/static/js/tasks/events/eventBus.js";
+import { loadAnswerModule, fetchTaskAnswer } from "/static/classroom/answers/api.js";
 
 export const ANSWER_HANDLER_MAP = {
     match_cards: {

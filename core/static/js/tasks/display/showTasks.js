@@ -1,5 +1,5 @@
-import { getCsrfToken, showNotification, TASK_MAP } from "@tasks/utils.js";
-import { eventBus } from '@tasks/events/eventBus.js';
+import { getCsrfToken, showNotification, TASK_MAP } from "/static/js/tasks/utils.js";
+import { eventBus } from '/static/js/tasks/events/eventBus.js';
 
 const taskListContainer = document.getElementById("task-list");
 

@@ -1,9 +1,9 @@
 "use strict";
 
-import { eventBus } from "@tasks/events/eventBus.js";
-import { showNotification } from "@tasks/utils.js"
-import { getViewedUserId } from "@classroom/answers/utils.js";
-import { virtualClassWS } from "@classroom/answers/websocket/init.js";
+import { eventBus } from "/static/js/tasks/events/eventBus.js";
+import { showNotification } from "/static/js/tasks/utils.js"
+import { getViewedUserId } from "/static/classroom/answers/utils.js";
+import { virtualClassWS } from "/static/classroom/answers/websocket/init.js";
 
 /**
  * Отправляет сообщение в WebSocket, если соединение открыто.

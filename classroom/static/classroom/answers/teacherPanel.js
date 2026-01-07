@@ -1,8 +1,8 @@
-import { showNotification, escapeHtml, getInfoElement } from "@tasks/utils.js";
-import { getViewedUserId } from "@classroom/answers/utils.js";
-import { handleSectionAnswers } from "@classroom/answers/handleAnswer.js";
-import { clearAllTaskContainers } from "@classroom/answers/handlers/clearAnswers.js";
-import { clearStatistics } from "@classroom/answers/handlers/statistics.js";
+import { showNotification, escapeHtml, getInfoElement } from "/static/js/tasks/utils.js";
+import { getViewedUserId } from "/static/classroom/answers/utils.js";
+import { handleSectionAnswers } from "/static/classroom/answers/handleAnswer.js";
+import { clearAllTaskContainers } from "/static/classroom/answers/handlers/clearAnswers.js";
+import { clearStatistics } from "/static/classroom/answers/handlers/statistics.js";
 
 /**
  * Инициализирует панель управления учениками

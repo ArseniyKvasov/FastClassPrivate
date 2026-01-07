@@ -1,4 +1,4 @@
-import { showNotification, escapeHtml, generateId } from "@tasks/utils.js";
+import { showNotification, escapeHtml, generateId } from "/static/js/tasks/utils.js";
 
 /**
  * Рендерит редактор задания типа «Тест».

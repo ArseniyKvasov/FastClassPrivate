@@ -1,6 +1,6 @@
-import { postJSON, showNotification, getCsrfToken, getSectionId, fetchSingleTask } from "@tasks/utils.js";
-import { renderTaskCard } from "@tasks/display/showTasks.js";
-import { eventBus } from "@tasks/events/eventBus.js";
+import { postJSON, showNotification, getCsrfToken, getSectionId, fetchSingleTask } from "/static/js/tasks/utils.js";
+import { renderTaskCard } from "/static/js/tasks/display/showTasks.js";
+import { eventBus } from "/static/js/tasks/events/eventBus.js";
 
 /**
  * Закрывает редактор задания. Скрывает модальное окно или удаляет карточку редактора из DOM.

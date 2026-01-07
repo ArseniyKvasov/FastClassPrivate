@@ -1,5 +1,5 @@
-import { debounce, adjustTextareaHeight } from "@classroom/answers/utils.js";
-import { sendAnswer } from "@classroom/answers/api.js";
+import { debounce, adjustTextareaHeight } from "/static/classroom/answers/utils.js";
+import { sendAnswer } from "/static/classroom/answers/api.js";
 
 /**
  * Навешивает обработчик на текстовое поле / textarea

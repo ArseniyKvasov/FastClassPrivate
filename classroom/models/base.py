@@ -6,8 +6,8 @@ User = settings.AUTH_USER_MODEL
 
 class BaseAnswer(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    task = models.ForeignKey("courses.Task", on_delete=models.CASCADE)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    task = models.ForeignKey("courses.Task", on_delete=models.CASCADE, db_index=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, db_index=True)
     classroom = models.ForeignKey("classroom.Classroom", on_delete=models.CASCADE)
     answered_at = models.DateTimeField(auto_now_add=True)
 

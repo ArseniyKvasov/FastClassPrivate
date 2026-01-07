@@ -1,7 +1,7 @@
-import { showNotification, postJSON } from "@tasks/utils.js";
-import { eventBus } from "@tasks/events/eventBus.js";
-import { ANSWER_HANDLER_MAP, getClassroomId, getViewedUserId, getTaskTypeFromContainer } from "@classroom/answers/utils.js";
-import { handleAnswer } from "@classroom/answers/handleAnswer.js"
+import { showNotification, postJSON } from "/static/js/tasks/utils.js";
+import { eventBus } from "/static/js/tasks/events/eventBus.js";
+import { ANSWER_HANDLER_MAP, getClassroomId, getViewedUserId, getTaskTypeFromContainer } from "/static/classroom/answers/utils.js";
+import { handleAnswer } from "/static/classroom/answers/handleAnswer.js"
 
 const moduleCache = new Map();
 
@@ -33,7 +33,7 @@ export async function loadAnswerModule(taskType) {
 
     try {
         const module = await import(
-            `@classroom/answers/templates/${entry.file}`
+            `/static/classroom/answers/templates/${entry.file}`
         );
 
         const api = {

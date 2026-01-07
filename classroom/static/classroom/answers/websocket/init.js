@@ -1,9 +1,9 @@
 "use strict";
 
-import { showNotification, getInfoElement } from "@tasks/utils.js";
-import { fetchSections, renderSectionsList, selectSection } from "@tasks/display/renderSections.js";
-import { getClassroomId } from "@classroom/answers/utils.js";
-import { handleWSMessage } from "@classroom/answers/websocket/handleMessage.js";
+import { showNotification, getInfoElement } from "/static/js/tasks/utils.js";
+import { fetchSections, renderSectionsList, selectSection } from "/static/js/tasks/display/renderSections.js";
+import { getClassroomId } from "/static/classroom/answers/utils.js";
+import { handleWSMessage } from "/static/classroom/answers/websocket/handleMessage.js";
 
 export let virtualClassWS = null;
 

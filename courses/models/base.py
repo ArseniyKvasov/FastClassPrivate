@@ -28,13 +28,11 @@ class Course(models.Model):
 
     def delete(self, using=None, keep_parents=False):
         """
-        dogstring:
-        Удаляет все задания (через ORM, чтобы сработали сигналы/логика удаления),
-        затем удаляет курс в транзакции.
+        Удаляет все уроки, секции и задания через ORM,
+        затем удаляет курс.
         """
         with transaction.atomic():
-            for lesson in self.lessons.all():
-                lesson.delete()
+            self.lessons.all().delete()
             super().delete(using=using, keep_parents=keep_parents)
 
 
@@ -55,12 +53,11 @@ class Lesson(models.Model):
 
     def delete(self, using=None, keep_parents=False):
         """
-        dogstring:
-        Удаляет секции и связанные задания, затем удаляет урок.
+        Удаляет все секции и связанные задания через ORM,
+        затем удаляет урок.
         """
         with transaction.atomic():
-            for section in self.sections.all():
-                section.delete()
+            self.sections.all().delete()
             super().delete(using=using, keep_parents=keep_parents)
 
 
@@ -78,7 +75,6 @@ class Section(models.Model):
 
     def delete(self, using=None, keep_parents=False):
         """
-        dogstring:
         Удаляет все задания раздела через ORM (чтобы сработали сигналы),
         затем удаляет сам раздел.
         """
@@ -107,9 +103,9 @@ class Task(models.Model):
         editable=False,
     )
     section = models.ForeignKey(Section, on_delete=models.CASCADE, related_name="tasks")
-    task_type = models.CharField(max_length=50, choices=TYPE_CHOICES)
+    task_type = models.CharField(max_length=50, choices=TYPE_CHOICES, db_index=True)
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
-    object_id = models.UUIDField()
+    object_id = models.UUIDField(db_index=True)
     specific = GenericForeignKey("content_type", "object_id")
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -118,26 +114,24 @@ class Task(models.Model):
         specific_title = getattr(self.specific, "title", None)
         return f"{self.get_task_type_display()}: {specific_title or 'Без названия'}"
 
-    def delete(self, using=None, keep_parents=False):
+    def get_specific(self):
         """
         dogstring:
-        При ручном удалении задачи через instance.delete() сначала удаляем
-        связанный specific-объект, затем сам Task.
+        Возвращает specific-объект задачи или None.
+        Использовать вместо прямого обращения к self.specific.
         """
-        with transaction.atomic():
-            try:
-                spec = self.specific
-                if spec is not None:
-                    spec.delete()
-            except Exception:
-                pass
-            super().delete(using=using, keep_parents=keep_parents)
+        try:
+            return self.specific
+        except Exception:
+            return None
+
+    def delete(self, using=None, keep_parents=False):
+        super().delete(using=using, keep_parents=keep_parents)
 
 
 @receiver(pre_delete, sender=Task)
 def _task_pre_delete(sender, instance, using, **kwargs):
     """
-    dogstring:
     Гарантирует удаление specific-объекта перед удалением Task во всех сценариях,
     включая bulk delete через QuerySet.delete().
     """

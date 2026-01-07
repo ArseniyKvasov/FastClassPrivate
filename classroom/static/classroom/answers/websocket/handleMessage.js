@@ -1,12 +1,12 @@
 "use strict";
 
-import { showNotification, getIsTeacher, getSectionId, fetchSingleTask } from "@tasks/utils.js";
-import { fetchSections, renderSectionsList, selectSection } from "@tasks/display/renderSections.js"
-import { loadSectionTasks } from "@tasks/display/showTasks.js"
-import { getViewedUserId } from "@classroom/answers/utils.js";
-import { fetchTaskAnswer } from "@classroom/answers/api.js";
-import { handleAnswer } from "@classroom/answers/handleAnswer.js";
-import { clearTask } from "@classroom/answers/handlers/clearAnswers.js"
+import { showNotification, getIsTeacher, getSectionId, fetchSingleTask } from "/static/js/tasks/utils.js";
+import { fetchSections, renderSectionsList, selectSection } from "/static/js/tasks/display/renderSections.js"
+import { loadSectionTasks } from "/static/js/tasks/display/showTasks.js"
+import { getViewedUserId } from "/static/classroom/answers/utils.js";
+import { fetchTaskAnswer } from "/static/classroom/answers/api.js";
+import { handleAnswer } from "/static/classroom/answers/handleAnswer.js";
+import { clearTask } from "/static/classroom/answers/handlers/clearAnswers.js"
 
 /**
  * Обрабатывает входящее сообщение WebSocket.

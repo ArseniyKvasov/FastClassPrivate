@@ -1,5 +1,5 @@
-import { sendAnswer } from "@classroom/answers/api.js";
-import { updateBadgesStrikethrough } from "@classroom/answers/utils.js";
+import { sendAnswer } from "/static/classroom/answers/api.js";
+import { updateBadgesStrikethrough } from "/static/classroom/answers/utils.js";
 
 /**
  * Навешивает обработчики на поля задания fill-gaps
