@@ -20,6 +20,14 @@
             font-weight: 600;
             margin-bottom: 1rem;
         }
+        .drag-handle {
+            cursor: grab;
+            user-select: none;
+        }
+
+        .drag-handle:active {
+            cursor: grabbing;
+        }
     </style>
 </head>
 <body>
@@ -63,9 +71,9 @@
     <script type="importmap">
         {
             "imports": {
-                "@tasks/utils": "/static/js/tasks/utils.js",
-                "@events/eventBus": "/static/js/tasks/events/eventBus.js",
-                "@classroom/": "/static/classroom/"
+                "@tasks/": "/static/js/tasks/",
+                "@classroom/": "/static/classroom/",
+                "@courses/": "/static/courses/"
             }
         }
     </script>

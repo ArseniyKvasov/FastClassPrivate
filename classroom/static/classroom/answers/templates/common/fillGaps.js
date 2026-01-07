@@ -11,15 +11,27 @@ export function bindAnswerSubmission(container, task) {
 
     const inputs = container.querySelectorAll(".gap-input");
 
+    const submitValue = (input, index) => {
+        const value = input.value.trim();
+        if (!value) return;
+
+        sendAnswer({
+            taskId: task.task_id,
+            data: { [`gap-${index}`]: value }
+        });
+    };
+
     inputs.forEach((input, index) => {
         input.addEventListener("blur", () => {
-            const value = input.value.trim();
-            if (!value) return;
+            submitValue(input, index);
+        });
 
-            sendAnswer({
-                taskId: task.task_id,
-                data: { [`gap-${index}`]: value }
-            });
+        input.addEventListener("keydown", (e) => {
+            if (e.key !== "Enter") return;
+
+            e.preventDefault();
+            submitValue(input, index);
+            input.blur();
         });
     });
 }

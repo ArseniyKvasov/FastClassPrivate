@@ -24,12 +24,9 @@ def classroom_view(request, classroom_id):
 
     is_teacher = request.user == classroom.teacher
 
-    if is_teacher:
-        viewed_user_id = (
-            students_list[0]["id"] if students_list else "all"
-        )
-    else:
-        viewed_user_id = request.user.id
+    if not students_list:
+        students_list = [{"id": request.user.id, "name": request.user.username}]
+    viewed_user_id = students_list[0]["id"]
 
     return render(
         request,

@@ -6,9 +6,10 @@
  *  - Редактор при редактировании всегда в модалке.
  */
 
-import { showNotification, fetchSingleTask, TASK_MAP, confirmAction } from "@tasks/utils";
-import { saveTask, deleteTask } from "./api.js";
-import { eventBus } from '@events/eventBus';
+import { showNotification, fetchSingleTask, TASK_MAP, confirmAction, getSectionId } from "@tasks/utils.js";
+import { saveTask, deleteTask } from "@tasks/editor/api.js";
+import { eventBus } from "@tasks/events/eventBus.js";
+import { clearTask } from "@classroom/answers/handlers/clearAnswers.js"
 
 const loadingTypes = new Set();
 const editorModuleCache = new Map();
@@ -295,11 +296,11 @@ export async function openEditorForTask(taskId) {
 
             body.appendChild(returnedCard);
 
-            returnedCard.querySelectorAll(".remove-task-btn, .btn-close").forEach(btn => {
+            returnedCard.querySelectorAll(".remove-task-btn").forEach(btn => {
                 const cloned = btn.cloneNode(true);
                 btn.replaceWith(cloned);
             });
-            returnedCard.querySelectorAll(".remove-task-btn, .btn-close").forEach(btn => {
+            returnedCard.querySelectorAll(".remove-task-btn").forEach(btn => {
                 btn.addEventListener("click", (ev) => {
                     ev.preventDefault();
                     ev.stopPropagation();
@@ -318,43 +319,68 @@ export async function openEditorForTask(taskId) {
     }
 }
 
+/**
+ * Добавляет основные контролы к карточке задания.
+ * На десктопе показываются кнопки, на мобильных — dropdown.
+ * go и reset по умолчанию скрыты.
+ * @param {HTMLElement} taskCard
+ */
 export function attachControlsToTaskCard(taskCard) {
     if (!taskCard || taskCard.querySelector(".task-card-controls")) return;
 
     const controls = document.createElement("div");
     controls.className = "task-card-controls position-absolute top-0 end-0 m-2 d-flex gap-1";
-    controls.style.opacity = "0.6";
-    controls.style.zIndex = "10";
+    controls.style.opacity = "0";
+    controls.style.transition = "opacity 0.2s";
+
+    taskCard.addEventListener("mouseenter", () => controls.style.opacity = "1");
+    taskCard.addEventListener("mouseleave", () => controls.style.opacity = "0");
 
     controls.innerHTML = `
-        <button class="btn btn-sm btn-light border-0 edit-task-btn" title="Редактировать">
-            <i class="bi bi-pencil"></i>
-        </button>
-        <button class="btn btn-sm btn-light border-0 delete-task-btn" title="Удалить">
-            <i class="bi bi-trash"></i>
-        </button>
+        <!-- Десктоп -->
+        <div class="d-none d-lg-flex gap-1">
+            <button class="btn btn-sm btn-light border-0 edit-task-btn" title="Редактировать">
+                <i class="bi bi-pencil"></i>
+            </button>
+            <button class="btn btn-sm btn-light border-0 go-to-task-btn d-none" title="Показать ученикам">
+                <i class="bi bi-broadcast"></i>
+            </button>
+            <button class="btn btn-sm btn-light border-0 reset-answer-btn d-none" title="Сбросить ответы">
+                <i class="bi bi-arrow-counterclockwise"></i>
+            </button>
+            <button class="btn btn-sm btn-light border-0 delete-task-btn" title="Удалить">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+
+        <!-- Мобильный dropdown -->
+        <div class="d-flex d-lg-none dropdown">
+            <button class="btn btn-sm btn-light border-0 dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                <i class="bi bi-three-dots"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-start p-0">
+                <li><button class="dropdown-item text-black edit-task-btn">Редактировать</button></li>
+                <li><button class="dropdown-item text-black go-to-task-btn d-none">Показать ученикам</button></li>
+                <li><button class="dropdown-item text-black reset-answer-btn d-none">Сбросить ответы</button></li>
+                <li><button class="dropdown-item text-black delete-task-btn">Удалить</button></li>
+            </ul>
+        </div>
     `;
 
-    if (!taskCard.style.position) {
-        taskCard.style.position = "relative";
-    }
-
+    if (!taskCard.style.position) taskCard.style.position = "relative";
     taskCard.appendChild(controls);
 
-    eventBus.emit("taskCardControlsRendered", {
-        taskCard,
-        panel: controls
-    });
+    eventBus.emit("taskCardControlsRendered", { taskCard, panel: controls });
 
+    // Общий обработчик кликов
     controls.addEventListener("click", async (ev) => {
         ev.stopPropagation();
-
-        const id = taskCard.dataset.taskId;
-        if (!id) return;
+        const taskId = taskCard.dataset.taskId;
+        if (!taskId) return;
 
         if (ev.target.closest(".edit-task-btn")) {
             taskCard.classList.add("editing");
-            await openEditorForTask(id);
+            await openEditorForTask(taskId);
             return;
         }
 
@@ -363,14 +389,42 @@ export function attachControlsToTaskCard(taskCard) {
             if (!confirmed) return;
 
             try {
-                await deleteTask(id);
+                await deleteTask(taskId);
                 taskCard.remove();
             } catch {
                 showNotification("Ошибка удаления");
             }
+            return;
+        }
+
+        if (ev.target.closest(".go-to-task-btn")) {
+            const sectionId = getSectionId();
+            if (!sectionId) return;
+
+            const btns = controls.querySelectorAll(".go-to-task-btn");
+            btns.forEach(btn => btn.disabled = true); // блокируем на 3 секунды
+            setTimeout(() => btns.forEach(btn => btn.disabled = false), 3000);
+
+            eventBus.emit("task:attention", { sectionId, taskId });
+            return;
+        }
+
+        if (ev.target.closest(".reset-answer-btn")) {
+            const confirmed = await confirmAction("Сбросить ответы для этого задания?");
+            if (!confirmed) return;
+
+            try {
+                await clearTask(taskId);
+                eventBus.emit("answer:reset", { taskId });
+                showNotification("Ответы сброшены");
+            } catch (err) {
+                console.error("Reset answer failed:", err);
+                showNotification("Ошибка сброса ответа");
+            }
         }
     });
 }
+
 
 eventBus.on('taskCardRendered', ({ taskCard, task }) => {
     attachControlsToTaskCard(taskCard);

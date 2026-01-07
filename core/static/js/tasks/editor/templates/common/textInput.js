@@ -1,4 +1,4 @@
-import { showNotification, escapeHtml } from "../../../utils.js";
+import { showNotification, escapeHtml } from "@tasks/utils.js";
 
 /**
  * Рендер редактора текстового задания.

@@ -1,17 +1,5 @@
-/**
- * Загрузка и отображение заданий раздела:
- * - динамический импорт рендер-функций из TASK_MAP (utils.js)
- * - кеширование модулей для повторного использования
- * - отображение загрузчика
- * - уведомления через showNotification
- *
- * Экспорт:
- * - loadSectionTasks(sectionId) — загрузка и рендер всех заданий раздела
- * - renderTaskCard(task, replaceExisting) — рендер отдельной карточки
- */
-
-import { getCsrfToken, showNotification, TASK_MAP } from "@tasks/utils";
-import { eventBus } from '@events/eventBus';
+import { getCsrfToken, showNotification, TASK_MAP } from "@tasks/utils.js";
+import { eventBus } from '@tasks/events/eventBus.js';
 
 const taskListContainer = document.getElementById("task-list");
 
@@ -76,7 +64,7 @@ export async function renderTaskCard(task, replaceExisting = false) {
     if (!task) return;
 
     const card = document.createElement("div");
-    card.className = "task-card mb-3 p-2 rounded-3 position-relative overflow-hidden";
+    card.className = "task-card mb-3 p-2 rounded-3 position-relative";
     card.dataset.taskId = task.task_id;
     card.dataset.taskType = task.task_type;
 
@@ -115,8 +103,9 @@ export async function renderTaskCard(task, replaceExisting = false) {
         if (existing) {
             existing.replaceWith(card);
             eventBus.emit('taskCardRendered', { taskCard: card, task });
-            return;
         }
+
+        return;
     }
 
     taskListContainer.appendChild(card);
@@ -124,12 +113,16 @@ export async function renderTaskCard(task, replaceExisting = false) {
     eventBus.emit('taskCardRendered', { taskCard: card, task });
 }
 
+let activeSectionRequestId = 0;
+
 /**
  * Загружает задания выбранного раздела
  * @param {string} sectionId
  */
 export async function loadSectionTasks(sectionId) {
     if (!taskListContainer || !sectionId) return;
+
+    const requestId = ++activeSectionRequestId;
 
     document.querySelectorAll('#section-list .section-link').forEach(btn => {
         btn.classList.toggle('fw-bold', btn.dataset.sectionId === sectionId);
@@ -141,17 +134,29 @@ export async function loadSectionTasks(sectionId) {
 
     try {
         const tasks = await fetchSectionTasks(sectionId);
+        if (requestId !== activeSectionRequestId) return;
+
         if (!Array.isArray(tasks) || tasks.length === 0) return;
 
         const uniqueTypes = [...new Set(tasks.map(t => t.task_type))];
         await Promise.all(uniqueTypes.map(loadRenderer));
+        if (requestId !== activeSectionRequestId) return;
 
-        tasks.forEach(task => renderTaskCard(task));
+        for (const task of tasks) {
+            if (requestId !== activeSectionRequestId) return;
+            await renderTaskCard(task);
+        }
+
+        eventBus.emit('sectionAnswersRequested', { sectionId });
     } catch (err) {
-        console.error(err);
-        showNotification("Ошибка при загрузке заданий");
+        if (requestId === activeSectionRequestId) {
+            console.error(err);
+            showNotification("Ошибка при загрузке заданий");
+        }
     } finally {
-        loader.style.display = "none";
+        if (requestId === activeSectionRequestId) {
+            loader.style.display = "none";
+        }
     }
 }
 

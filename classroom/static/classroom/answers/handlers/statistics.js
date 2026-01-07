@@ -1,4 +1,4 @@
-import { showNotification, getSectionId } from '@tasks/utils';
+import { showNotification, getSectionId } from '@tasks/utils.js';
 import { getClassroomId, ANSWER_HANDLER_MAP } from '@classroom/answers/utils.js';
 
 /**
@@ -8,6 +8,10 @@ import { getClassroomId, ANSWER_HANDLER_MAP } from '@classroom/answers/utils.js'
  */
 export function showStatistics(taskId, stats) {
     try {
+        if (!stats || !stats.some(s => (s.correct_answers || 0) + (s.wrong_answers || 0) > 0)) {
+            return;
+        }
+
         const container = document.querySelector(`[data-task-id="${taskId}"]`);
         if (!container) return;
 
@@ -121,6 +125,10 @@ export async function loadTaskStatistics(taskId) {
 
         const data = await response.json();
 
+        if (!data.statistics || !Object.values(data.statistics).some(v => v?.length > 0)) {
+            return;
+        }
+
         const container = document.querySelector(`[data-task-id="${taskId}"]`);
         if (!container) return;
 
@@ -136,3 +144,4 @@ export async function loadTaskStatistics(taskId) {
         showNotification('Не удалось отобразить статистику');
     }
 }
+

@@ -4,7 +4,8 @@ from . import views
 urlpatterns = [
     path("page-editor/<uuid:lesson_id>/", views.page_editor_view, name="page_editor_view"),
 
-    path('lesson/<uuid:lesson_id>/sections/', views.lesson_sections, name='lesson_sections'),
+    path("lesson/<uuid:lesson_id>/sections/", views.lesson_sections, name="lesson_sections"),
+    path("lesson/<uuid:lesson_id>/sections/reorder/", views.reorder_sections, name="sections_reorder"),
     path("section/create/", views.create_section, name="create_section"),
     path("section/<uuid:section_id>/edit/", views.edit_section, name="edit_section"),
     path("section/<uuid:section_id>/delete/", views.delete_section, name="delete_section"),

@@ -1,6 +1,7 @@
-import { showNotification, postJSON } from "@tasks/utils";
-import { ANSWER_HANDLER_MAP, getClassroomId, getViewedUserId, getTaskTypeFromContainer} from "@classroom/answers/utils.js";
-
+import { showNotification, postJSON } from "@tasks/utils.js";
+import { eventBus } from "@tasks/events/eventBus.js";
+import { ANSWER_HANDLER_MAP, getClassroomId, getViewedUserId, getTaskTypeFromContainer } from "@classroom/answers/utils.js";
+import { handleAnswer } from "@classroom/answers/handleAnswer.js"
 
 const moduleCache = new Map();
 
@@ -50,6 +51,15 @@ export async function loadAnswerModule(taskType) {
     }
 }
 
+/**
+ * Отправляет ответ пользователя на сервер и обновляет отображение задания.
+ * При успешной отправке генерирует событие "answer:sent" с taskId.
+ *
+ * @param {Object} params
+ * @param {number|string} params.taskId - ID задания
+ * @param {any} params.data - Данные ответа
+ * @returns {Promise<Object|null>} Результат от сервера или null при ошибке
+ */
 export async function sendAnswer({ taskId, data }) {
     const classroomId = getClassroomId();
     const viewedUserId = getViewedUserId();
@@ -78,16 +88,15 @@ export async function sendAnswer({ taskId, data }) {
         if (result?.success && result.answer) {
             const taskType = getTaskTypeFromContainer(taskId);
 
-            const responseData = {
+            const answerData = {
+                answer: result.answer,
                 task_id: taskId,
-                task_type: taskType,
-                answer: result.answer
+                task_type: taskType
             };
 
-            const module = await loadAnswerModule(taskType);
-            if (module?.handleAnswer) {
-                module.handleAnswer(responseData);
-            }
+            await handleAnswer(answerData);
+
+            eventBus.emit("answer:sent", { taskId });
         }
 
         return result;

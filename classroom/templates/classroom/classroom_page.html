@@ -134,6 +134,15 @@
         registerAnswerEvents();
     </script>
 
+    <!-- Взаимодейтсвие Websocket -->
+    <script type="module">
+        import { initVirtualClassWebSocket } from "{% static 'classroom/answers/websocket/init.js' %}";
+        import { initAnswerEvents } from "{% static 'classroom/answers/websocket/sendMessage.js' %}";
+
+        initVirtualClassWebSocket();
+        initAnswerEvents();
+    </script>
+
     <div class="row mt-4 d-flex justify-content-center">
         <div id="main-container" class="col-12 col-xl-9">
             <div id="task-list" class="bg-white p-3 rounded shadow-sm" style="min-height: 400px;"></div>

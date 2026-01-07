@@ -1,4 +1,4 @@
-import { showNotification } from "../../../utils.js";
+import { showNotification } from "@tasks/utils.js";
 
 /**
  * Рендерит редактор задания типа «Заполни пропуски».
@@ -8,7 +8,6 @@ import { showNotification } from "../../../utils.js";
  * @param {string} [taskData.task_type]
  */
 export function renderFillGapsTaskEditor(taskData = null) {
-    console.log("[DEBUG]", taskData);
     const card = document.createElement("div");
     card.className = "task-editor-card mb-4 p-3 bg-white border-0 rounded";
 

@@ -1,6 +1,6 @@
 import { loadAnswerModule } from "@classroom/answers/api.js";
 import { getViewedUserId, getClassroomId } from "@classroom/answers/utils.js";
-import { showNotification, getCsrfToken } from "@tasks/utils";
+import { showNotification, getCsrfToken } from "@tasks/utils.js";
 
 /**
  * Очищает UI задания по taskId
@@ -52,7 +52,6 @@ export async function clearTask(taskId) {
         }
 
         await clearTaskContainer(taskId);
-        showNotification("Ответы сброшены");
     } catch (err) {
         console.error(`clearTask error (taskId=${taskId}):`, err);
         showNotification("Ошибка при сбросе ответа");

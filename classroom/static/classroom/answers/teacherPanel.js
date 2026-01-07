@@ -1,9 +1,4 @@
-import {
-    showNotification,
-    escapeHtml,
-    getInfoElement
-} from "@tasks/utils";
-
+import { showNotification, escapeHtml, getInfoElement } from "@tasks/utils.js";
 import { getViewedUserId } from "@classroom/answers/utils.js";
 import { handleSectionAnswers } from "@classroom/answers/handleAnswer.js";
 import { clearAllTaskContainers } from "@classroom/answers/handlers/clearAnswers.js";
@@ -26,7 +21,7 @@ export async function initStudentPanel(studentsList = []) {
 
     dropdownMenu.innerHTML = "";
 
-    appendMenuItem(dropdownMenu, { id: "all", name: "Все ученики" });
+    appendMenuItem(dropdownMenu, { id: "all", name: "Статистика" });
 
     if (Array.isArray(studentsList) && studentsList.length > 0) {
         studentsList.forEach(s => {
@@ -152,7 +147,7 @@ async function selectStudent(
     dropdownButton.textContent = itemEl
         ? itemEl.textContent.trim()
         : studentId === "all"
-            ? "Все ученики"
+            ? "Статистика"
             : String(studentId);
 
     infoEl.dataset.viewedUserId = String(studentId);
@@ -200,4 +195,34 @@ function safeInvoke(fn, message) {
         console.error(message, err);
         showNotification(message);
     }
+}
+
+/**
+ * Показывает кнопку "Перейти к заданию" и навешивает обработчик
+ * @param {HTMLElement} panel
+ */
+export function renderGoToTaskButton(panel) {
+    if (!panel) return;
+
+    const btns = panel.querySelectorAll(".go-to-task-btn");
+    if (!btns.length) return;
+
+    btns.forEach(btn => {
+        btn.classList.remove("d-none");
+    });
+}
+
+/**
+ * Показывает кнопку "Сбросить ответ" и навешивает обработчик
+ * @param {HTMLElement} panel
+ */
+export function renderResetButton(panel) {
+    if (!panel) return;
+
+    const btns = panel.querySelectorAll(".reset-answer-btn");
+    if (!btns.length) return;
+
+    btns.forEach(btn => {
+        btn.classList.remove("d-none");
+    });
 }

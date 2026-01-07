@@ -1,5 +1,6 @@
-import { postJSON, showNotification, getCsrfToken, readSectionId, fetchSingleTask } from "@tasks/utils";
-import { renderTaskCard } from "../display/showTasks.js";
+import { postJSON, showNotification, getCsrfToken, getSectionId, fetchSingleTask } from "@tasks/utils.js";
+import { renderTaskCard } from "@tasks/display/showTasks.js";
+import { eventBus } from "@tasks/events/eventBus.js";
 
 /**
  * Закрывает редактор задания. Скрывает модальное окно или удаляет карточку редактора из DOM.
@@ -27,12 +28,12 @@ export function closeTaskEditor() {
 export const TaskValidators = {
     test: function(taskCard) {
         const blocks = [...taskCard.querySelectorAll(".question-container")];
-        if (!blocks.length) { showNotification("❌ Добавьте хотя бы один вопрос!"); return null; }
+        if (!blocks.length) { showNotification("Добавьте хотя бы один вопрос!"); return null; }
 
         const tasks = [];
         for (const block of blocks) {
             const question = block.querySelector(".question-text")?.value.trim();
-            if (!question) { showNotification("❌ Укажите текст вопроса!"); return null; }
+            if (!question) { showNotification("Укажите текст вопроса!"); return null; }
 
             const options = [...block.querySelectorAll(".answer-row")].map(row => {
                 const option = row.querySelector(".answer-text")?.value.trim();
@@ -40,8 +41,8 @@ export const TaskValidators = {
                 return option ? { option, is_correct } : null;
             }).filter(Boolean);
 
-            if (!options.length) { showNotification("❌ Укажите хотя бы один вариант ответа!"); return null; }
-            if (!options.some(o => o.is_correct)) { showNotification("❌ Хотя бы один вариант должен быть отмечен как правильный!"); return null; }
+            if (!options.length) { showNotification("Укажите хотя бы один вариант ответа!"); return null; }
+            if (!options.some(o => o.is_correct)) { showNotification("Хотя бы один вариант должен быть отмечен как правильный!"); return null; }
 
             tasks.push({ question, options });
         }
@@ -222,7 +223,7 @@ export const TaskValidators = {
  * @returns {Promise<string|null>}
  */
 export async function saveTask(taskType, taskCard, taskId = null) {
-    const sectionId = readSectionId();
+    const sectionId = getSectionId();
     if (!sectionId) {
         showNotification("Произошла ошибка. Вы не можете создавать задания.");
         return null;
@@ -300,6 +301,8 @@ export async function saveTask(taskType, taskCard, taskId = null) {
         showNotification("Задание сохранено!");
         closeTaskEditor();
 
+        eventBus.emit("section:change", { sectionId });
+
         return savedTaskId;
     } catch (err) {
         console.error(err);
@@ -324,6 +327,7 @@ export async function deleteTask(taskId) {
             return json;
         }
         showNotification("Задание удалено");
+        eventBus.emit("section:change", { sectionId });
         return json;
     } catch (err) {
         console.error("deleteTask error:", err);

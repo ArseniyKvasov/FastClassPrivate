@@ -1,6 +1,6 @@
-import { getCsrfToken, showNotification, confirmAction, getInfoElement, getIsTeacher, getIsClassroom, getLessonId, getSectionId } from '@tasks/utils';
-import { loadSectionTasks } from './showTasks.js';
-import { eventBus } from '@events/eventBus';
+import { getCsrfToken, showNotification, confirmAction, getInfoElement, getIsTeacher, getIsClassroom, getLessonId, getSectionId } from '@tasks/utils.js';
+import { loadSectionTasks } from '@tasks/display/showTasks.js';
+import { eventBus } from '@tasks/events/eventBus.js';
 
 const infoEl = getInfoElement();
 const isTeacher = getIsTeacher();
@@ -14,17 +14,17 @@ const sectionModal = sectionModalEl ? new bootstrap.Modal(sectionModalEl) : null
 const nameInput = document.getElementById('manualSectionName');
 const modalTitleEl = sectionModalEl ? sectionModalEl.querySelector('.modal-title') : null;
 
-let currentSectionId = getSectionId();
 let isSubmitting = false;
 
 function renderSectionItem(section) {
-    const li = document.createElement('li');
-    li.className = 'list-group-item d-flex justify-content-between align-items-center border-0 px-2 my-1 rounded';
+    const li = document.createElement("li");
+    li.className = "list-group-item d-flex justify-content-between align-items-center border-0 px-2 my-1 rounded";
     li.dataset.sectionId = section.id;
+    li.draggable = isTeacher;
 
-    const teacherHandle = (isTeacher && !isClassroom)
-        ? `<span class="drag-handle me-2">☰</span>`
-        : '';
+    const teacherHandle = isTeacher
+        ? `<span class="drag-handle me-1" role="button">☰</span>`
+        : "";
 
     li.innerHTML = `
         <div class="d-flex align-items-center gap-2" style="flex:1; min-width:0;">
@@ -44,23 +44,27 @@ function renderSectionItem(section) {
                     <i class="bi bi-trash3-fill text-secondary"></i>
                 </button>
             </div>
-        ` : ''}
+        ` : ""}
     `;
 
     sectionList?.appendChild(li);
 
-    if (section.id === currentSectionId) {
-        li.querySelector('.section-link')?.classList.add('fw-bold', 'text-primary');
+    if (section.id === getSectionId()) {
+        li.querySelector(".section-link")?.classList.add("fw-bold", "text-primary");
+    }
+
+    if (isTeacher) {
+        initDragHandlers(li);
     }
 }
 
-async function renderSectionsList(sections) {
+export async function renderSectionsList(sections) {
     if (!sectionList) return;
     sectionList.innerHTML = '';
     sections.forEach(renderSectionItem);
 }
 
-async function fetchSections() {
+export async function fetchSections() {
     if (!lessonId) return [];
     try {
         const res = await fetch(`/courses/lesson/${lessonId}/sections/`);
@@ -73,8 +77,6 @@ async function fetchSections() {
 }
 
 function highlightSelectedSection(sectionId) {
-    currentSectionId = sectionId;
-
     sectionList?.querySelectorAll('.section-link').forEach(btn => {
         const active = btn.dataset.sectionId == sectionId;
         btn.classList.toggle('fw-bold', active);
@@ -86,10 +88,9 @@ function highlightSelectedSection(sectionId) {
 }
 
 export async function selectSection(sectionId) {
-    if (!sectionId || sectionId === currentSectionId) return;
+    if (!sectionId || sectionId === getSectionId()) return;
     highlightSelectedSection(sectionId);
     await loadSectionTasks(sectionId);
-    eventBus.emit('sectionAnswersRequested', { sectionId });
 }
 
 /**
@@ -111,6 +112,8 @@ async function createSection(title) {
     const sections = await fetchSections();
     await renderSectionsList(sections);
     selectSection(data.id);
+
+    eventBus.emit('section_list:change');
 }
 
 /**
@@ -121,7 +124,7 @@ async function createSection(title) {
  * В противном случае — выделяется отредактированный раздел.
  */
 async function editSection(sectionId, title) {
-    const prevSelected = currentSectionId;
+    const prevSelected = getSectionId();
 
     const res = await fetch(`/courses/section/${sectionId}/edit/`, {
         method: 'POST',
@@ -142,6 +145,8 @@ async function editSection(sectionId, title) {
     } else {
         highlightSelectedSection(sectionId);
     }
+
+    eventBus.emit('section_list:change');
 }
 
 /**
@@ -173,6 +178,7 @@ async function deleteSection(sectionId) {
 
         const sections = await fetchSections();
         await renderSectionsList(sections);
+        const currentSectionId = getSectionId();
 
         if (String(currentSectionId) === String(sectionId) && sections.length) {
             selectSection(sections[0].id);
@@ -182,6 +188,68 @@ async function deleteSection(sectionId) {
     } catch (err) {
         showNotification('Ошибка при удалении раздела');
     }
+
+    eventBus.emit('section_list:change');
+}
+
+let draggedItem = null;
+let hasMoved = false;
+
+/**
+ * Инициализирует drag-and-drop для элемента списка разделов
+ * @param {HTMLLIElement} li
+ */
+function initDragHandlers(li) {
+    const handle = li.querySelector(".drag-handle");
+    if (!handle) return;
+
+    handle.addEventListener("mousedown", () => {
+        li.draggable = true;
+    });
+
+    handle.addEventListener("mouseup", () => {
+        li.draggable = false;
+    });
+
+    li.addEventListener("dragstart", (e) => {
+        draggedItem = li;
+        hasMoved = false;
+        li.classList.add("opacity-50");
+        e.dataTransfer.effectAllowed = "move";
+    });
+
+    li.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        if (!draggedItem || draggedItem === li) return;
+
+        const rect = li.getBoundingClientRect();
+        const isAfter = e.clientY > rect.top + rect.height / 2;
+
+        const referenceNode = isAfter ? li.nextSibling : li;
+        if (referenceNode === draggedItem) return;
+
+        sectionList.insertBefore(draggedItem, referenceNode);
+        hasMoved = true;
+    });
+
+    li.addEventListener("dragend", async () => {
+        li.classList.remove("opacity-50");
+        li.draggable = false;
+
+        if (!hasMoved) {
+            draggedItem = null;
+            return;
+        }
+
+        draggedItem = null;
+
+        try {
+            await sendSectionsOrder();
+            eventBus.emit("section_list:change");
+        } catch (e) {
+            console.error("Failed to save sections order", e);
+        }
+    });
 }
 
 /**
@@ -214,6 +282,33 @@ async function submitSectionForm() {
         isSubmitting = false;
     }
 }
+
+/**
+ * Собирает текущий порядок разделов и отправляет на сервер.
+ */
+async function sendSectionsOrder() {
+    const order = Array.from(sectionList.children).map(
+        li => li.dataset.sectionId
+    );
+
+    const lessonId = getLessonId();
+    if (!lessonId) return;
+
+    try {
+        await fetch(`/courses/lesson/${lessonId}/sections/reorder/`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": getCsrfToken()
+            },
+            body: JSON.stringify({ order })
+        });
+    } catch (e) {
+        console.error("Failed to reorder sections", e);
+        showNotification("Не удалось сохранить порядок разделов");
+    }
+}
+
 
 function handleSectionListClick(e) {
     const li = e.target.closest('li[data-section-id]');
@@ -304,6 +399,7 @@ export async function initRenderSections() {
     sectionList?.addEventListener('click', handleSectionListClick);
     initSectionEditor();
     initAddSectionButton();
+    const currentSectionId = getSectionId();
 
     if (!lessonId) return;
 

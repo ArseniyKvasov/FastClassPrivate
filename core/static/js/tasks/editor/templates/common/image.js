@@ -1,4 +1,4 @@
-import { showNotification } from "../../../utils.js";
+import { showNotification } from "@tasks/utils.js";
 
 /**
  * Рендерит редактор задания типа «Изображение».

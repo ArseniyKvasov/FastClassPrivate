@@ -1,5 +1,5 @@
-import { saveTask } from "../../api.js";
-import { showNotification } from "../../../utils.js";
+import { saveTask } from "@tasks/editor/api.js";
+import { showNotification } from "@tasks/utils.js";
 
 /**
  * Рендерит редактор задания типа «Соотнеси карточки».

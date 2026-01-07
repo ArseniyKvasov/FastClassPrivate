@@ -195,58 +195,58 @@ export function confirmAction(message) {
  *
  * key = task_type
  * value = {
- *   render: [relative_path_to_file, exported_render_function],
- *   edit:   [relative_path_to_file, exported_edit_function],
+ *   render: [path_to_file, exported_render_function],
+ *   edit:   [path_to_file, exported_edit_function],
  *   icon:   "bi-...",
  *   label:  "Русское название"
  * }
  */
 export const TASK_MAP = {
     fill_gaps: {
-        render: ["./templates/common/fillGaps.js", "renderFillGapsTask"],
-        edit:   ["./templates/common/fillGaps.js", "renderFillGapsTaskEditor"],
+        render: ["@tasks/display/templates/common/fillGaps.js", "renderFillGapsTask"],
+        edit:   ["@tasks/editor/templates/common/fillGaps.js", "renderFillGapsTaskEditor"],
         icon:   "bi-pen",
         label:  "Заполнить пропуски"
     },
     image: {
-        render: ["./templates/common/image.js", "renderImageTask"],
-        edit:   ["./templates/common/image.js", "renderImageTaskEditor"],
+        render: ["@tasks/display/templates/common/image.js", "renderImageTask"],
+        edit:   ["@tasks/editor/templates/common/image.js", "renderImageTaskEditor"],
         icon:   "bi-image",
         label:  "Картинка"
     },
     note: {
-        render: ["./templates/common/note.js", "renderNoteTask"],
-        edit:   ["./templates/common/note.js", "renderNoteTaskEditor"],
+        render: ["@tasks/display/templates/common/note.js", "renderNoteTask"],
+        edit:   ["@tasks/editor/templates/common/note.js", "renderNoteTaskEditor"],
         icon:   "bi-stickies",
         label:  "Заметка"
     },
     text_input: {
-        render: ["./templates/common/textInput.js", "renderTextInputTask"],
-        edit:   ["./templates/common/textInput.js", "renderTextInputTaskEditor"],
+        render: ["@tasks/display/templates/common/textInput.js", "renderTextInputTask"],
+        edit:   ["@tasks/editor/templates/common/textInput.js", "renderTextInputTaskEditor"],
         icon:   "bi-text-paragraph",
         label:  "Текстовое задание"
     },
     true_false: {
-        render: ["./templates/common/trueFalse.js", "renderTrueFalseTask"],
-        edit:   ["./templates/common/trueFalse.js", "renderTrueFalseTaskEditor"],
+        render: ["@tasks/display/templates/common/trueFalse.js", "renderTrueFalseTask"],
+        edit:   ["@tasks/editor/templates/common/trueFalse.js", "renderTrueFalseTaskEditor"],
         icon:   "bi-check2-circle",
         label:  "Правда или ложь"
     },
     match_cards: {
-        render: ["./templates/common/matchCards.js", "renderMatchCardsTask"],
-        edit:   ["./templates/common/matchCards.js", "renderMatchCardsTaskEditor"],
+        render: ["@tasks/display/templates/common/matchCards.js", "renderMatchCardsTask"],
+        edit:   ["@tasks/editor/templates/common/matchCards.js", "renderMatchCardsTaskEditor"],
         icon:   "bi-arrow-left-right",
         label:  "Соотнеси карточки"
     },
     integration: {
-        render: ["./templates/common/integration.js", "renderIntegrationTask"],
-        edit:   ["./templates/common/integration.js", "renderIntegrationTaskEditor"],
+        render: ["@tasks/display/templates/common/integration.js", "renderIntegrationTask"],
+        edit:   ["@tasks/editor/templates/common/integration.js", "renderIntegrationTaskEditor"],
         icon:   "bi-puzzle",
         label:  "Интеграция"
     },
     test: {
-        render: ["./templates/common/test.js", "renderTestTask"],
-        edit:   ["./templates/common/test.js", "renderTestTaskEditor"],
+        render: ["@tasks/display/templates/common/test.js", "renderTestTask"],
+        edit:   ["@tasks/editor/templates/common/test.js", "renderTestTaskEditor"],
         icon:   "bi-list-check",
         label:  "Тест"
     }

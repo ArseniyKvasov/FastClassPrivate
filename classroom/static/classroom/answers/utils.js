@@ -1,5 +1,6 @@
-import { loadAnswerModule, fetchTaskAnswer } from "./api.js";
-import { showNotification, postJSON } from "@tasks/utils";
+import { loadAnswerModule, fetchTaskAnswer } from "@classroom/answers/api.js";
+import { showNotification, postJSON } from "@tasks/utils.js";
+import { eventBus } from "@tasks/events/eventBus.js";
 
 export const ANSWER_HANDLER_MAP = {
     match_cards: {
@@ -154,8 +155,11 @@ export async function initCheckButton(task, container) {
             container.dataset.isChecked = "true";
 
             if (typeof handleAnswer === "function") {
-                const data = await fetchTaskAnswer(task.task_id);
+                const taskId = task.task_id;
+                const data = await fetchTaskAnswer(taskId);
                 handleAnswer(data, container);
+
+                eventBus.emit("answer:sent", { taskId });
             }
         } catch (err) {
             console.error("Save answer failed:", err);

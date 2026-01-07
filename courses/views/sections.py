@@ -2,6 +2,7 @@ from courses.models import Lesson, Section, Task, TestTask, NoteTask, ImageTask,
     MatchCardsTask, \
     TextInputTask
 import json
+from django.db import transaction
 from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
@@ -13,11 +14,21 @@ from courses.task_serializers import TASK_SERIALIZER_MAP
 def lesson_sections(request, lesson_id):
     """
     Возвращает список разделов для указанного урока.
+    Если разделов нет — создаёт один по умолчанию.
     Формат: { success: True, sections: [ {id, title, order}, ... ] }
     """
     lesson = get_object_or_404(Lesson, id=lesson_id)
 
     sections_qs = lesson.sections.all().order_by('order')
+
+    if not sections_qs.exists():
+        with transaction.atomic():
+            Section.objects.create(
+                lesson=lesson,
+                title="Новый раздел",
+                order=1
+            )
+            sections_qs = lesson.sections.all().order_by('order')
 
     sections = [
         {
@@ -70,6 +81,50 @@ def create_section(request):
         return JsonResponse({"error": "Некорректный JSON"}, status=400)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+
+@require_POST
+@login_required
+def reorder_sections(request, lesson_id):
+    """
+    dogstring:
+    Принимает новый порядок секций урока и пересчитывает поле order.
+    Ожидаемый payload:
+    {
+        "order": ["uuid1", "uuid2", ...]
+    }
+    """
+    lesson = get_object_or_404(
+        Lesson,
+        id=lesson_id,
+        course__creator=request.user
+    )
+
+    try:
+        payload = json.loads(request.body.decode("utf-8"))
+        order = payload.get("order", [])
+    except Exception:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    if not isinstance(order, list):
+        return JsonResponse({"error": "Order must be a list"}, status=400)
+
+    with transaction.atomic():
+        sections = {
+            str(section.id): section
+            for section in lesson.sections.select_for_update()
+        }
+
+        for index, section_id in enumerate(order):
+            section = sections.get(str(section_id))
+            if not section:
+                continue
+
+            if section.order != index:
+                section.order = index
+                section.save(update_fields=["order"])
+
+    return JsonResponse({"status": "ok"})
 
 
 @require_POST
