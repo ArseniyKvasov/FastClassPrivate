@@ -1,118 +1,120 @@
-import { showNotification, getIsTeacher, getSectionId } from "/static/js/tasks/utils.js";
-import { fetchSections, renderSectionsList, selectSection } from "/static/js/tasks/display/renderSections.js"
-import { loadSectionTasks } from "/static/js/tasks/display/showTasks.js"
+"use strict";
+
+import { eventBus } from "/static/js/tasks/events/eventBus.js";
+import { getCurrentUserId } from "/static/js/tasks/utils.js";
+import { showNotification } from "/static/js/tasks/utils.js"
 import { getViewedUserId } from '/static/classroom/utils.js'
-import { fetchTaskAnswer } from "/static/classroom/answers/api.js";
-import { handleAnswer } from "/static/classroom/answers/handleAnswer.js";
-import { clearTask } from "/static/classroom/answers/handlers/clearAnswers.js"
-import { createBubbleNode, refreshChat, pointNewMessage } from "/static/classroom/integrations/chat.js"
+import { virtualClassWS } from "/static/classroom/websocket/init.js";
 
 /**
- * @type {ReturnType<initStudentPanel>}
+ * Отправляет сообщение в WebSocket, если соединение открыто.
+ *
+ * @param {string} type
+ * @param {Object} payload
  */
-const teacherPanel = typeof window !== "undefined" ? window.__teacherPanel : null;
-
-export async function handleWSMessage(ev) {
-    let msg;
-    try {
-        msg = JSON.parse(ev.data);
-    } catch {
-        return;
-    }
-
-    const { type, data } = msg;
-    if (!type || !data?.student_id) return;
-    if (!shouldProcessMessage(data)) return;
-
-    switch(type) {
-        case "answer:sent":
-            if (!data?.task_id) return;
-            await processTaskAnswer(data.task_id);
-            break;
-
-        case "answer:reset":
-            if (!data?.task_id) return;
-            await clearTask(data.task_id);
-            break;
-
-        case "section_list:change":
-            await refreshSectionsAndSelect();
-            break;
-
-        case "task:attention":
-            if (!data?.task_id || !data?.payload?.section_id) return;
-            await moveToPointedTask(data.payload.section_id, data.task_id);
-            break;
-
-        case "section:change":
-            if (!data?.payload?.section_id) return;
-            const currentSectionId = getSectionId();
-            if (currentSectionId === data.payload.section_id) {
-                await loadSectionTasks(currentSectionId);
-            }
-            break;
-
-        case "chat:send_message":
-            if (!data?.text || !data?.sender_id) return;
-            await pointNewMessage(data);
-            break;
-
-        case "chat:update":
-            await refreshChat();
-            break;
-
-        case "student:online":
-            if (teacherPanel?.markOnline) teacherPanel.markOnline(data.student_id);
-            break;
-
-        case "student:offline":
-            if (teacherPanel?.markOffline) teacherPanel.markOffline(data.student_id);
-            break;
-    }
+export function sendWS(type, payload) {
+    if (!virtualClassWS || virtualClassWS.readyState !== WebSocket.OPEN) return;
+    virtualClassWS.send(JSON.stringify({ type, data: payload }));
 }
 
-function shouldProcessMessage({ student_id }) {
-    const isTeacher = getIsTeacher();
-    if (isTeacher) {
-        const userId = getViewedUserId();
-        if (userId === "all" || String(student_id) === "all") return true;
-        return String(student_id) === String(userId);
-    }
+/**
+ * Регистрирует обработчики локальных событий.
+ */
+export function initEvents() {
+    eventBus.on("answer:sent", async (payload) => {
+        try {
+            if (!payload?.taskId) return;
+            sendWS("answer:sent", {
+                task_id: payload.taskId,
+                student_id: getViewedUserId()
+            });
+        } catch (e) {
+            console.error("eventBus answer:sent message failed", e);
+        }
+    });
 
-    return String(student_id) === String(getViewedUserId()) || String(student_id) === "all";
-}
+    eventBus.on("answer:reset", async (payload) => {
+        try {
+            if (!payload?.taskId) return;
+            sendWS("answer:reset", {
+                task_id: payload.taskId,
+                student_id: getViewedUserId()
+            });
+        } catch (e) {
+            console.error("eventBus answer:reset message failed", e);
+        }
+    });
 
-async function processTaskAnswer(taskId) {
-    try {
-        const answerData = await fetchTaskAnswer(taskId);
-        if (!answerData) return;
-        await handleAnswer(answerData);
-    } catch (e) {
-        console.error("processTaskAnswer failed", e);
-        showNotification("Не удалось получить ответ задачи");
-    }
-}
+    eventBus.on("section_list:change", async () => {
+        try {
+            sendWS("section_list:change", {
+                student_id: "all"
+            });
+        } catch (e) {
+            console.error("eventBus section_list:change message failed", e);
+        }
+    });
 
-async function refreshSectionsAndSelect() {
-    const previousSectionId = getSectionId();
-    const sections = await fetchSections();
+    eventBus.on("task:attention", async (payload) => {
+        try {
+            if (!payload?.taskId) return;
+            sendWS("task:attention", {
+                task_id: payload.taskId,
+                student_id: "all",
+                section_id: payload.sectionId
+            });
+            showNotification("Все ученики переведены к заданию");
+        } catch (e) {
+            console.error("eventBus task:attention message failed", e);
+        }
+    });
 
-    await renderSectionsList(sections);
+    eventBus.on("section:change", async (payload) => {
+        try {
+            if (!payload?.sectionId) return;
+            sendWS("section:change", {
+                student_id: "all",
+                section_id: payload.sectionId
+            });
+        } catch (e) {
+            console.error("eventBus section:change message failed", e);
+        }
+    });
 
-    if (!sections.length) return;
+    eventBus.on("chat:send_message", async (payload) => {
+        try {
+            if (!payload?.text) return;
+            sendWS("chat:send_message", {
+                text: payload.text,
+                sender_id: getCurrentUserId(),
+                student_id: "all",
+            });
+        } catch (e) {
+            console.error("eventBus chat:send_message failed", e);
+        }
+    });
 
-    const sectionToSelect = sections.find(section => section.id === previousSectionId)?.id || sections[0].id;
-    await selectSection(sectionToSelect);
-}
+    /**
+     * Обрабатывает изменение чата (редактирование или удаление сообщения)
+     */
+    eventBus.on("chat:update", async (payload) => {
+        try {
+            sendWS("chat:update", {
+                student_id: "all"
+            });
+        } catch (e) {
+            console.error("eventBus chat:update failed", e);
+        }
+    });
 
-async function moveToPointedTask(sectionId, taskId) {
-    if (!sectionId || !taskId) return;
-
-    await selectSection(sectionId);
-
-    const taskSelector = `.task-card[data-task-id="${taskId}"]`;
-    const taskCard = document.querySelector(taskSelector);
-    if (!taskCard) return;
-
-    taskCard.scrollIntoView({ behavior: "smooth", block: "center" });
+    eventBus.on("user:is_online", async (payload) => {
+        try {
+            if (!payload?.userId) return;
+            sendWS("user:is_online", {
+                student_id: payload.userId
+            });
+        } catch (e) {
+            console.error("eventBus user:is_online failed", e);
+        }
+    });
 }

@@ -1,12 +1,13 @@
-import { saveTask } from "/static/js/tasks/editor/api.js";
 import { showNotification } from "/static/js/tasks/utils.js";
 
 /**
  * Рендерит редактор задания типа «Соотнеси карточки».
  *
  * @param {{cards?: Array<{card_left: string, card_right: string}>}|null} taskData
+ * @param {string|null} taskId
+ * @returns {HTMLElement}
  */
-export function renderMatchCardsTaskEditor(taskData = null) {
+export function renderMatchCardsTaskEditor(taskData = null, taskId = null) {
     const card = document.createElement("div");
     card.className = "task-editor-card mb-4 p-3 bg-white border-0 rounded";
 
@@ -34,11 +35,6 @@ export function renderMatchCardsTaskEditor(taskData = null) {
 
     card.querySelector(".remove-task-btn")
         .addEventListener("click", () => card.remove());
-
-    card.querySelector(".save-btn")
-        .addEventListener("click", async () => {
-            await saveTask("match_cards", card, taskId);
-        });
 
     const initialCards = taskData?.cards || [];
     if (initialCards.length > 0) {
@@ -71,9 +67,9 @@ export function addMatchCard(container, leftValue = "", rightValue = "") {
     row.dataset.cardId = cId;
 
     row.innerHTML = `
-        <input type="text" class="form-control card-left" placeholder="Левая карточка" style="max-width: 45%;" value="${leftValue}">
+        <input type="text" class="form-control card-left" placeholder="Левая карточка" style="max-width: 45%;" value="${escapeHtmlAttr(leftValue)}">
         <i class="bi bi-arrow-left-right text-secondary fs-5 swap-card-btn" title="Поменять местами" style="cursor: pointer;"></i>
-        <input type="text" class="form-control card-right" placeholder="Правая карточка" style="max-width: 45%;" value="${rightValue}">
+        <input type="text" class="form-control card-right" placeholder="Правая карточка" style="max-width: 45%;" value="${escapeHtmlAttr(rightValue)}">
         <button class="btn-close remove-card-btn" title="Удалить карточку" style="transform: scale(0.7);"></button>
     `;
 
@@ -121,43 +117,112 @@ export function addMatchCard(container, leftValue = "", rightValue = "") {
 }
 
 /**
- * Обрабатывает массовую вставку карточек из буфера обмена.
+ * Утилита: безопасно эскейпит значение для value в атрибуте input.
  *
- * @param {ClipboardEvent} e
- * @param {HTMLElement} container
+ * @param {string} v
+ * @returns {string}
  */
+function escapeHtmlAttr(v) {
+    if (v == null) return "";
+    return String(v)
+        .replace(/&/g, "&amp;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+}
+
 export function handleAutoPasteCards(e, container) {
     const clipboardData = e.clipboardData || window.clipboardData;
     const text = clipboardData?.getData("text/plain");
     if (!text) return;
 
-    if (!/[–—\-]|\t|\s{2,}/.test(text)) return;
+    if (!/[\t]|[-–—]|[|]|\s{2,}/.test(text)) return;
 
     const targetInput = e.target.closest("input");
     if (!targetInput) return;
 
     e.preventDefault();
 
-    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-    if (lines.length === 0) return;
+    const rawLines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    if (!rawLines.length) return;
 
+    // Удаляем текущие пустые строки (кроме той, где targetInput)
     const allRows = [...container.querySelectorAll(".match-card-row")];
     allRows.forEach(row => {
         const left = row.querySelector(".card-left").value.trim();
         const right = row.querySelector(".card-right").value.trim();
-        if (row.contains(targetInput) || (!left && !right)) row.remove();
+        if (!row.contains(targetInput) && !left && !right) row.remove();
     });
 
-    lines.forEach(line => {
-        const parts = line.split(/\s*[-–—]\s*|\t+|\s{2,}/);
-        const left = parts[0]?.trim() || "";
-        const right = parts[1]?.trim() || "";
-        if (left || right) addMatchCard(container, left, right);
+    let inserted = 0;
+
+    rawLines.forEach(line => {
+        const parts = line.split(/\t+|\s{2,}|[|]|[-–—]/).map(p => p.trim()).filter(Boolean);
+
+        let left = "";
+        let right = "";
+
+        if (parts.length >= 2) {
+            left = parts.slice(0, parts.length - 1).join(" ").trim();
+            right = parts[parts.length - 1].trim();
+        } else if (parts.length === 1) {
+            left = parts[0] || "";
+            right = "";
+        }
+
+        left = cleanCardText(left);
+        right = cleanCardText(right);
+
+        if (left || right) {
+            addMatchCard(container, left, right);
+            inserted++;
+        }
     });
 
-    if (container.querySelector(".match-card-row")) {
+    // Удаляем все пустые строки после вставки
+    [...container.querySelectorAll(".match-card-row")].forEach(row => {
+        const left = row.querySelector(".card-left").value.trim();
+        const right = row.querySelector(".card-right").value.trim();
+        if (!left && !right) row.remove();
+    });
+
+    if (inserted) {
         showNotification("Карточки успешно вставлены!");
     } else {
-        showNotification("Не удалось распознать карточки!");
+        showNotification("Не удалось распознать карточки в буфере обмена.");
     }
+}
+
+/**
+ * Чистит текст карточки от лишних ведущих маркеров.
+ *
+ * Удаляет только ведущие маркеры:
+ *  - обёрнутые в скобки в начале: "(A)", "(1)"
+ *  - ведущие номера: "1.", "2)"
+ *  - ведущие буквы/марки вариантов: "A)", "a.", "Б)", "b)"
+ *
+ * НИЧЕГО не удаляет из середины/конца строки (чтобы не обрезать содержимое).
+ *
+ * @param {string} s
+ * @returns {string}
+ */
+function cleanCardText(s) {
+    if (!s) return "";
+
+    s = s.trim();
+
+    // Удаляем оборачивающие кавычки в начале/конце
+    s = s.replace(/^[`"'«»]\s*/, "").replace(/\s*[`"'«»]$/, "");
+
+    // Удаляем ведущие скобочные маркеры в начале: "(A) ", "(1) "
+    s = s.replace(/^(?:\(\s*[A-Za-zА-Яа-я0-9]{1,5}\s*\))\s*/u, "");
+
+    // Удаляем ведущие номера или буквенные маркеры в начале: "1. ", "2) ", "A) ", "a. ", "Б) "
+    s = s.replace(/^(?:\d+\s*[\.\)]\s*|[A-Za-zА-Яа-я]\s*[\.\)]\s*)+/u, "");
+
+    // Сокращаем множественные пробелы и трим
+    s = s.replace(/\s{2,}/g, " ").trim();
+
+    return s;
 }

@@ -35,36 +35,32 @@ class TestTaskAnswer(BaseAnswer):
             q_index = ans.get("question_index")
             selected_idx = ans.get("selected_option")
             if 0 <= q_index < len(questions):
-                old_answer = self.answers[q_index]["selected_option"]
-                if old_answer != selected_idx:
-                    self.answers[q_index]["selected_option"] = selected_idx
-                    self._check_and_update_single_question(q_index)
+                self.answers[q_index]["selected_option"] = selected_idx
 
         self.total_answers = self.get_task_total_answers()
         self.answered_at = timezone.now()
         self.save()
 
-    def _check_and_update_single_question(self, question_index):
+    def mark_as_checked(self):
+        if self.is_checked:
+            return
+        self.is_checked = True
+        self.correct_answers = 0
+        self.wrong_answers = 0
+
         test_task = self.task.specific
         questions = getattr(test_task, "questions", [])
 
-        if 0 <= question_index < len(questions):
-            answer_data = self.answers[question_index]
+        for i, answer_data in enumerate(self.answers):
             selected_idx = answer_data.get("selected_option")
-            opts = questions[question_index].get("options", [])
+            opts = questions[i].get("options", [])
+            is_correct = (0 <= selected_idx < len(opts) and bool(opts[selected_idx].get("is_correct", False)))
+            answer_data["is_correct"] = is_correct
+            if is_correct:
+                self.correct_answers += 1
+            else:
+                self.wrong_answers += 1
 
-            is_correct = (0 <= selected_idx < len(opts) and
-                          bool(opts[selected_idx].get("is_correct", False)))
-
-            if answer_data.get("is_correct") != is_correct:
-                answer_data["is_correct"] = is_correct
-                if is_correct:
-                    self.increment_correct_answers()
-                else:
-                    self.increment_wrong_answers()
-
-    def mark_as_checked(self):
-        self.is_checked = True
         self.save()
 
     def get_answer_data(self):
@@ -108,35 +104,32 @@ class TrueFalseTaskAnswer(BaseAnswer):
             idx = ans.get("statement_index")
             val = bool(ans.get("selected_value", False))
             if 0 <= idx < len(statements):
-                old_answer = self.answers[idx]["selected_value"]
-                if old_answer != val:
-                    self.answers[idx]["selected_value"] = val
-                    self._check_and_update_single_statement(idx)
+                self.answers[idx]["selected_value"] = val
 
         self.total_answers = self.get_task_total_answers()
         self.answered_at = timezone.now()
         self.save()
 
-    def _check_and_update_single_statement(self, statement_index):
+    def mark_as_checked(self):
+        if self.is_checked:
+            return
+        self.is_checked = True
+        self.correct_answers = 0
+        self.wrong_answers = 0
+
         truefalse_task = self.task.specific
         statements = getattr(truefalse_task, "statements", [])
 
-        if 0 <= statement_index < len(statements):
-            answer_data = self.answers[statement_index]
+        for i, answer_data in enumerate(self.answers):
             selected_value = answer_data.get("selected_value")
-            correct_value = bool(statements[statement_index].get("is_true", False))
-
+            correct_value = bool(statements[i].get("is_true", False))
             is_correct = selected_value is correct_value
+            answer_data["is_correct"] = is_correct
+            if is_correct:
+                self.correct_answers += 1
+            else:
+                self.wrong_answers += 1
 
-            if answer_data.get("is_correct") != is_correct:
-                answer_data["is_correct"] = is_correct
-                if is_correct:
-                    self.increment_correct_answers()
-                else:
-                    self.increment_wrong_answers()
-
-    def mark_as_checked(self):
-        self.is_checked = True
         self.save()
 
     def get_answer_data(self):

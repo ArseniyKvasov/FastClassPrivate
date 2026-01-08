@@ -1,10 +1,8 @@
 import { showNotification, escapeHtml, generateId } from "/static/js/tasks/utils.js";
 
 /**
- * Рендер редактора задания True / False.
+ * Рендер редактора задания True / False с поддержкой Enter и вставок.
  *
- * @param {string|null} taskId
- * @param {HTMLElement|null} container
  * @param {{statements?: Array<{statement: string, is_true: boolean}>}|null} taskData
  */
 export function renderTrueFalseTaskEditor(taskData = null) {
@@ -28,32 +26,67 @@ export function renderTrueFalseTaskEditor(taskData = null) {
         </button>
     `;
 
-    const statementsWrapper = card.querySelector(".truefalse-statements");
+    const wrapper = card.querySelector(".truefalse-statements");
     const addBtn = card.querySelector(".add-statement-btn");
-    const saveBtn = card.querySelector(".save-btn");
     const removeBtn = card.querySelector(".remove-task-btn");
 
-    addBtn.addEventListener("click", () => {
-            addTrueFalseStatement(statementsWrapper);
-    });
+    addBtn.addEventListener("click", () => addTrueFalseStatement(wrapper));
 
     removeBtn.addEventListener("click", () => card.remove());
 
-    if (Array.isArray(taskData?.statements) && taskData.statements.length > 0) {
-        taskData.statements.forEach(item => {
-            addTrueFalseStatement(
-                statementsWrapper,
-                escapeHtml(item.statement),
-                item.is_true ? "true" : "false"
-            );
+    if (Array.isArray(taskData?.statements) && taskData.statements.length) {
+        taskData.statements.forEach(s => {
+            addTrueFalseStatement(wrapper, escapeHtml(s.statement), s.is_true ? "true" : "false");
         });
     } else {
-        for (let i = 0; i < 2; i++) {
-            addTrueFalseStatement(statementsWrapper);
-        }
+        addTrueFalseStatement(wrapper);
     }
 
     card.scrollIntoView({ behavior: "smooth", block: "center" });
+
+    // обработка Enter
+    wrapper.addEventListener("keydown", (e) => {
+        if (e.key !== "Enter") return;
+        const inputs = Array.from(wrapper.querySelectorAll(".statement-text"));
+        const idx = inputs.indexOf(e.target);
+        if (idx !== -1) {
+            e.preventDefault();
+            if (idx + 1 < inputs.length) {
+                inputs[idx + 1].focus();
+            } else {
+                const newRow = addTrueFalseStatement(wrapper);
+                newRow.querySelector(".statement-text").focus();
+            }
+        }
+    });
+
+    // обработка вставки
+    wrapper.addEventListener("paste", (e) => {
+        const target = e.target;
+        if (!(target instanceof HTMLInputElement)) return;
+        const text = (e.clipboardData || window.clipboardData).getData("text");
+        if (!text) return;
+
+        e.preventDefault();
+
+        const parsedStatements = parsePastedTrueFalse(text);
+
+        const firstRow = target.closest(".statement-row");
+        if (firstRow && parsedStatements.length) {
+            // первый блок вставляем в текущий
+            const first = parsedStatements.shift();
+            firstRow.querySelector(".statement-text").value = first.text;
+            firstRow.querySelector(".statement-select").value = first.value;
+
+            // остальные вставляем после текущего
+            let idx = Array.from(wrapper.children).indexOf(firstRow);
+            parsedStatements.forEach(s => {
+                const newRow = addTrueFalseStatement(wrapper, s.text, s.value);
+                idx++;
+                wrapper.insertBefore(newRow, wrapper.children[idx + 1] || null);
+            });
+        }
+    });
 
     return card;
 }
@@ -64,6 +97,7 @@ export function renderTrueFalseTaskEditor(taskData = null) {
  * @param {HTMLElement} container
  * @param {string} textValue
  * @param {"true"|"false"} value
+ * @returns {HTMLElement} созданный элемент
  */
 export function addTrueFalseStatement(container, textValue = "", value = "false") {
     const sId = generateId("statement");
@@ -82,7 +116,7 @@ export function addTrueFalseStatement(container, textValue = "", value = "false"
             type="text"
             class="form-control statement-text"
             placeholder="Утверждение"
-            value="${textValue}">
+            value="${escapeHtml(textValue)}">
 
         <button
             class="btn-close remove-statement-btn"
@@ -90,27 +124,21 @@ export function addTrueFalseStatement(container, textValue = "", value = "false"
             style="transform: scale(0.7);"></button>
     `;
 
-    row.querySelector(".remove-statement-btn")
-        .addEventListener("click", () => row.remove());
+    row.querySelector(".remove-statement-btn").addEventListener("click", () => row.remove());
 
     container.appendChild(row);
     row.querySelector(".statement-text").focus();
+    return row;
 }
 
 /**
- * Собирает данные True / False задания из DOM-карточки.
- *
- * @param {HTMLElement} card
- * @returns {Array<{statement: string, is_true: boolean}>}
+ * Сбор данных True / False из карточки
  */
 export function collectTrueFalseData(card) {
     const statements = [];
-    const rows = card.querySelectorAll(".statement-row");
-
-    rows.forEach(row => {
+    card.querySelectorAll(".statement-row").forEach(row => {
         const textInput = row.querySelector(".statement-text");
         const select = row.querySelector(".statement-select");
-
         if (textInput.value.trim()) {
             statements.push({
                 statement: textInput.value.trim(),
@@ -118,6 +146,41 @@ export function collectTrueFalseData(card) {
             });
         }
     });
-
     return statements;
+}
+
+/**
+ * Разбирает вставленный текст в массив утверждений True/False.
+ *
+ * Каждая строка = отдельное утверждение.
+ * Автоопределение значения:
+ * - (Верно|True|Правда) → true
+ * - (Неверно|Ложь|False) → false
+ * Все скобки с этими словами или с любыми комбинациями типа
+ * (True/False), (True / False), (Правда или ложь) просто удаляются из текста.
+ */
+function parsePastedTrueFalse(rawText) {
+    const lines = rawText.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n").map(l => l.trim()).filter(Boolean);
+    const results = [];
+
+    lines.forEach(line => {
+        let value = "false";
+
+        // true
+        if (/\(?\s*(Верно|True|Правда)\s*\)?/i.test(line)) {
+            value = "true";
+        }
+
+        // false
+        if (/\(?\s*(Неверно|Ложь|False)\s*\)?/i.test(line)) {
+            value = "false";
+        }
+
+        // удаляем все скобки с ключевыми словами или с True/False
+        line = line.replace(/\(\s*(Верно|Неверно|True|False|Правда|Ложь|True\s*\/\s*False|Правда\s*или\s*ложь)\s*\)/ig, "").trim();
+
+        if (line) results.push({ text: line, value });
+    });
+
+    return results;
 }

@@ -327,7 +327,10 @@ export async function deleteTask(taskId) {
             return json;
         }
         showNotification("Задание удалено");
-        eventBus.emit("section:change", { sectionId });
+        const sectionId = getSectionId();
+        if (sectionId) {
+            eventBus.emit("section:change", { sectionId });
+        }
         return json;
     } catch (err) {
         console.error("deleteTask error:", err);

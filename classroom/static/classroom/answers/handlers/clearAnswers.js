@@ -1,6 +1,7 @@
 import { showNotification, getCsrfToken } from "/static/js/tasks/utils.js";
 import { loadAnswerModule } from "/static/classroom/answers/api.js";
 import { getViewedUserId, getClassroomId } from "/static/classroom/utils.js";
+import { clearStatistics } from "/static/classroom/answers/handlers/statistics.js"
 
 /**
  * Очищает UI задания по taskId
@@ -19,6 +20,8 @@ export async function clearTaskContainer(taskId) {
     if (module?.clearTask) {
         module.clearTask(container);
     }
+
+    clearStatistics(taskId);
 }
 
 /**

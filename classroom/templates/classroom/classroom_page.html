@@ -75,6 +75,24 @@
             justify-content: space-between;
             font-variant-numeric: tabular-nums;
         }
+
+        @keyframes pulse-red {
+            0% {
+                border-color: transparent;
+            }
+            50% {
+                border-color: rgba(255, 0, 0, 0.8);
+                box-shadow: 0 0 16px rgba(255, 0, 0, 0.3);
+            }
+            100% {
+                border-color: transparent;
+            }
+        }
+
+        .pulse-red {
+            animation: pulse-red 1s ease-in-out 2;
+            border-radius: 8px; /* сохраняем скругления карточки */
+        }
     </style>
 
     <div id="info"
@@ -126,14 +144,15 @@
 
         <!-- Управление учениками -->
         <script type="module">
-            import { initStudentPanel, showAllPanelElements } from "{% static 'classroom/answers/teacherPanel.js' %}";
+            import { initStudentPanel, showAllPanelElements, checkUserOnline } from "{% static 'classroom/answers/teacherPanel.js' %}";
 
             const studentsList = JSON.parse(
                 document.getElementById("students-data").textContent
             );
 
             showAllPanelElements();
-            initStudentPanel(studentsList);
+            await initStudentPanel(studentsList);
+            setTimeout(checkUserOnline(), 3000);
         </script>
     {% endif %}
 

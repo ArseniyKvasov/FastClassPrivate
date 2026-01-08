@@ -1,15 +1,14 @@
-import { showNotification, escapeHtml, getInfoElement } from "/static/js/tasks/utils.js";
+import { showNotification, escapeHtml, getInfoElement, getCurrentUserId } from "/static/js/tasks/utils.js";
+import { eventBus } from "/static/js/tasks/events/eventBus.js";
 import { getViewedUserId } from '/static/classroom/utils.js'
 import { formatStudentName } from '/static/classroom/answers/utils.js'
 import { handleSectionAnswers } from "/static/classroom/answers/handleAnswer.js";
 import { clearAllTaskContainers } from "/static/classroom/answers/handlers/clearAnswers.js";
-import { clearStatistics } from "/static/classroom/answers/handlers/statistics.js";
+import { clearStatistics, loadSectionStatistics } from "/static/classroom/answers/handlers/statistics.js";
 
-/**
- * Инициализирует панель управления учениками
- *
- * @param {Array<{id: number|string, name: string}>} studentsList
- */
+
+let statsInterval = null;
+
 export async function initStudentPanel(studentsList = []) {
     const dropdownMenu = document.getElementById("studentDropdownMenu");
     const dropdownButton = document.getElementById("studentDropdown");
@@ -18,11 +17,9 @@ export async function initStudentPanel(studentsList = []) {
     const refreshPageButton = document.getElementById("refreshPageButton");
     const infoEl = getInfoElement();
 
-    console.log(dropdownMenu, dropdownButton, infoEl);
     if (!dropdownMenu || !dropdownButton || !infoEl) return;
 
     dropdownMenu.innerHTML = "";
-
     appendMenuItem(dropdownMenu, { id: "all", name: "Статистика" });
 
     if (Array.isArray(studentsList) && studentsList.length > 0) {
@@ -50,44 +47,126 @@ export async function initStudentPanel(studentsList = []) {
         }
 
         event.preventDefault();
-
         const studentId = item.dataset.studentId;
-        selectStudent(
-            studentId,
-            item,
-            dropdownMenu,
-            dropdownButton,
-            infoEl
-        );
+
+        if (statsInterval) {
+            clearInterval(statsInterval);
+            statsInterval = null;
+        }
+
+        selectStudent(studentId, item, dropdownMenu, dropdownButton, infoEl);
+
+        if (studentId === "all") {
+            statsInterval = setInterval(loadSectionStatistics, 5000);
+        }
     });
 
-    if (disableCopyingButton) {
-        disableCopyingButton.addEventListener("click", toggleCopying);
-    }
-
-    if (refreshPageButton) {
-        refreshPageButton.addEventListener("click", () => location.reload());
-    }
+    if (disableCopyingButton) disableCopyingButton.addEventListener("click", toggleCopying);
+    if (refreshPageButton) refreshPageButton.addEventListener("click", () => location.reload());
 
     const initialId = String(getViewedUserId());
     const initialOption =
-        dropdownMenu.querySelector(
-            `.student-option[data-student-id="${initialId}"]`
-        ) ||
-        dropdownMenu.querySelector(
-            `.student-option[data-student-id="all"]`
-        );
+        dropdownMenu.querySelector(`.student-option[data-student-id="${initialId}"]`) ||
+        dropdownMenu.querySelector(`.student-option[data-student-id="all"]`);
 
     if (initialOption) {
-        selectStudent(
-            initialOption.dataset.studentId,
-            initialOption,
-            dropdownMenu,
-            dropdownButton,
-            infoEl,
-            true
-        );
+        const studentId = initialOption.dataset.studentId;
+        selectStudent(studentId, initialOption, dropdownMenu, dropdownButton, infoEl, true);
+
+        if (studentId === "all") {
+            loadSectionStatistics();
+            statsInterval = setInterval(loadSectionStatistics, 5000);
+        }
     }
+
+    // Проверка онлайн-статуса всех студентов каждые 90 секунд
+    if (Array.isArray(studentsList) && studentsList.length > 0) {
+        const checkAllStudents = () => {
+            studentsList.forEach(s => {
+                checkUserOnline(s.id);
+            });
+        };
+
+        checkAllStudents();
+        setInterval(checkAllStudents, 90000);
+    }
+}
+
+/**
+ * Добавляет зелёный кружок рядом с пользователем, справа
+ * @param {string|number} userId
+ */
+export function markUserOnline(userId) {
+    const option = document.querySelector(`.student-option[data-student-id="${userId}"]`);
+    if (!option) return;
+
+    if (!option.querySelector(".option-flex")) {
+        const wrapper = document.createElement("span");
+        wrapper.className = "option-flex d-flex justify-content-between align-items-center";
+        wrapper.style.width = "100%";
+
+        const textNode = document.createElement("span");
+        textNode.textContent = option.textContent.trim();
+        wrapper.appendChild(textNode);
+
+        option.textContent = "";
+        option.appendChild(wrapper);
+    }
+
+    const wrapper = option.querySelector(".option-flex");
+
+    let indicator = wrapper.querySelector(".online-indicator");
+    if (!indicator) {
+        indicator = document.createElement("span");
+        indicator.className = "online-indicator";
+        indicator.style.display = "inline-block";
+        indicator.style.width = "10px";
+        indicator.style.height = "10px";
+        indicator.style.borderRadius = "50%";
+        indicator.style.backgroundColor = "green";
+        wrapper.appendChild(indicator);
+    }
+    indicator.style.backgroundColor = "green";
+}
+
+/**
+ * Убирает зелёный кружок
+ * @param {string|number} userId
+ */
+export function markUserOffline(userId) {
+    const option = document.querySelector(`.student-option[data-student-id="${userId}"]`);
+    if (!option) return;
+
+    const wrapper = option.querySelector(".option-flex");
+    if (!wrapper) return;
+
+    const indicator = wrapper.querySelector(".online-indicator");
+    if (indicator) {
+        indicator.remove();
+    }
+}
+
+export let onlineTimers = {};
+
+/**
+ * Проверяет, онлайн ли пользователь, с таймером ожидания.
+ * @param {string|number} userId
+ */
+export function checkUserOnline(userId) {
+    if (onlineTimers[userId]) {
+        clearTimeout(onlineTimers[userId]);
+    }
+
+    onlineTimers[userId] = setTimeout(() => {
+        markUserOffline(userId);
+        delete onlineTimers[userId];
+    }, 1000);
+
+    const randomDelay = Math.floor(Math.random() * 500);
+
+    setTimeout(() => {
+        eventBus.emit("user:is_online", { userId, timerId: onlineTimers[userId] });
+    }, randomDelay);
 }
 
 /**

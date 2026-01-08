@@ -124,11 +124,6 @@ export async function loadSectionTasks(sectionId) {
 
     const requestId = ++activeSectionRequestId;
 
-    document.querySelectorAll('#section-list .section-link').forEach(btn => {
-        btn.classList.toggle('fw-bold', btn.dataset.sectionId === sectionId);
-        btn.classList.toggle('text-primary', btn.dataset.sectionId === sectionId);
-    });
-
     taskListContainer.innerHTML = "";
     loader.style.display = "flex";
 

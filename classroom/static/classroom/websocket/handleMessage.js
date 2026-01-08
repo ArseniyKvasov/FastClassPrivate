@@ -7,7 +7,9 @@ import { getViewedUserId } from '/static/classroom/utils.js'
 import { fetchTaskAnswer } from "/static/classroom/answers/api.js";
 import { handleAnswer } from "/static/classroom/answers/handleAnswer.js";
 import { clearTask } from "/static/classroom/answers/handlers/clearAnswers.js"
+import { markUserOnline, markUserOffline, onlineTimers } from "/static/classroom/answers/teacherPanel.js";
 import { createBubbleNode, refreshChat, pointNewMessage } from "/static/classroom/integrations/chat.js"
+import { sendWS } from "/static/classroom/websocket/sendMessage.js"
 
 /**
  * Обрабатывает входящее сообщение WebSocket.
@@ -26,43 +28,58 @@ export async function handleWSMessage(ev) {
 
     const { type, data } = msg;
     if (!type || !data?.student_id) return;
-    if (!shouldProcessMessage(data)) return;
+    if (!shouldProcessMessage(data) && type !== "user:is_online:confirmed") return;
 
-    if (type === "answer:sent") {
-        if (!data?.task_id) return;
-        await processTaskAnswer(data.task_id);
-        return;
-    }
+    switch(type) {
+        case "answer:sent":
+            if (!data?.task_id) return;
+            await processTaskAnswer(data.task_id);
+            break;
 
-    if (type === "answer:reset") {
-        if (!data?.task_id) return;
-        await clearTask(data.task_id);
-    }
+        case "answer:reset":
+            if (!data?.task_id) return;
+            await clearTask(data.task_id);
+            break;
 
-    if (type === "section_list:change") {
-        await refreshSectionsAndSelect();
-    }
+        case "section_list:change":
+            await refreshSectionsAndSelect();
+            break;
 
-    if (type === "task:attention") {
-        if (!data?.task_id || !data?.payload?.section_id) return;
-        await moveToPointedTask(data.payload.section_id, data.task_id);
-    }
+        case "task:attention":
+            if (!data?.task_id || !data?.payload?.section_id) return;
+            await moveToPointedTask(data.payload.section_id, data.task_id);
+            break;
 
-    if (type === "section:change") {
-        if (!data?.payload?.section_id) return;
-        const currentSectionId = getSectionId();
-        if (currentSectionId === data.payload.section_id) {
-            await loadSectionTasks(currentSectionId);
-        }
-    }
+        case "section:change":
+            if (!data?.payload?.section_id) return;
+            const currentSectionId = getSectionId();
+            if (currentSectionId === data.payload.section_id) {
+                await loadSectionTasks(currentSectionId);
+            }
+            break;
 
-    if (type === "chat:send_message") {
-        if (!data?.text || !data?.sender_id) return;
-        await pointNewMessage(data);
-    }
+        case "chat:send_message":
+            if (!data?.text || !data?.sender_id) return;
+            await pointNewMessage(data);
+            break;
 
-    if (type === "chat:update") {
-        await refreshChat();
+        case "chat:update":
+            await refreshChat();
+            break;
+
+
+        case "user:is_online":
+            sendWS("user:is_online:confirmed", data);
+            break;
+
+        case "user:is_online:confirmed":
+        case "user:mark_online":
+        case "user:mark_offline":
+            handleUserOnlineMessage({
+                student_id: data?.student_id,
+                is_online: type !== "user:mark_offline"
+            });
+            break;
     }
 }
 
@@ -118,6 +135,7 @@ async function refreshSectionsAndSelect() {
 
 /**
  * Переключает на нужный раздел, прокручивает и подсвечивает задание
+ * с красным пульсом
  * @param {number|string} sectionId
  * @param {number|string} taskId
  */
@@ -134,4 +152,32 @@ async function moveToPointedTask(sectionId, taskId) {
         behavior: "smooth",
         block: "center"
     });
+
+    taskCard.classList.add("pulse-red");
+
+    setTimeout(() => {
+        taskCard.classList.remove("pulse-red");
+    }, 2000);
+}
+
+
+/**
+ * Обработка входящего сообщения о статусе пользователя
+ * @param {{student_id: string|number, is_online: boolean}} data
+ */
+export function handleUserOnlineMessage(data) {
+    const userId = data?.student_id;
+    if (!userId) return;
+
+    // Очищаем таймер, если есть
+    if (onlineTimers[userId]) {
+        clearTimeout(onlineTimers[userId]);
+        delete onlineTimers[userId];
+    }
+
+    if (data.is_online) {
+        markUserOnline(userId);
+    } else {
+        markUserOffline(userId);
+    }
 }
