@@ -1,0 +1,133 @@
+<!-- PANEL -->
+<div id="panel" class="position-fixed bottom-0 end-0 p-3" style="z-index:10;">
+    <div class="d-flex align-items-center gap-2 bg-white rounded-3 shadow-sm px-3 py-2">
+
+        <!-- Видеозвонок -->
+        <button class="btn btn-sm btn-light icon-btn" id="callButton" title="Видеозвонок">
+            <i class="bi bi-telephone"></i>
+        </button>
+
+        <!-- Сообщения -->
+        <button class="btn btn-sm btn-light icon-btn" id="chatButton" title="Сообщения">
+            <i class="bi bi-chat"></i>
+        </button>
+
+        <!-- Кнопка добавления ученика -->
+        <button class="btn btn-sm btn-light icon-btn d-none" id="addStudentButton" title="Добавить ученика">
+            <i class="bi bi-person-plus"></i>
+        </button>
+
+        <!-- Разделитель -->
+        <div class="vr d-none" id="panelDivider"></div>
+
+        <!-- Статистика -->
+        <div class="dropdown dropup d-none" id="statisticsDropdown">
+            <button
+                class="btn btn-sm btn-light icon-btn"
+                id="studentDropdown"
+                data-bs-toggle="dropdown"
+                data-bs-container="body"
+                title="Статистика">
+                <i class="bi bi-bar-chart"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end shadow-sm" id="studentDropdownMenu">
+                <li>
+                    <a class="dropdown-item active" href="#" data-student-id="all">
+                        Статистика
+                    </a>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Меню -->
+        <div class="dropdown dropup d-none" id="menuDropdown">
+            <button
+                class="btn btn-sm btn-light icon-btn"
+                data-bs-toggle="dropdown"
+                data-bs-container="body"
+                title="Действия">
+                <i class="bi bi-three-dots-vertical"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                <li>
+                    <button class="dropdown-item text-danger" id="disableCopyingButton">
+                        <i class="bi bi-ban me-2"></i>Запретить копирование
+                    </button>
+                </li>
+                <li>
+                    <button class="dropdown-item" id="refreshPageButton">
+                        <i class="bi bi-arrow-clockwise me-2"></i>Обновить страницу
+                    </button>
+                </li>
+                <li>
+                    <a href="{{ send_homework_url }}" class="dropdown-item">
+                        <i class="bi bi-send me-2"></i>Отправить Д/з
+                    </a>
+                </li>
+            </ul>
+        </div>
+
+    </div>
+</div>
+
+<!-- CHAT PANEL -->
+<div id="chatPanel"
+     class="position-fixed flex-column bg-white shadow rounded"
+     style="bottom:20px; left:20px; width:300px; height:340px; max-width:80vw; max-height:80vh; display:none; z-index:20;">
+
+    <div class="d-flex justify-content-between align-items-center p-2 border-bottom">
+        <span class="fw-semibold ms-1">Сообщения</span>
+        <button id="closeChatPanel" class="btn btn-sm border-0 bg-white p-1">
+            <i class="bi bi-x-lg"></i>
+        </button>
+    </div>
+
+    <div id="chatMessages" class="flex-grow-1 overflow-auto p-2 bg-light"></div>
+
+    <div class="border-top p-2">
+        <div class="input-group input-group-sm" style="gap:6px;">
+            <input
+                type="text"
+                id="chatInput"
+                class="form-control rounded-pill border-secondary-subtle focus-ring focus-ring-primary"
+                placeholder="Напишите сообщение..."
+                maxlength="250">
+            <button
+                id="chatSendButton"
+                class="btn btn-primary rounded-pill d-flex align-items-center justify-content-center"
+                style="width:34px;height:34px;">
+                <i class="bi bi-send"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+    .chat-sender {
+        display: inline-block;
+        max-width: 160px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        vertical-align: bottom;
+    }
+
+    .chat-message {
+        word-break: break-word;
+    }
+
+    .chat-message.bubble {
+        border-radius: 1rem;
+        padding: 0.5rem 0.75rem;
+        word-wrap: break-word;
+    }
+
+    #chatMessages {
+        scrollbar-width: none;
+    }
+
+    #chatMessages::-webkit-scrollbar {
+        width: 0;
+        height: 0;
+    }
+</style>

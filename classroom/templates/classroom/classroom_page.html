@@ -83,6 +83,7 @@
          data-viewed-user-id="{{ viewed_user_id }}"
          data-is-classroom="true"
          data-classroom-id="{{ classroom_id }}"
+         data-current-user-id="{{ current_user_id }}"
     >
     </div>
     {{ students_list|json_script:"students-data" }}
@@ -101,6 +102,16 @@
         });
     </script>
 
+    <!-- Загрузка панели управления классом и чата -->
+    {% include 'core/tasks/classroom_panel.html' %}
+
+    <!-- Чат -->
+    <script type="module">
+        import { initChat } from "{% static 'classroom/integrations/chat.js' %}";
+
+        initChat();
+    </script>
+
     {% if is_teacher %}
         <!-- Загрузка модальных окон для редактирования -->
         {% include 'core/tasks/task_selection_modal.html' %}
@@ -113,16 +124,15 @@
             initEditTasks();
         </script>
 
-        <!-- Загрузка панели управления учениками -->
-        {% include 'core/tasks/teacher_panel.html' %}
-
+        <!-- Управление учениками -->
         <script type="module">
-            import { initStudentPanel } from "{% static 'classroom/answers/teacherPanel.js' %}";
+            import { initStudentPanel, showAllPanelElements } from "{% static 'classroom/answers/teacherPanel.js' %}";
 
             const studentsList = JSON.parse(
                 document.getElementById("students-data").textContent
             );
 
+            showAllPanelElements();
             initStudentPanel(studentsList);
         </script>
     {% endif %}
@@ -136,12 +146,14 @@
 
     <!-- Взаимодейтсвие Websocket -->
     <script type="module">
-        import { initVirtualClassWebSocket } from "{% static 'classroom/answers/websocket/init.js' %}";
-        import { initAnswerEvents } from "{% static 'classroom/answers/websocket/sendMessage.js' %}";
+        import { initVirtualClassWebSocket } from "{% static 'classroom/websocket/init.js' %}";
+        import { initEvents } from "{% static 'classroom/websocket/sendMessage.js' %}";
 
         initVirtualClassWebSocket();
-        initAnswerEvents();
+        initEvents();
     </script>
+
+
 
     <div class="row mt-4 d-flex justify-content-center">
         <div id="main-container" class="col-12 col-xl-9">
@@ -158,11 +170,7 @@
 
         <div id="sidebar"
              class="col-12 col-xl-3 my-4 my-xl-0 d-flex flex-column"
-             style="top: 5rem; max-height: 80vh;">
-
-            <div class="btn btn-primary fw-bold mb-2 d-none d-xl-block w-100">
-                Видеозвонок
-            </div>
+             style="max-height: 50vh;">
 
             <div class="card shadow-sm rounded p-2 d-flex flex-column"
                  style="max-height: 80vh; overflow-y: hidden;">

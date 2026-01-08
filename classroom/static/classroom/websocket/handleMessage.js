@@ -3,10 +3,11 @@
 import { showNotification, getIsTeacher, getSectionId, fetchSingleTask } from "/static/js/tasks/utils.js";
 import { fetchSections, renderSectionsList, selectSection } from "/static/js/tasks/display/renderSections.js"
 import { loadSectionTasks } from "/static/js/tasks/display/showTasks.js"
-import { getViewedUserId } from "/static/classroom/answers/utils.js";
+import { getViewedUserId } from '/static/classroom/utils.js'
 import { fetchTaskAnswer } from "/static/classroom/answers/api.js";
 import { handleAnswer } from "/static/classroom/answers/handleAnswer.js";
 import { clearTask } from "/static/classroom/answers/handlers/clearAnswers.js"
+import { createBubbleNode, refreshChat, pointNewMessage } from "/static/classroom/integrations/chat.js"
 
 /**
  * Обрабатывает входящее сообщение WebSocket.
@@ -54,6 +55,15 @@ export async function handleWSMessage(ev) {
             await loadSectionTasks(currentSectionId);
         }
     }
+
+    if (type === "chat:send_message") {
+        if (!data?.text || !data?.sender_id) return;
+        await pointNewMessage(data);
+    }
+
+    if (type === "chat:update") {
+        await refreshChat();
+    }
 }
 
 /**
@@ -66,7 +76,7 @@ function shouldProcessMessage({ student_id }) {
     const isTeacher = getIsTeacher();
     if (isTeacher) {
         const userId = getViewedUserId();
-        if (userId === "all") return true;
+        if (userId === "all" || String(student_id) === "all") return true;
         return String(student_id) === String(userId);
     }
 

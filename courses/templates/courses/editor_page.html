@@ -50,6 +50,7 @@
          data-lesson-id="{{ lesson_id }}"
          data-viewed-user-id="{{ viewed_user_id }}"
          data-is-classroom="false"
+         data-current-user-id="{{ viewed_user_id }}"
     >
     </div>
 
@@ -79,6 +80,13 @@
             initEditTasks();
         </script>
     {% endif %}
+
+    <!-- Чат -->
+    <script type="module">
+        import { initChat } from "{% static 'classroom/integrations/chat.js' %}";
+
+        initChat();
+    </script>
 
 
 

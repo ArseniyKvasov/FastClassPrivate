@@ -1,6 +1,6 @@
 import { showNotification, getCsrfToken } from "/static/js/tasks/utils.js";
 import { loadAnswerModule } from "/static/classroom/answers/api.js";
-import { getViewedUserId, getClassroomId } from "/static/classroom/answers/utils.js";
+import { getViewedUserId, getClassroomId } from "/static/classroom/utils.js";
 
 /**
  * Очищает UI задания по taskId

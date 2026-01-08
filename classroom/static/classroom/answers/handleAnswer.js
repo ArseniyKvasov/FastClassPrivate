@@ -1,6 +1,7 @@
 import { eventBus } from "/static/js/tasks/events/eventBus.js";
 import { showNotification, confirmAction, getSectionId } from "/static/js/tasks/utils.js";
-import { ANSWER_HANDLER_MAP, getClassroomId, getViewedUserId } from "/static/classroom/answers/utils.js";
+import { ANSWER_HANDLER_MAP } from "/static/classroom/answers/utils.js";
+import { getClassroomId, getViewedUserId } from '/static/classroom/utils.js'
 import { loadAnswerModule, fetchSectionAnswers } from "/static/classroom/answers/api.js";
 import { clearTask } from "/static/classroom/answers/handlers/clearAnswers.js"
 import { loadSectionStatistics } from "/static/classroom/answers/handlers/statistics.js";

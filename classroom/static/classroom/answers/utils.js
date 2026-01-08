@@ -1,6 +1,7 @@
 import { showNotification, postJSON } from "/static/js/tasks/utils.js";
 import { eventBus } from "/static/js/tasks/events/eventBus.js";
 import { loadAnswerModule, fetchTaskAnswer } from "/static/classroom/answers/api.js";
+import { getClassroomId, getViewedUserId } from '/static/classroom/utils.js'
 
 export const ANSWER_HANDLER_MAP = {
     match_cards: {
@@ -169,12 +170,10 @@ export async function initCheckButton(task, container) {
     });
 }
 
-export function getClassroomId() {
-    const info = document.getElementById("info");
-    return info?.dataset?.classroomId || null;
+export function formatStudentName(name, maxLength = 12) {
+    if (typeof name !== "string") return "";
+    return name.length > maxLength
+        ? `${name.slice(0, maxLength)}…`
+        : name;
 }
 
-export function getViewedUserId() {
-    const info = document.getElementById("info");
-    return info?.dataset?.viewedUserId || null;
-}

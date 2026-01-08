@@ -40,6 +40,7 @@ def classroom_view(request, classroom_id):
             "viewed_user_id": viewed_user_id,
             "students_list": students_list,
             "invite_url": invite_url,
+            "current_user_id": request.user.id,
         }
     )
 

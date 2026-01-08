@@ -4,6 +4,7 @@ from django.conf import settings
 
 User = settings.AUTH_USER_MODEL
 
+
 class BaseAnswer(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     task = models.ForeignKey("courses.Task", on_delete=models.CASCADE, db_index=True)
@@ -51,3 +52,35 @@ class BaseAnswer(models.Model):
         self.correct_answers = 0
         self.wrong_answers = 0
         self.save(update_fields=['correct_answers', 'wrong_answers'])
+
+
+class ChatMessage(models.Model):
+    """
+    Сообщение общего чата внутри класса.
+    Чат один на classroom, без личных сообщений.
+    """
+
+    classroom = models.ForeignKey(
+        "classroom.Classroom",
+        on_delete=models.CASCADE,
+        related_name="chat_messages"
+    )
+
+    sender = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="chat_messages"
+    )
+
+    text = models.TextField()
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["classroom", "created_at"]),
+        ]
+
+    def __str__(self):
+        return f"[{self.classroom_id}] {self.sender_id}: {self.text[:30]}"

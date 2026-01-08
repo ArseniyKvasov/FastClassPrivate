@@ -1,5 +1,6 @@
 import { showNotification, escapeHtml, getInfoElement } from "/static/js/tasks/utils.js";
-import { getViewedUserId } from "/static/classroom/answers/utils.js";
+import { getViewedUserId } from '/static/classroom/utils.js'
+import { formatStudentName } from '/static/classroom/answers/utils.js'
 import { handleSectionAnswers } from "/static/classroom/answers/handleAnswer.js";
 import { clearAllTaskContainers } from "/static/classroom/answers/handlers/clearAnswers.js";
 import { clearStatistics } from "/static/classroom/answers/handlers/statistics.js";
@@ -17,6 +18,7 @@ export async function initStudentPanel(studentsList = []) {
     const refreshPageButton = document.getElementById("refreshPageButton");
     const infoEl = getInfoElement();
 
+    console.log(dropdownMenu, dropdownButton, infoEl);
     if (!dropdownMenu || !dropdownButton || !infoEl) return;
 
     dropdownMenu.innerHTML = "";
@@ -88,6 +90,31 @@ export async function initStudentPanel(studentsList = []) {
     }
 }
 
+/**
+ * Показывает все скрытые элементы управления панели
+ */
+export function showAllPanelElements() {
+    const addStudentButton = document.getElementById('addStudentButton');
+    if (addStudentButton) {
+        addStudentButton.classList.remove('d-none');
+    }
+
+    const panelDivider = document.getElementById('panelDivider');
+    if (panelDivider) {
+        panelDivider.classList.remove('d-none');
+    }
+
+    const statisticsDropdown = document.getElementById('statisticsDropdown');
+    if (statisticsDropdown) {
+        statisticsDropdown.classList.remove('d-none');
+    }
+
+    const menuDropdown = document.getElementById('menuDropdown');
+    if (menuDropdown) {
+        menuDropdown.classList.remove('d-none');
+    }
+}
+
 export function loadStudentData() {
     try {
         handleSectionAnswers();
@@ -98,12 +125,19 @@ export function loadStudentData() {
 }
 
 function appendMenuItem(menu, { id, name }) {
+    const safeName = String(name);
+    const displayName =
+        safeName.length > 20
+            ? `${safeName.slice(0, 20)}…`
+            : safeName;
+
     const li = document.createElement("li");
     li.innerHTML = `
         <a class="dropdown-item student-option text-black"
            href="#"
-           data-student-id="${id}">
-            ${escapeHtml(String(name))}
+           data-student-id="${id}"
+           title="${escapeHtml(safeName)}">
+            ${escapeHtml(displayName)}
         </a>
     `;
     menu.appendChild(li);
@@ -144,11 +178,12 @@ async function selectStudent(
 
     itemEl?.classList.add("active");
 
-    dropdownButton.textContent = itemEl
+    const fullName = itemEl
         ? itemEl.textContent.trim()
         : studentId === "all"
             ? "Статистика"
             : String(studentId);
+    dropdownButton.textContent = formatStudentName(fullName);
 
     infoEl.dataset.viewedUserId = String(studentId);
 

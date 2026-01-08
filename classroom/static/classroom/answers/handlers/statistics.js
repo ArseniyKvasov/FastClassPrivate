@@ -1,5 +1,6 @@
 import { showNotification, getSectionId } from '/static/js/tasks/utils.js';
-import { getClassroomId, ANSWER_HANDLER_MAP } from '/static/classroom/answers/utils.js';
+import { ANSWER_HANDLER_MAP } from '/static/classroom/answers/utils.js';
+import { getClassroomId } from '/static/classroom/utils.js'
 
 /**
  * Отображает статистику по заданию

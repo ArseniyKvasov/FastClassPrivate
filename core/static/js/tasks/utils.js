@@ -318,3 +318,8 @@ export function getSectionId() {
     const infoEl = getInfoElement();
     return infoEl?.dataset?.sectionId || null;
 }
+
+export function getCurrentUserId() {
+    const infoEl = getInfoElement();
+    return infoEl?.dataset?.currentUserId || null;
+}
