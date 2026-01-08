@@ -24,7 +24,7 @@ def get_single_task_view(request, task_id):
 def get_section_tasks_view(request, section_id):
     try:
         section = get_object_or_404(Section, pk=section_id)
-        tasks = section.tasks.all().order_by("created_at")
+        tasks = section.tasks.all().order_by("order")
 
         serialized_tasks = []
         for t in tasks:

@@ -107,8 +107,12 @@ class Task(models.Model):
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
     object_id = models.UUIDField(db_index=True)
     specific = GenericForeignKey("content_type", "object_id")
+    order = models.PositiveIntegerField(default=0, db_index=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["order"]
 
     def __str__(self):
         specific_title = getattr(self.specific, "title", None)
@@ -116,7 +120,6 @@ class Task(models.Model):
 
     def get_specific(self):
         """
-        dogstring:
         Возвращает specific-объект задачи или None.
         Использовать вместо прямого обращения к self.specific.
         """

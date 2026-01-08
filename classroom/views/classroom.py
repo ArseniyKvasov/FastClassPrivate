@@ -8,10 +8,6 @@ def classroom_view(request, classroom_id):
     classroom = get_object_or_404(Classroom, pk=classroom_id)
     lesson = classroom.lesson
 
-    sections = lesson.sections.order_by("order") if lesson else []
-    first_section = sections.first() if sections else None
-    section_id = first_section.id if first_section else None
-
     students_qs = classroom.students.all().values("id", "username")
     students_list = [
         {"id": student["id"], "name": student["username"]}
@@ -34,8 +30,6 @@ def classroom_view(request, classroom_id):
         context={
             "classroom_id": classroom.id,
             "lesson_id": lesson.id if lesson else None,
-            "sections": sections,
-            "section_id": section_id,
             "is_teacher": is_teacher,
             "viewed_user_id": viewed_user_id,
             "students_list": students_list,

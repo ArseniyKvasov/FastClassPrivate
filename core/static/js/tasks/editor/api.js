@@ -338,3 +338,44 @@ export async function deleteTask(taskId) {
         return null;
     }
 }
+
+/**
+ * Отправляет новый порядок заданий на сервер.
+ *
+ * @param {string[]} taskIds - массив id задач в новом порядке
+ */
+export async function sendNewOrderToServer(taskIds) {
+    const sectionId = getSectionId();
+
+    if (!taskIds.length) {
+        showNotification('Нет заданий для сохранения порядка');
+        return;
+    }
+
+    try {
+        const res = await fetch('/courses/tasks/reorder/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({
+                section_id: sectionId,
+                task_ids: taskIds
+            })
+        });
+
+        if (!res.ok) {
+            console.error('Не удалось сохранить порядок заданий', res.status);
+            showNotification('Не удалось сохранить порядок заданий');
+            return;
+        }
+
+        showNotification('Порядок заданий сохранён');
+        eventBus.emit("section:change", { sectionId });
+    } catch (err) {
+        console.error('Ошибка при сохранении порядка заданий:', err);
+        showNotification('Ошибка при сохранении порядка заданий');
+    }
+}
+

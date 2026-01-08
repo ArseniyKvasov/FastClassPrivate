@@ -1,5 +1,6 @@
 import { showNotification, escapeHtml, getInfoElement, getCurrentUserId } from "/static/js/tasks/utils.js";
 import { eventBus } from "/static/js/tasks/events/eventBus.js";
+import { startTasksOrderEditing } from "/static/js/tasks/editor/changeTasksOrder.js"
 import { getViewedUserId } from '/static/classroom/utils.js'
 import { formatStudentName } from '/static/classroom/answers/utils.js'
 import { handleSectionAnswers } from "/static/classroom/answers/handleAnswer.js";
@@ -14,7 +15,7 @@ export async function initStudentPanel(studentsList = []) {
     const dropdownButton = document.getElementById("studentDropdown");
     const invitationModalEl = document.getElementById("invitationModal");
     const disableCopyingButton = document.getElementById("disableCopyingButton");
-    const refreshPageButton = document.getElementById("refreshPageButton");
+    const changeTasksOrderButton = document.getElementById("changeTasksOrderButton");
     const infoEl = getInfoElement();
 
     if (!dropdownMenu || !dropdownButton || !infoEl) return;
@@ -62,7 +63,7 @@ export async function initStudentPanel(studentsList = []) {
     });
 
     if (disableCopyingButton) disableCopyingButton.addEventListener("click", toggleCopying);
-    if (refreshPageButton) refreshPageButton.addEventListener("click", () => location.reload());
+    if (changeTasksOrderButton) changeTasksOrderButton.addEventListener("click", () => startTasksOrderEditing());
 
     const initialId = String(getViewedUserId());
     const initialOption =

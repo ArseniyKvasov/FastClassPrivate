@@ -4,7 +4,9 @@ from django.http import JsonResponse
 from courses.task_serializers import TASK_SERIALIZER_MAP
 from django.views.decorators.http import require_POST
 from courses.services import _process_task_data
-from courses.models import Task
+from django.shortcuts import get_object_or_404
+from django.db import transaction
+from courses.models import Section, Task
 
 User = get_user_model()
 
@@ -94,3 +96,37 @@ def delete_task(request):
         return JsonResponse({"success": True, "message": "Задание удалено"})
     except Exception as e:
         return JsonResponse({"success": False, "errors": str(e)}, status=500)
+
+
+@require_POST
+def reorder_tasks(request):
+    """
+    Обновляет порядок заданий в разделе.
+    Ожидает JSON вида:
+    {
+        "section_id": "uuid-раздела",
+        "task_ids": ["id_задания1", "id_задания2", ...]
+    }
+    """
+    try:
+        data = json.loads(request.body)
+        section_id = data.get("section_id")
+        task_ids = data.get("task_ids", [])
+
+        section = get_object_or_404(Section, id=section_id)
+
+        with transaction.atomic():
+            for index, task_id in enumerate(task_ids):
+                task = Task.objects.filter(id=task_id, section=section).first()
+                if task:
+                    task.order = index + 1
+                    task.save(update_fields=["order"])
+
+        return JsonResponse({"status": "ok"})
+
+    except json.JSONDecodeError:
+        return JsonResponse({"status": "error", "message": "Некорректный JSON"}, status=400)
+    except Section.DoesNotExist:
+        return JsonResponse({"status": "error", "message": "Раздел не найден"}, status=404)
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=500)
