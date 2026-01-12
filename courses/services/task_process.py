@@ -1,5 +1,6 @@
 from django.contrib.contenttypes.models import ContentType
 from django.http import JsonResponse
+from django.db import models
 from rest_framework import serializers
 from courses.models import Section, Task, TestTask, TrueFalseTask, ImageTask
 from courses.task_serializers import TASK_SERIALIZER_MAP
@@ -98,7 +99,7 @@ def _update_existing_task(task_id, section, SerializerClass, data):
 
 
 def _create_new_task(section, task_type, SerializerClass, data):
-    """Создает новую задачу"""
+    """Создает новую задачу с автоматическим порядком"""
     if task_type == "test":
         task = _create_test_task(section, task_type, SerializerClass, data)
     elif task_type == "true_false":
@@ -106,17 +107,23 @@ def _create_new_task(section, task_type, SerializerClass, data):
     else:
         if len(data) > 1:
             return JsonResponse(
-                {"success": False, "errors": "Для данного типа задачи можно создать только одно задание"}, status=400)
+                {"success": False, "errors": "Для данного типа задачи можно создать только одно задание"}, status=400
+            )
 
         serializer = SerializerClass(data=data[0])
         try:
             serializer.is_valid(raise_exception=True)
             obj = serializer.save()
+
+            max_order = section.tasks.aggregate(models.Max("order"))["order__max"] or 0
+            task_order = max_order + 1
+
             task = Task.objects.create(
                 section=section,
                 task_type=task_type,
                 content_type=ContentType.objects.get_for_model(obj),
-                object_id=obj.id
+                object_id=obj.id,
+                order=task_order
             )
         except serializers.ValidationError as e:
             return JsonResponse({"success": False, "errors": e.detail}, status=400)

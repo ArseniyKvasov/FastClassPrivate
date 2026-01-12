@@ -3,6 +3,7 @@ from . import views
 
 urlpatterns = [
     path("page/<str:classroom_id>/", views.classroom_view, name="classroom_view"),
+    path("api/<str:classroom_id>/get-current-lesson-id/", views.get_current_lesson_id, name="get_current_lesson_id"),
     path("join/<str:invite_code>/", views.join_classroom, name="join_classroom"),
 
     path("<str:classroom_id>/save-answer/", views.save_answer, name="save_answer"),

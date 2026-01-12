@@ -6,6 +6,7 @@ import { formatStudentName } from '/static/classroom/answers/utils.js'
 import { handleSectionAnswers } from "/static/classroom/answers/handleAnswer.js";
 import { clearAllTaskContainers } from "/static/classroom/answers/handlers/clearAnswers.js";
 import { clearStatistics, loadSectionStatistics } from "/static/classroom/answers/handlers/statistics.js";
+import { checkAllStudentsStatus } from "/static/classroom/tests.js"
 
 
 let statsInterval = null;
@@ -78,18 +79,6 @@ export async function initStudentPanel(studentsList = []) {
             loadSectionStatistics();
             statsInterval = setInterval(loadSectionStatistics, 5000);
         }
-    }
-
-    // Проверка онлайн-статуса всех студентов каждые 90 секунд
-    if (Array.isArray(studentsList) && studentsList.length > 0) {
-        const checkAllStudents = () => {
-            studentsList.forEach(s => {
-                checkUserOnline(s.id);
-            });
-        };
-
-        checkAllStudents();
-        setInterval(checkAllStudents, 90000);
     }
 }
 
@@ -193,6 +182,8 @@ export function showAllPanelElements() {
     if (menuDropdown) {
         menuDropdown.classList.remove('d-none');
     }
+
+    eventBus.emit("allPanelElementsReady");
 }
 
 export function loadStudentData() {
@@ -244,14 +235,7 @@ function createAddStudentButton() {
     return li;
 }
 
-async function selectStudent(
-    studentId,
-    itemEl,
-    dropdownMenu,
-    dropdownButton,
-    infoEl,
-    isInitial = false
-) {
+async function selectStudent(studentId, itemEl, dropdownMenu, dropdownButton, infoEl, isInitial = false) {
     dropdownMenu
         .querySelectorAll(".student-option")
         .forEach(i => i.classList.remove("active"));
@@ -266,6 +250,7 @@ async function selectStudent(
     dropdownButton.textContent = formatStudentName(fullName);
 
     infoEl.dataset.viewedUserId = String(studentId);
+    infoEl.dataset.studentUsername = String(fullName);
 
     if (isInitial) return;
 

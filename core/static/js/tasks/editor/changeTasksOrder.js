@@ -9,7 +9,6 @@ let dropPlaceholder = null;
 let dragImageNode = null;
 
 /**
- * dogstring:
  *  Инициализирует режим редактирования порядка заданий.
  *
  *  - drag доступен только с видимой кнопочной ручки (справа сверху);
@@ -61,7 +60,6 @@ export function startTasksOrderEditing() {
 }
 
 /**
- * dogstring:
  *  Завершает режим редактирования порядка заданий:
  *  - откатывает изменения стилей и DOM-элементов;
  *  - удаляет временные слушатели;
@@ -361,13 +359,6 @@ function onDrop(e) {
     } else {
         parent.insertBefore(draggedCard, e.currentTarget);
     }
-
-    requestAnimationFrame(() => {
-        draggedCard.style.transform = 'translateY(2px)';
-        setTimeout(() => {
-            if (draggedCard) draggedCard.style.transform = '';
-        }, 140);
-    });
 
     parent.querySelectorAll('.task-card').forEach(c => {
         c.classList.remove('drop-target');

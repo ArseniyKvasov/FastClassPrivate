@@ -5,7 +5,7 @@ import { getClassroomId, getViewedUserId } from '/static/classroom/utils.js'
 import { loadAnswerModule, fetchSectionAnswers } from "/static/classroom/answers/api.js";
 import { clearTask } from "/static/classroom/answers/handlers/clearAnswers.js"
 import { loadSectionStatistics } from "/static/classroom/answers/handlers/statistics.js";
-import { renderGoToTaskButton, renderResetButton } from "/static/classroom/answers/teacherPanel.js"
+import { renderGoToTaskButton, renderResetButton } from "/static/classroom/answers/classroomPanel.js"
 
 /**
  * Инициализация обработчиков ответа для одной карточки задания
@@ -105,7 +105,7 @@ export function registerAnswerEvents() {
         renderGoToTaskButton(panel);
     });
 
-    eventBus.on("sectionAnswersRequested", async ({ sectionId }) => {
+    eventBus.on("sectionRendered", async ({ sectionId }) => {
         await handleSectionAnswers();
     });
 }

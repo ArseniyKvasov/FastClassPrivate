@@ -142,7 +142,7 @@ export async function loadSectionTasks(sectionId) {
             await renderTaskCard(task);
         }
 
-        eventBus.emit('sectionAnswersRequested', { sectionId });
+        eventBus.emit('sectionRendered', { sectionId });
     } catch (err) {
         if (requestId === activeSectionRequestId) {
             console.error(err);

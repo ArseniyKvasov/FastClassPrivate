@@ -1,7 +1,9 @@
 from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404
 from classroom.models import Classroom
 from courses.models import Section, Task
+from django.http import JsonResponse
 
 
 def classroom_view(request, classroom_id):
@@ -13,10 +15,6 @@ def classroom_view(request, classroom_id):
         {"id": student["id"], "name": student["username"]}
         for student in students_qs
     ]
-
-    invite_url = request.build_absolute_uri(
-        f"/classroom/join/{classroom.invite_code}/"
-    )
 
     is_teacher = request.user == classroom.teacher
 
@@ -33,11 +31,30 @@ def classroom_view(request, classroom_id):
             "is_teacher": is_teacher,
             "viewed_user_id": viewed_user_id,
             "students_list": students_list,
-            "invite_url": invite_url,
             "current_user_id": request.user.id,
         }
     )
 
+
+
+@login_required
+def get_current_lesson_id(request, classroom_id):
+    """
+    Возвращает ID текущего урока для указанного класса.
+    Критерий "текущий" можно определить:
+      - первый урок класса,
+      - последний созданный,
+      - или логика по дате/статусу.
+    """
+
+    classroom = get_object_or_404(Classroom, pk=classroom_id)
+
+    lesson = classroom.lesson
+
+    if not lesson:
+        return JsonResponse({"lesson_id": None})
+
+    return JsonResponse({"lesson_id": lesson.id})
 
 def join_classroom(request, invite_code):
     if not request.user.is_authenticated:

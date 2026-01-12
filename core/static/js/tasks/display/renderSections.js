@@ -5,7 +5,6 @@ import { eventBus } from '/static/js/tasks/events/eventBus.js';
 const infoEl = getInfoElement();
 const isTeacher = getIsTeacher();
 const isClassroom = getIsClassroom();
-const lessonId = getLessonId();
 
 const sectionList = document.getElementById('section-list');
 const saveSectionBtn = document.getElementById('saveManualSection');
@@ -65,7 +64,9 @@ export async function renderSectionsList(sections) {
 }
 
 export async function fetchSections() {
+    const lessonId = getLessonId();
     if (!lessonId) return [];
+
     try {
         const res = await fetch(`/courses/lesson/${lessonId}/sections/`);
         if (!res.ok) return [];
@@ -84,11 +85,18 @@ function highlightSelectedSection(sectionId) {
     });
 
     if (sectionId) infoEl.dataset.sectionId = sectionId;
-    else delete infoEl.dataset.sectionId;
 }
 
 export async function selectSection(sectionId) {
     if (!sectionId || sectionId === getSectionId()) return;
+
+    const sectionList = document.querySelectorAll('#section-list li[data-section-id]');
+    const sectionExists = Array.from(sectionList).some(
+        li => li.dataset.sectionId === sectionId
+    );
+    if (!sectionExists) return;
+
+
     highlightSelectedSection(sectionId);
     await loadSectionTasks(sectionId);
 }
@@ -97,6 +105,8 @@ export async function selectSection(sectionId) {
  * Создаёт раздел на сервере и обновляет список.
  */
 async function createSection(title) {
+    const lessonId = getLessonId();
+
     const res = await fetch('/courses/section/create/', {
         method: 'POST',
         headers: {
@@ -400,8 +410,6 @@ export async function initRenderSections() {
     initSectionEditor();
     initAddSectionButton();
     const currentSectionId = getSectionId();
-
-    if (!lessonId) return;
 
     const sections = await fetchSections();
     await renderSectionsList(sections);

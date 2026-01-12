@@ -39,32 +39,6 @@
         initChat();
     </script>
 
-    {% if is_teacher %}
-        <!-- Загрузка модальных окон для редактирования -->
-        {% include 'core/tasks/task_selection_modal.html' %}
-        {% include 'core/tasks/section_create_modal.html' %}
-
-        <!-- Редактирование заданий -->
-        <script type="module">
-            import { initEditTasks } from "{% static 'js/tasks/editor/edit.js' %}";
-
-            initEditTasks();
-        </script>
-
-        <!-- Управление учениками -->
-        <script type="module">
-            import { initStudentPanel, showAllPanelElements, checkUserOnline } from "{% static 'classroom/answers/teacherPanel.js' %}";
-
-            const studentsList = JSON.parse(
-                document.getElementById("students-data").textContent
-            );
-
-            showAllPanelElements();
-            await initStudentPanel(studentsList);
-            setTimeout(checkUserOnline(), 3000);
-        </script>
-    {% endif %}
-
     <!-- Ответы -->
     <script type="module">
         import { registerAnswerEvents } from "{% static 'classroom/answers/handleAnswer.js' %}";
@@ -80,6 +54,43 @@
         initVirtualClassWebSocket();
         initEvents();
     </script>
+
+    <!-- Тесты -->
+    <script type="module">
+        import { isCurrentLessonCorrect } from "{% static 'classroom/tests.js' %}";
+
+        setInterval(isCurrentLessonCorrect, 60000);
+    </script>
+
+    {% if is_teacher %}
+        <!-- Загрузка модальных окон для редактирования -->
+        {% include 'core/tasks/task_selection_modal.html' %}
+        {% include 'core/tasks/section_create_modal.html' %}
+
+        <!-- Редактирование заданий -->
+        <script type="module">
+            import { initEditTasks } from "{% static 'js/tasks/editor/edit.js' %}";
+
+            initEditTasks();
+        </script>
+
+        <!-- Управление учениками -->
+        <script type="module">
+            import { initStudentPanel, showAllPanelElements } from "{% static 'classroom/answers/classroomPanel.js' %}";
+            import { eventBus } from "{% static 'js/tasks/events/eventBus.js' %}";
+            import { checkAllStudentsStatus } from "{% static 'classroom/tests.js' %}";
+
+            const studentsList = JSON.parse(
+                document.getElementById("students-data").textContent
+            );
+
+            showAllPanelElements();
+            await initStudentPanel(studentsList);
+
+            eventBus.on("WS_connected", () => checkAllStudentsStatus(studentsList));
+            setInterval(() => checkAllStudentsStatus(studentsList), 90000);
+        </script>
+    {% endif %}
 
 
 

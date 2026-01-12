@@ -63,7 +63,7 @@ export function initEvents() {
                 student_id: "all",
                 section_id: payload.sectionId
             });
-            showNotification("Все ученики переведены к заданию");
+            showNotification("Ученики переведены к заданию");
         } catch (e) {
             console.error("eventBus task:attention message failed", e);
         }

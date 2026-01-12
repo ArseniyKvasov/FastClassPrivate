@@ -1,4 +1,4 @@
-import { showNotification, postJSON } from "/static/js/tasks/utils.js";
+import { showNotification, postJSON, getLessonId } from "/static/js/tasks/utils.js";
 import { eventBus } from "/static/js/tasks/events/eventBus.js";
 import { ANSWER_HANDLER_MAP, getTaskTypeFromContainer } from "/static/classroom/answers/utils.js";
 import { getClassroomId, getViewedUserId } from '/static/classroom/utils.js'
@@ -156,3 +156,4 @@ export async function fetchTaskAnswer(taskId) {
 
     return data;
 }
+

@@ -1,13 +1,12 @@
 "use strict";
 
-import { showNotification, getIsTeacher, getSectionId, fetchSingleTask } from "/static/js/tasks/utils.js";
-import { fetchSections, renderSectionsList, selectSection } from "/static/js/tasks/display/renderSections.js"
+import { showNotification, getIsTeacher, getLessonId, getSectionId, fetchSingleTask } from "/static/js/tasks/utils.js";
 import { loadSectionTasks } from "/static/js/tasks/display/showTasks.js"
-import { getViewedUserId } from '/static/classroom/utils.js'
+import { getViewedUserId, scrollToTask, refreshSections } from '/static/classroom/utils.js'
 import { fetchTaskAnswer } from "/static/classroom/answers/api.js";
 import { handleAnswer } from "/static/classroom/answers/handleAnswer.js";
 import { clearTask } from "/static/classroom/answers/handlers/clearAnswers.js"
-import { markUserOnline, markUserOffline, onlineTimers } from "/static/classroom/answers/teacherPanel.js";
+import { markUserOnline, markUserOffline, onlineTimers } from "/static/classroom/answers/classroomPanel.js";
 import { createBubbleNode, refreshChat, pointNewMessage } from "/static/classroom/integrations/chat.js"
 import { sendWS } from "/static/classroom/websocket/sendMessage.js"
 
@@ -28,7 +27,7 @@ export async function handleWSMessage(ev) {
 
     const { type, data } = msg;
     if (!type || !data?.student_id) return;
-    if (!shouldProcessMessage(data) && type !== "user:is_online:confirmed") return;
+    if (!shouldProcessMessage(data) && !["user:is_online:confirmed", "chat:send_message", "chat:update"].includes(type)) return;
 
     switch(type) {
         case "answer:sent":
@@ -42,12 +41,14 @@ export async function handleWSMessage(ev) {
             break;
 
         case "section_list:change":
-            await refreshSectionsAndSelect();
+            const sectionToSelect = await refreshSections();
+            await selectSection(sectionToSelect);
             break;
 
         case "task:attention":
             if (!data?.task_id || !data?.payload?.section_id) return;
-            await moveToPointedTask(data.payload.section_id, data.task_id);
+            const taskCard = await scrollToTask(data.payload.section_id, data.task_id);
+            highlightTaskRed(taskCard);
             break;
 
         case "section:change":
@@ -116,42 +117,12 @@ async function processTaskAnswer(taskId) {
     }
 }
 
-async function refreshSectionsAndSelect() {
-    const previousSectionId = getSectionId();
-    const sections = await fetchSections();
-
-    await renderSectionsList(sections);
-
-    if (!sections.length) {
-        return;
-    }
-
-    const sectionToSelect = sections.find(
-        section => section.id === previousSectionId
-    )?.id || sections[0].id;
-
-    await selectSection(sectionToSelect);
-}
-
 /**
- * Переключает на нужный раздел, прокручивает и подсвечивает задание
- * с красным пульсом
- * @param {number|string} sectionId
- * @param {number|string} taskId
+ * Добавляет красный пульс на карточку задания на 2 секунды
+ * @param {HTMLElement} taskCard
  */
-async function moveToPointedTask(sectionId, taskId) {
-    if (!sectionId || !taskId) return;
-
-    await selectSection(sectionId);
-
-    const taskSelector = `.task-card[data-task-id="${taskId}"]`;
-    const taskCard = document.querySelector(taskSelector);
+function highlightTaskRed(taskCard) {
     if (!taskCard) return;
-
-    taskCard.scrollIntoView({
-        behavior: "smooth",
-        block: "center"
-    });
 
     taskCard.classList.add("pulse-red");
 
@@ -169,7 +140,6 @@ export function handleUserOnlineMessage(data) {
     const userId = data?.student_id;
     if (!userId) return;
 
-    // Очищаем таймер, если есть
     if (onlineTimers[userId]) {
         clearTimeout(onlineTimers[userId]);
         delete onlineTimers[userId];

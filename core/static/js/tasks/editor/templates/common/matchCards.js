@@ -1,7 +1,7 @@
 import { showNotification } from "/static/js/tasks/utils.js";
 
 /**
- * Рендерит редактор задания типа «Соотнеси карточки».
+ * Рендерит редактор задания типа «Соотнести карточки».
  *
  * @param {{cards?: Array<{card_left: string, card_right: string}>}|null} taskData
  * @param {string|null} taskId

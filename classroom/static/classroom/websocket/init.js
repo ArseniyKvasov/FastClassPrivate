@@ -1,10 +1,9 @@
 "use strict";
 
-import { showNotification, getInfoElement, getCurrentUserId } from "/static/js/tasks/utils.js";
-import { fetchSections, renderSectionsList, selectSection } from "/static/js/tasks/display/renderSections.js";
-import { getClassroomId } from '/static/classroom/utils.js'
+import { showNotification, getCurrentUserId } from "/static/js/tasks/utils.js";
+import { getClassroomId, refreshClassroom } from '/static/classroom/utils.js'
 import { handleWSMessage } from "/static/classroom/websocket/handleMessage.js";
-import { refreshChat } from "/static/classroom/integrations/chat.js"
+import { eventBus } from "/static/js/tasks/events/eventBus.js";
 
 export let virtualClassWS = null;
 
@@ -13,20 +12,6 @@ let maxReconnectDelay = 30000;
 let baseReconnectDelay = 1000;
 
 let hasEverConnected = false;
-
-async function restoreAfterReconnect() {
-    const infoEl = getInfoElement();
-    if (infoEl) {
-        infoEl.dataset.sectionId = "";
-    }
-
-    const sections = await fetchSections();
-    if (!sections.length) return;
-
-    await renderSectionsList(sections);
-    await selectSection(sections[0].id);
-    await refreshChat();
-}
 
 /**
  * Инициализирует WebSocket для виртуального класса и настраивает обработчики.
@@ -59,13 +44,15 @@ export function initVirtualClassWebSocket() {
 
         if (hasEverConnected) {
             try {
-                await restoreAfterReconnect();
+                await refreshClassroom();
             } catch (e) {
                 console.error("Failed to restore data after reconnect", e);
             }
         }
 
         hasEverConnected = true;
+
+        eventBus.emit("WS_connected");
     };
 
     virtualClassWS.onclose = () => {

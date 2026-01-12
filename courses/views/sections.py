@@ -158,14 +158,23 @@ def edit_section(request, section_id):
 @require_POST
 def delete_section(request, section_id):
     """
-    Удаление раздела
+    Удаление раздела.
+    Запрещено удалять единственный раздел в уроке.
     URL: /section/<section_id>/delete/
     """
-    try:
-        section = get_object_or_404(Section, id=section_id)
-        section.delete()
 
-        return JsonResponse({"success": True})
+    section = get_object_or_404(Section, id=section_id)
 
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
+    sections_count = Section.objects.filter(lesson=section.lesson).count()
+    if sections_count <= 1:
+        return JsonResponse(
+            {
+                "success": False,
+                "error": "Нельзя удалить единственный раздел в уроке"
+            },
+            status=400
+        )
+
+    section.delete()
+
+    return JsonResponse({"success": True})
