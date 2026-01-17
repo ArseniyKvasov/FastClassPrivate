@@ -20,7 +20,7 @@ export function sendWS(type, payload) {
 /**
  * Регистрирует обработчики локальных событий.
  */
-export function initEvents() {
+export function initEvents(isTeacher = false) {
     eventBus.on("answer:sent", async (payload) => {
         try {
             if (!payload?.taskId) return;
@@ -107,14 +107,19 @@ export function initEvents() {
         }
     });
 
-    eventBus.on("user:is_online", async (payload) => {
+    /**
+     * Отправляет событие изменения режима копирования ученикам.
+     * @param {Object} payload { allowed: boolean }
+     */
+    eventBus.on("copying:changed", async (payload) => {
         try {
-            if (!payload?.userId) return;
-            sendWS("user:is_online", {
-                student_id: payload.userId
+            if (typeof payload?.allowed !== "boolean") return;
+            sendWS("copying:changed", {
+                allowed: payload.allowed,
+                student_id: "all"
             });
         } catch (e) {
-            console.error("eventBus user:is_online failed", e);
+            console.error("eventBus copying:changed failed", e);
         }
     });
 }

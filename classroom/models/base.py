@@ -1,4 +1,3 @@
-import uuid
 from django.db import models
 from django.conf import settings
 
@@ -6,7 +5,7 @@ User = settings.AUTH_USER_MODEL
 
 
 class BaseAnswer(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    id = models.BigAutoField(primary_key=True)
     task = models.ForeignKey("courses.Task", on_delete=models.CASCADE, db_index=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, db_index=True)
     classroom = models.ForeignKey("classroom.Classroom", on_delete=models.CASCADE)
@@ -59,6 +58,7 @@ class ChatMessage(models.Model):
     Сообщение общего чата внутри класса.
     Чат один на classroom, без личных сообщений.
     """
+    id = models.BigAutoField(primary_key=True)
 
     classroom = models.ForeignKey(
         "classroom.Classroom",

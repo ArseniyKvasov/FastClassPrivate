@@ -1,70 +1,374 @@
-import { showNotification, escapeHtml, getInfoElement, getCurrentUserId } from "/static/js/tasks/utils.js";
+import { showNotification, escapeHtml, getInfoElement, getCsrfToken, confirmAction } from "/static/js/tasks/utils.js";
 import { eventBus } from "/static/js/tasks/events/eventBus.js";
-import { startTasksOrderEditing } from "/static/js/tasks/editor/changeTasksOrder.js"
-import { getViewedUserId } from '/static/classroom/utils.js'
-import { formatStudentName } from '/static/classroom/answers/utils.js'
+import { startTasksOrderEditing } from "/static/js/tasks/editor/changeTasksOrder.js";
+import { getViewedUserId, getClassroomId, getUsernameById } from "/static/classroom/utils.js";
+import { formatStudentName } from "/static/classroom/answers/utils.js";
 import { handleSectionAnswers } from "/static/classroom/answers/handleAnswer.js";
 import { clearAllTaskContainers } from "/static/classroom/answers/handlers/clearAnswers.js";
 import { clearStatistics, loadSectionStatistics } from "/static/classroom/answers/handlers/statistics.js";
-import { checkAllStudentsStatus } from "/static/classroom/tests.js"
-
+import { disableCopying, enableCopying } from "/static/classroom/copyingMode.js";
 
 let statsInterval = null;
+let classroomInviteModalInstance = null;
 
-export async function initStudentPanel(studentsList = []) {
-    const dropdownMenu = document.getElementById("studentDropdownMenu");
-    const dropdownButton = document.getElementById("studentDropdown");
-    const invitationModalEl = document.getElementById("invitationModal");
-    const disableCopyingButton = document.getElementById("disableCopyingButton");
-    const changeTasksOrderButton = document.getElementById("changeTasksOrderButton");
-    const infoEl = getInfoElement();
+function ensureClassroomInviteModal() {
+    if (classroomInviteModalInstance) return classroomInviteModalInstance;
+    const modalEl = document.getElementById("classroomInviteModal");
+    if (!modalEl) return null;
+    classroomInviteModalInstance = new bootstrap.Modal(modalEl);
+    return classroomInviteModalInstance;
+}
 
-    if (!dropdownMenu || !dropdownButton || !infoEl) return;
+function createStudentItem(studentId, name) {
+    const safeName = String(name);
+    const displayName = safeName.length > 20 ? `${safeName.slice(0, 20)}…` : safeName;
 
-    dropdownMenu.innerHTML = "";
-    appendMenuItem(dropdownMenu, { id: "all", name: "Статистика" });
+    const li = document.createElement("li");
+    li.className = "student-menu-item";
+    li.innerHTML = `
+        <a class="dropdown-item student-option text-black d-flex align-items-center"
+           href="#"
+           data-student-id="${escapeHtml(String(studentId))}"
+           title="${escapeHtml(safeName)}">
+            <span class="student-name flex-grow-1">${escapeHtml(displayName)}</span>
 
-    if (Array.isArray(studentsList) && studentsList.length > 0) {
-        studentsList.forEach(s => {
-            appendMenuItem(dropdownMenu, {
-                id: String(s.id),
-                name: s.name
+            <span class="student-action-slot ms-2">
+                <span class="online-indicator"></span>
+                <i class="bi bi-x student-delete-icon"></i>
+            </span>
+        </a>
+    `;
+
+    const link = li.querySelector(".student-option");
+    const slot = li.querySelector(".student-action-slot");
+    const indicator = li.querySelector(".online-indicator");
+    const deleteIcon = li.querySelector(".student-delete-icon");
+
+    Object.assign(slot.style, {
+        width: "14px",
+        height: "14px",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        position: "relative"
+    });
+
+    Object.assign(indicator.style, {
+        width: "10px",
+        height: "10px",
+        borderRadius: "50%",
+        display: "none"
+    });
+
+    Object.assign(deleteIcon.style, {
+        display: "none",
+        opacity: ".6",
+        cursor: "pointer",
+        fontSize: "14px",
+        lineHeight: "1"
+    });
+
+    link.addEventListener("mouseenter", () => {
+        indicator.style.display = "none";
+        deleteIcon.style.display = "block";
+    });
+
+    link.addEventListener("mouseleave", () => {
+        if (indicator.style.backgroundColor && indicator.style.backgroundColor !== "transparent") {
+            indicator.style.display = "block";
+        }
+        deleteIcon.style.display = "none";
+    });
+
+    let touchTimer;
+    link.addEventListener("touchstart", () => {
+        touchTimer = setTimeout(() => {
+            indicator.style.display = "none";
+            deleteIcon.style.display = "block";
+        }, 500);
+    });
+
+    link.addEventListener("touchend", () => clearTimeout(touchTimer));
+    link.addEventListener("touchmove", () => clearTimeout(touchTimer));
+
+    deleteIcon.addEventListener("mouseenter", () => {
+        deleteIcon.style.opacity = "1";
+    });
+
+    deleteIcon.addEventListener("mouseleave", () => {
+        deleteIcon.style.opacity = ".6";
+    });
+
+    deleteIcon.addEventListener("click", async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (studentId === "all") return;
+
+        try {
+            const confirmed = await confirmAction("Вы уверены, что хотите удалить ученика?");
+            if (!confirmed) return;
+
+            const classroomId = getClassroomId();
+            const response = await fetch(`/classroom/api/${classroomId}/delete-student/`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": getCsrfToken()
+                },
+                body: JSON.stringify({ student_id: studentId })
             });
-        });
 
-        appendDivider(dropdownMenu);
-        dropdownMenu.appendChild(createAddStudentButton());
-    }
-
-    dropdownMenu.addEventListener("click", event => {
-        const item = event.target.closest(".dropdown-item");
-        if (!item) return;
-
-        if (item.id === "addStudentButton") {
-            event.preventDefault();
-            if (invitationModalEl && typeof bootstrap !== "undefined") {
-                new bootstrap.Modal(invitationModalEl).show();
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.message || "Ошибка при удалении ученика");
             }
-            return;
-        }
 
-        event.preventDefault();
-        const studentId = item.dataset.studentId;
+            li.remove();
+            eventBus.emit("user:delete", studentId);
+            showNotification("Ученик успешно удален");
 
-        if (statsInterval) {
-            clearInterval(statsInterval);
-            statsInterval = null;
-        }
-
-        selectStudent(studentId, item, dropdownMenu, dropdownButton, infoEl);
-
-        if (studentId === "all") {
-            statsInterval = setInterval(loadSectionStatistics, 5000);
+            const currentViewedId = getViewedUserId();
+            if (String(currentViewedId) === studentId) {
+                const allOption = document.querySelector(
+                    '.student-option[data-student-id="all"]'
+                );
+                if (allOption) allOption.click();
+            }
+        } catch (error) {
+            console.error("Ошибка при удалении ученика:", error);
+            showNotification(error.message || "Не удалось удалить ученика", "error");
         }
     });
 
-    if (disableCopyingButton) disableCopyingButton.addEventListener("click", toggleCopying);
-    if (changeTasksOrderButton) changeTasksOrderButton.addEventListener("click", () => startTasksOrderEditing());
+    return li;
+}
+
+export async function markUserOnline(userId) {
+    const dropdownMenu = document.getElementById("studentDropdownMenu");
+    if (!dropdownMenu) return;
+
+    let option = dropdownMenu.querySelector(`.student-option[data-student-id="${userId}"]`);
+
+    if (!option) {
+        try {
+            const username = await getUsernameById(userId);
+            if (username) {
+                const li = createStudentItem(String(userId), username);
+                dropdownMenu.appendChild(li);
+                option = dropdownMenu.querySelector(`.student-option[data-student-id="${userId}"]`);
+            }
+        } catch (error) {
+            console.error("Ошибка при получении имени пользователя:", error);
+            return;
+        }
+    }
+
+    if (!option) return;
+
+    const indicator = option.querySelector(".online-indicator");
+    if (indicator) {
+        indicator.style.backgroundColor = "green";
+        indicator.style.display = "inline-block";
+    }
+}
+
+export function markUserOffline(userId) {
+    const option = document.querySelector(`.student-option[data-student-id="${userId}"]`);
+    if (!option) return;
+
+    const indicator = option.querySelector(".online-indicator");
+    if (indicator) {
+        indicator.style.backgroundColor = "transparent";
+        indicator.style.display = "none";
+    }
+}
+
+function safeInvoke(fn, message) {
+    try {
+        fn();
+    } catch (err) {
+        console.error(message, err);
+        showNotification(message);
+    }
+}
+
+export function loadStudentData() {
+    try {
+        handleSectionAnswers();
+    } catch (err) {
+        console.error("Ошибка при загрузке данных ученика:", err);
+        showNotification("Не удалось загрузить данные ученика");
+    }
+}
+
+export function showAllPanelElements() {
+    const addStudentButton = document.getElementById('addStudentButton');
+    if (addStudentButton) addStudentButton.classList.remove('d-none');
+
+    const panelDivider = document.getElementById('panelDivider');
+    if (panelDivider) panelDivider.classList.remove('d-none');
+
+    const statisticsDropdown = document.getElementById('statisticsDropdown');
+    if (statisticsDropdown) statisticsDropdown.classList.remove('d-none');
+
+    const menuDropdown = document.getElementById('menuDropdown');
+    if (menuDropdown) menuDropdown.classList.remove('d-none');
+}
+
+async function selectStudent(studentId, itemEl, dropdownMenu, dropdownButton, infoEl, isInitial = false) {
+    dropdownMenu.querySelectorAll(".student-option").forEach(i => i.classList.remove("active"));
+    itemEl?.classList.add("active");
+
+    const fullName = itemEl
+        ? itemEl.querySelector('.student-name')?.textContent.trim() || itemEl.textContent.trim()
+        : studentId === "all"
+            ? "Статистика"
+            : String(studentId);
+    dropdownButton.textContent = formatStudentName(fullName);
+
+    infoEl.dataset.viewedUserId = String(studentId);
+    infoEl.dataset.studentUsername = String(fullName);
+
+    if (isInitial) return;
+
+    await clearAllTaskContainers();
+    clearStatistics();
+    safeInvoke(loadStudentData, "Не удалось загрузить данные ученика");
+}
+
+async function initCopyingButton(btn) {
+    if (!btn) return;
+
+    let allowed = btn.dataset.copyAllowed === "true";
+    applyCopyingState(btn, allowed, true);
+
+    btn.addEventListener("click", async (e) => {
+        e.preventDefault();
+
+        allowed = !allowed;
+        const classroomId = getClassroomId();
+
+        try {
+            const res = await fetch(`/classroom/api/${classroomId}/set-copying-enabled/`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": getCsrfToken()
+                },
+                body: JSON.stringify({ enabled: allowed })
+            });
+
+            if (!res.ok) throw new Error("Ошибка сервера");
+
+            const data = await res.json();
+            allowed = data.copying_enabled;
+            eventBus.emit("copying:changed", { allowed });
+            applyCopyingState(btn, allowed, false);
+        } catch (err) {
+            console.error(err);
+            showNotification("Не удалось сменить режим копирования");
+        }
+    });
+}
+
+function applyCopyingState(btn, allowed, isInitial = false) {
+    btn.dataset.copyAllowed = allowed ? "true" : "false";
+
+    const icon = btn.querySelector("i");
+    const textEl = btn.querySelector(".btn-text");
+
+    if (allowed) {
+        enableCopying();
+        icon?.classList.replace("bi-check-lg", "bi-ban");
+        textEl.textContent = "Запретить копирование";
+        btn.classList.replace("text-success", "text-danger");
+        if (!isInitial) showNotification("Копирование разрешено");
+    } else {
+        disableCopying();
+        icon?.classList.replace("bi-ban", "bi-check-lg");
+        textEl.textContent = "Разрешить копирование";
+        btn.classList.replace("text-danger", "text-success");
+        if (!isInitial) showNotification("Копирование запрещено");
+    }
+}
+
+export function renderGoToTaskButton(panel) {
+    if (!panel) return;
+    const btns = panel.querySelectorAll(".go-to-task-btn");
+    if (!btns.length) return;
+    btns.forEach(btn => btn.classList.remove("d-none"));
+}
+
+export function renderResetButton(panel) {
+    if (!panel) return;
+    const btns = panel.querySelectorAll(".reset-answer-btn");
+    if (!btns.length) return;
+    btns.forEach(btn => btn.classList.remove("d-none"));
+}
+
+export async function initStudentPanel(studentsList = []) {
+    const panelEl = document.getElementById("panel");
+    const dropdownButton = document.getElementById("studentDropdown");
+    const dropdownMenu = document.getElementById("studentDropdownMenu");
+    const disableCopyingButton = document.getElementById("disableCopyingButton");
+    const changeTasksOrderButton = document.getElementById("changeTasksOrderButton");
+    const addStudentButton = document.getElementById("addStudentButton");
+    const infoEl = getInfoElement();
+
+    if (!panelEl || !dropdownButton || !dropdownMenu || !infoEl) return;
+
+    dropdownMenu.innerHTML = "";
+    dropdownMenu.appendChild(createStudentItem("all", "Статистика"));
+
+    if (Array.isArray(studentsList) && studentsList.length > 0) {
+        studentsList.forEach(s => {
+            dropdownMenu.appendChild(createStudentItem(String(s.id), s.name));
+        });
+    }
+
+    if (!dropdownMenu.dataset.bound) {
+        dropdownMenu.addEventListener("click", event => {
+            if (event.target.closest('.student-delete-icon')) return;
+
+            const item = event.target.closest(".dropdown-item");
+            if (!item) return;
+            event.preventDefault();
+
+            const studentId = item.dataset.studentId;
+            if (!studentId) return;
+
+            if (statsInterval) {
+                clearInterval(statsInterval);
+                statsInterval = null;
+            }
+
+            selectStudent(studentId, item, dropdownMenu, dropdownButton, infoEl);
+
+            if (studentId === "all") {
+                statsInterval = setInterval(loadSectionStatistics, 5000);
+            }
+        });
+        dropdownMenu.dataset.bound = "1";
+    }
+
+    if (disableCopyingButton && !disableCopyingButton.dataset.bound) {
+        initCopyingButton(disableCopyingButton);
+        disableCopyingButton.dataset.bound = "1";
+    }
+
+    if (changeTasksOrderButton && !changeTasksOrderButton.dataset.bound) {
+        changeTasksOrderButton.addEventListener("click", () => startTasksOrderEditing());
+        changeTasksOrderButton.dataset.bound = "1";
+    }
+
+    if (addStudentButton && !addStudentButton.dataset.bound) {
+        addStudentButton.addEventListener("click", () => {
+            const modal = ensureClassroomInviteModal();
+            if (modal) modal.show();
+        });
+        addStudentButton.dataset.bound = "1";
+    }
 
     const initialId = String(getViewedUserId());
     const initialOption =
@@ -80,249 +384,4 @@ export async function initStudentPanel(studentsList = []) {
             statsInterval = setInterval(loadSectionStatistics, 5000);
         }
     }
-}
-
-/**
- * Добавляет зелёный кружок рядом с пользователем, справа
- * @param {string|number} userId
- */
-export function markUserOnline(userId) {
-    const option = document.querySelector(`.student-option[data-student-id="${userId}"]`);
-    if (!option) return;
-
-    if (!option.querySelector(".option-flex")) {
-        const wrapper = document.createElement("span");
-        wrapper.className = "option-flex d-flex justify-content-between align-items-center";
-        wrapper.style.width = "100%";
-
-        const textNode = document.createElement("span");
-        textNode.textContent = option.textContent.trim();
-        wrapper.appendChild(textNode);
-
-        option.textContent = "";
-        option.appendChild(wrapper);
-    }
-
-    const wrapper = option.querySelector(".option-flex");
-
-    let indicator = wrapper.querySelector(".online-indicator");
-    if (!indicator) {
-        indicator = document.createElement("span");
-        indicator.className = "online-indicator";
-        indicator.style.display = "inline-block";
-        indicator.style.width = "10px";
-        indicator.style.height = "10px";
-        indicator.style.borderRadius = "50%";
-        indicator.style.backgroundColor = "green";
-        wrapper.appendChild(indicator);
-    }
-    indicator.style.backgroundColor = "green";
-}
-
-/**
- * Убирает зелёный кружок
- * @param {string|number} userId
- */
-export function markUserOffline(userId) {
-    const option = document.querySelector(`.student-option[data-student-id="${userId}"]`);
-    if (!option) return;
-
-    const wrapper = option.querySelector(".option-flex");
-    if (!wrapper) return;
-
-    const indicator = wrapper.querySelector(".online-indicator");
-    if (indicator) {
-        indicator.remove();
-    }
-}
-
-export let onlineTimers = {};
-
-/**
- * Проверяет, онлайн ли пользователь, с таймером ожидания.
- * @param {string|number} userId
- */
-export function checkUserOnline(userId) {
-    if (onlineTimers[userId]) {
-        clearTimeout(onlineTimers[userId]);
-    }
-
-    onlineTimers[userId] = setTimeout(() => {
-        markUserOffline(userId);
-        delete onlineTimers[userId];
-    }, 1000);
-
-    const randomDelay = Math.floor(Math.random() * 500);
-
-    setTimeout(() => {
-        eventBus.emit("user:is_online", { userId, timerId: onlineTimers[userId] });
-    }, randomDelay);
-}
-
-/**
- * Показывает все скрытые элементы управления панели
- */
-export function showAllPanelElements() {
-    const addStudentButton = document.getElementById('addStudentButton');
-    if (addStudentButton) {
-        addStudentButton.classList.remove('d-none');
-    }
-
-    const panelDivider = document.getElementById('panelDivider');
-    if (panelDivider) {
-        panelDivider.classList.remove('d-none');
-    }
-
-    const statisticsDropdown = document.getElementById('statisticsDropdown');
-    if (statisticsDropdown) {
-        statisticsDropdown.classList.remove('d-none');
-    }
-
-    const menuDropdown = document.getElementById('menuDropdown');
-    if (menuDropdown) {
-        menuDropdown.classList.remove('d-none');
-    }
-
-    eventBus.emit("allPanelElementsReady");
-}
-
-export function loadStudentData() {
-    try {
-        handleSectionAnswers();
-    } catch (err) {
-        console.error("Ошибка при загрузке данных ученика:", err);
-        showNotification("Не удалось загрузить данные ученика");
-    }
-}
-
-function appendMenuItem(menu, { id, name }) {
-    const safeName = String(name);
-    const displayName =
-        safeName.length > 20
-            ? `${safeName.slice(0, 20)}…`
-            : safeName;
-
-    const li = document.createElement("li");
-    li.innerHTML = `
-        <a class="dropdown-item student-option text-black"
-           href="#"
-           data-student-id="${id}"
-           title="${escapeHtml(safeName)}">
-            ${escapeHtml(displayName)}
-        </a>
-    `;
-    menu.appendChild(li);
-}
-
-function appendDivider(menu) {
-    const li = document.createElement("li");
-    li.innerHTML = '<hr class="dropdown-divider">';
-    menu.appendChild(li);
-}
-
-function createAddStudentButton() {
-    const li = document.createElement("li");
-    li.innerHTML = `
-        <button class="dropdown-item text-warning"
-                id="addStudentButton"
-                type="button"
-                data-bs-toggle="modal"
-                data-bs-target="#invitationModal">
-            <i class="bi bi-person-plus me-2"></i>
-            Добавить ученика
-        </button>
-    `;
-    return li;
-}
-
-async function selectStudent(studentId, itemEl, dropdownMenu, dropdownButton, infoEl, isInitial = false) {
-    dropdownMenu
-        .querySelectorAll(".student-option")
-        .forEach(i => i.classList.remove("active"));
-
-    itemEl?.classList.add("active");
-
-    const fullName = itemEl
-        ? itemEl.textContent.trim()
-        : studentId === "all"
-            ? "Статистика"
-            : String(studentId);
-    dropdownButton.textContent = formatStudentName(fullName);
-
-    infoEl.dataset.viewedUserId = String(studentId);
-    infoEl.dataset.studentUsername = String(fullName);
-
-    if (isInitial) return;
-
-    await clearAllTaskContainers();
-    clearStatistics();
-
-    safeInvoke(
-        loadStudentData,
-        "Не удалось загрузить данные ученика"
-    );
-}
-
-function toggleCopying(e) {
-    e.preventDefault();
-
-    const btn = e.currentTarget;
-    const icon = btn.querySelector("i");
-    const textEl = btn.querySelector(".text");
-    const allowed = document.body.classList.contains("copy-allowed");
-
-    if (allowed) {
-        document.body.classList.remove("copy-allowed");
-        document.body.style.userSelect = "none";
-        icon?.classList.replace("bi-check-lg", "bi-ban");
-        textEl && (textEl.textContent = "Разрешить копирование");
-        btn.classList.replace("text-success", "text-danger");
-        showNotification("Копирование запрещено");
-    } else {
-        document.body.classList.add("copy-allowed");
-        document.body.style.userSelect = "text";
-        icon?.classList.replace("bi-ban", "bi-check-lg");
-        textEl && (textEl.textContent = "Запретить копирование");
-        btn.classList.replace("text-danger", "text-success");
-        showNotification("Копирование разрешено");
-    }
-}
-
-function safeInvoke(fn, message) {
-    try {
-        fn();
-    } catch (err) {
-        console.error(message, err);
-        showNotification(message);
-    }
-}
-
-/**
- * Показывает кнопку "Перейти к заданию" и навешивает обработчик
- * @param {HTMLElement} panel
- */
-export function renderGoToTaskButton(panel) {
-    if (!panel) return;
-
-    const btns = panel.querySelectorAll(".go-to-task-btn");
-    if (!btns.length) return;
-
-    btns.forEach(btn => {
-        btn.classList.remove("d-none");
-    });
-}
-
-/**
- * Показывает кнопку "Сбросить ответ" и навешивает обработчик
- * @param {HTMLElement} panel
- */
-export function renderResetButton(panel) {
-    if (!panel) return;
-
-    const btns = panel.querySelectorAll(".reset-answer-btn");
-    if (!btns.length) return;
-
-    btns.forEach(btn => {
-        btn.classList.remove("d-none");
-    });
 }

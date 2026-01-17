@@ -23,12 +23,12 @@
         <!-- Статистика -->
         <div class="dropdown dropup d-none" id="statisticsDropdown">
             <button
-                    class="btn btn-sm btn-light icon-btn"
+                    class="btn btn-sm btn-light icon-btn dropdown-toggle"
                     id="studentDropdown"
                     data-bs-toggle="dropdown"
                     data-bs-container="body"
                     title="Статистика">
-                <i class="bi bi-bar-chart"></i>
+                <i class="bi bi-bar-chart me-5"></i>
             </button>
             <ul class="dropdown-menu dropdown-menu-end shadow-sm" id="studentDropdownMenu">
                 <li>
@@ -50,13 +50,14 @@
             </button>
             <ul class="dropdown-menu dropdown-menu-end shadow-sm">
                 <li>
-                    <button class="dropdown-item text-danger" id="disableCopyingButton">
-                        <i class="bi bi-ban me-2"></i>Запретить копирование
+                    <button class="dropdown-item text-danger" id="disableCopyingButton"
+                            data-copy-allowed="{{ copying_enabled|yesno:'true,false' }}">
+                        <i class="bi bi-ban me-2"></i> <span class="btn-text">Запретить копирование</span>
                     </button>
                 </li>
                 <li>
                     <button class="dropdown-item" id="changeTasksOrderButton">
-                        <i class="bi bi-list-ol me-2"></i>Порядок заданий
+                        <i class="bi bi-list-ol me-2"></i> Порядок заданий
                     </button>
                 </li>
             </ul>
@@ -64,7 +65,7 @@
     </div>
 </div>
 
-<!-- CHAT PANEL -->
+<!-- CHAT -->
 <div id="chatPanel"
      class="position-fixed flex-column bg-white shadow rounded"
      style="bottom:20px; left:20px; width:300px; height:340px; max-width:80vw; max-height:80vh; display:none; z-index:20;">
@@ -79,17 +80,18 @@
     <div id="chatMessages" class="flex-grow-1 overflow-auto p-2 bg-light"></div>
 
     <div class="border-top p-2">
-        <div class="input-group input-group-sm" style="gap:6px;">
-            <input
-                    type="text"
+        <div class="input-group input-group-sm" style="gap: 4px;">
+            <textarea
                     id="chatInput"
-                    class="form-control rounded-pill border-secondary-subtle focus-ring focus-ring-primary"
-                    placeholder="Напишите сообщение..."
-                    maxlength="250">
+                    class="form-control border-secondary-subtle focus-ring focus-ring-primary rounded-end"
+                    placeholder="Напишите сообщение"
+                    maxlength="1024"
+                    rows="1"
+                    style="resize:none; overflow:hidden; max-height:100px;"></textarea>
             <button
                     id="chatSendButton"
-                    class="btn btn-primary rounded-pill d-flex align-items-center justify-content-center"
-                    style="width:34px;height:34px;">
+                    class="btn border-0 rounded-pill d-flex align-items-center justify-content-center"
+                    style="width:34px; height:34px;">
                 <i class="bi bi-send"></i>
             </button>
         </div>

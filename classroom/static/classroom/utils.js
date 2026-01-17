@@ -1,4 +1,4 @@
-import { getSectionId, getInfoElement } from "/static/js/tasks/utils.js"
+import { getSectionId, getInfoElement, getCsrfToken } from "/static/js/tasks/utils.js"
 import { fetchSections, renderSectionsList, selectSection } from "/static/js/tasks/display/renderSections.js"
 import { refreshChat } from "/static/classroom/integrations/chat.js"
 
@@ -101,4 +101,31 @@ export async function refreshClassroom() {
         await selectSection(sectionToSelect);
     }
     await refreshChat();
+}
+
+/**
+ * Получение имени нового пользователя
+ * @param {string|number} userId - ID пользователя
+ * @returns {Promise<string|null>}
+ */
+export async function getUsernameById(userId) {
+    try {
+        const response = await fetch(`/api/users/${userId}/get-username-by-id/`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken(),
+            },
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            const username = data.username;
+            return username;
+        }
+    } catch (e) {
+        console.log("Не удалось определить имя ученика");
+    }
+
+    return `Ученик #${userId}`;
 }

@@ -20,7 +20,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-6)8(ui+7fu8ylrrvywsk$q$s$cuy^7e68l0uvo@%^@a*p4sn75'
+SECRET_KEY = 'django-secure-6)8(upiijffi+7fu8ylrrvywsk$q$s$cuy^7e68l0uvo@%^@a*p4sn75'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -126,8 +126,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # Аутентификация
 
 AUTHENTICATION_BACKENDS = [
-    "django.contrib.auth.backends.ModelBackend",  # стандартный email+password
-    "authapp.backends.SocialIDBackend",          # соц-сети
+    "django.contrib.auth.backends.ModelBackend",
 ]
 
 SOCIAL_AUTH_POSTGRES_JSONFIELD = True

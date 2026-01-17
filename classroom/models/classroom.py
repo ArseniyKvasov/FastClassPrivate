@@ -1,22 +1,24 @@
-from django.db import models
+import random
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from classroom.utils import generate_short_uuid, generate_invite_code
+from django.db import models
+
+
+def generate_join_password():
+    return f"{random.randint(1000, 9999)}"
+
 
 class Classroom(models.Model):
-    id = models.CharField(
-        primary_key=True,
-        max_length=8,
-        default=generate_short_uuid,
-        editable=False,
-        unique=True,
-    )
+    id = models.BigAutoField(primary_key=True)
+
     title = models.CharField(max_length=255)
+
     teacher = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="classrooms",
     )
+
     lesson = models.ForeignKey(
         "courses.Lesson",
         on_delete=models.SET_NULL,
@@ -24,17 +26,20 @@ class Classroom(models.Model):
         blank=True,
         related_name="classrooms",
     )
+
     students = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
         related_name="joined_classrooms",
         blank=True,
     )
-    invite_code = models.CharField(
-        max_length=6,
-        unique=True,
-        default=generate_invite_code,
-        editable=False,
+
+    join_password = models.CharField(
+        max_length=12,
+        default=generate_join_password,
+        help_text="пароль для входа в класс",
     )
+
+    copying_enabled = models.BooleanField(default=True)
 
     class Meta:
         verbose_name = "Класс"
@@ -47,21 +52,22 @@ class Classroom(models.Model):
     def student_count(self):
         return self.students.count()
 
-    @classmethod
-    def join_by_code(cls, code, user):
-        try:
-            classroom = cls.objects.get(invite_code=code)
-        except cls.DoesNotExist:
-            raise ValidationError("Неверный код приглашения.")
+    def join(self, user, password):
+        """
+        Подключает ученика к классу по паролю.
+        """
 
-        if classroom.teacher == user:
-            raise ValidationError("Учитель не может присоединиться к своему классу как ученик.")
+        if user == self.teacher:
+            raise ValidationError("Учитель не может войти в класс как ученик.")
 
-        if classroom.students.filter(id=user.id).exists():
-            raise ValidationError("Вы уже присоединились к этому классу.")
+        if self.students.filter(id=user.id).exists():
+            raise ValidationError("Вы уже состоите в этом классе.")
 
-        classroom.students.add(user)
-        return classroom
+        if password != self.join_password:
+            raise ValidationError("Неверный пароль класса.")
+
+        self.students.add(user)
+        return self
 
     def remove_student(self, user):
         if not self.students.filter(id=user.id).exists():
@@ -73,6 +79,8 @@ class Classroom(models.Model):
         if self.teacher == user:
             available_users = list(self.students.all())
             available_users.append(self.teacher)
-        else:
+        elif user in self.students.all():
             available_users = [user]
+        else:
+            available_users = []
         return available_users

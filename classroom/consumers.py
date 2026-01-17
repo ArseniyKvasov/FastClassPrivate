@@ -1,4 +1,5 @@
 import json
+import asyncio
 from typing import Optional
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
@@ -6,6 +7,9 @@ from django.apps import apps
 
 
 class VirtualClassConsumer(AsyncWebsocketConsumer):
+    _active_connections = {}
+    _lock = asyncio.Lock()
+
     async def connect(self):
         Classroom = apps.get_model("classroom", "Classroom")
 
@@ -57,7 +61,13 @@ class VirtualClassConsumer(AsyncWebsocketConsumer):
             }
         }))
 
+        if self.is_student:
+            await self._send_online_status_to_teacher(online=True)
+
     async def disconnect(self, close_code):
+        if hasattr(self, 'is_student') and self.is_student:
+            await self._send_online_status_to_teacher(online=False)
+
         if not hasattr(self, "groups_map"):
             return
         for group in self.groups_map.values():
@@ -90,6 +100,10 @@ class VirtualClassConsumer(AsyncWebsocketConsumer):
             return
 
         if self.is_teacher:
+            if action_type == "users:online":
+                await self._handle_users_online()
+                return
+
             if student_id is None:
                 await self.send_error("student_id is required for teacher messages")
                 return
@@ -102,8 +116,31 @@ class VirtualClassConsumer(AsyncWebsocketConsumer):
 
         await self.send_error("Unauthorized action")
 
+    async def _handle_users_online(self):
+        """Возвращает учителю список всех учеников с их статусом онлайн/оффлайн"""
+        if not self.is_teacher:
+            await self.send_error("Only teacher can request users online")
+            return
+
+        students = await database_sync_to_async(list)(
+            self.classroom.students.all().values_list("id", flat=True)
+        )
+
+        online_list = []
+        async with self._lock:
+            for student_id in students:
+                key = (self.classroom_id, student_id)
+                online_list.append({
+                    "student_id": student_id,
+                    "online": self._active_connections.get(key, 0) > 0,
+                })
+
+        await self.send(text_data=json.dumps({
+            "type": "users:online",
+            "data": online_list
+        }))
+
     async def _handle_chat_message(self, action_type, payload):
-        """Обработка сообщений чата"""
         text = payload.get("text")
 
         if action_type == "chat:send_message":
@@ -113,7 +150,6 @@ class VirtualClassConsumer(AsyncWebsocketConsumer):
 
             sender_name = await self._get_user_name()
 
-            # Ученики и учителя отправляют сообщения всем КРОМЕ себя
             await self.channel_layer.group_send(
                 self.groups_map["classroom"],
                 {
@@ -127,7 +163,6 @@ class VirtualClassConsumer(AsyncWebsocketConsumer):
                 }
             )
         elif action_type == "chat:update":
-            # Обновление чата (редактирование/удаление) отправляется всем КРОМЕ себя
             await self.channel_layer.group_send(
                 self.groups_map["classroom"],
                 {
@@ -184,11 +219,8 @@ class VirtualClassConsumer(AsyncWebsocketConsumer):
         await self._send_event(event)
 
     async def chat_message_event(self, event):
-        """Обработчик сообщений чата - отправляет всем КРОМЕ отправителя"""
-        # Проверяем, не отправляем ли сообщение самому отправителю
         if event.get("sender_id") == self.user_id:
-            return  # Пропускаем отправку себе
-
+            return
         await self.send(text_data=json.dumps({
             "type": "chat:send_message",
             "data": {
@@ -200,11 +232,8 @@ class VirtualClassConsumer(AsyncWebsocketConsumer):
         }))
 
     async def chat_update_event(self, event):
-        """Обработчик обновлений чата - отправляет всем КРОМЕ отправителя"""
-        # Проверяем, не отправляем ли сообщение самому отправителю
         if event.get("sender_id") == self.user_id:
-            return  # Пропускаем отправку себе
-
+            return
         await self.send(text_data=json.dumps({
             "type": "chat:update",
             "data": {
@@ -214,21 +243,29 @@ class VirtualClassConsumer(AsyncWebsocketConsumer):
             }
         }))
 
+    async def user_online_event(self, event):
+        """Обработчик события онлайн"""
+        await self.send(text_data=json.dumps({
+            "type": "user:online:event",
+            "data": {
+                "student_id": event.get("student_id"),
+            }
+        }))
+
+    async def user_offline_event(self, event):
+        """Обработчик события оффлайн"""
+        await self.send(text_data=json.dumps({
+            "type": "user:offline:event",
+            "data": {
+                "student_id": event.get("student_id"),
+            }
+        }))
+
     async def _send_event(self, event):
-        """Отправка обычных событий - также пропускаем отправку себе"""
-        # Для teacher->student сообщений, учитель получает копию когда отправляет всем
-        # Для student->teacher, студент НЕ должен получать копию
         sender_id = event.get("sender_id")
-
-        # Если это teacher отправляет "all", teacher получает копию
-        # Если это teacher отправляет конкретному student, teacher НЕ получает копию
-        # Если это student отправляет teacher, student НЕ получает копию
-
         if event.get("action") in ["answer:sent", "answer:reset"]:
-            # Student отправляет учителю - студент не должен получать
             if self.is_student and sender_id == self.user_id:
                 return
-
         await self.send(text_data=json.dumps({
             "type": event.get("action"),
             "data": {
@@ -243,6 +280,36 @@ class VirtualClassConsumer(AsyncWebsocketConsumer):
 
     async def send_error(self, message: str):
         await self.send(text_data=json.dumps({"type": "error", "message": message}))
+
+    async def _send_online_status_to_teacher(self, online: bool):
+        async with self._lock:
+            key = (self.classroom_id, self.user_id)
+            current_count = self._active_connections.get(key, 0)
+
+            if online:
+                if current_count == 0:
+                    await self.channel_layer.group_send(
+                        self.groups_map["teacher"],
+                        {
+                            "type": "user_online_event",
+                            "student_id": str(self.user_id),
+                            "online": True,
+                        }
+                    )
+                self._active_connections[key] = current_count + 1
+            else:
+                if current_count == 1:
+                    await self.channel_layer.group_send(
+                        self.groups_map["teacher"],
+                        {
+                            "type": "user_offline_event",
+                            "student_id": str(self.user_id),
+                            "online": False,
+                        }
+                    )
+                    del self._active_connections[key]
+                elif current_count > 1:
+                    self._active_connections[key] = current_count - 1
 
     @database_sync_to_async
     def _is_teacher(self) -> bool:
@@ -262,7 +329,7 @@ class VirtualClassConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def _get_user_name(self) -> str:
-        """Получает отображаемое имя пользователя"""
+        from core.services import get_display_name_from_username
         if self.user.username:
-            return self.user.username
+            return get_display_name_from_username(self.user.username)
         return "Anonymous"

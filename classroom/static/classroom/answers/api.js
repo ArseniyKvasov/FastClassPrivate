@@ -71,7 +71,7 @@ export async function sendAnswer({ taskId, data }) {
     }
 
     if (viewedUserId === "all") {
-        showNotification("Вы не можете отправлять ответы всему классу");
+        showNotification("Выберите ученика на панели справа снизу.");
         return null;
     }
 

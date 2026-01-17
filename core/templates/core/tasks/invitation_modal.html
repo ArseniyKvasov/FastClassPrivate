@@ -1,0 +1,84 @@
+<div class="modal fade" id="classroomInviteModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow-sm">
+            <div class="modal-body p-4">
+
+                <!-- Ссылка для ученика -->
+                <div class="mb-3">
+                    <label class="form-label text-muted small mb-1">
+                        Ссылка для учеников
+                    </label>
+                    <div class="input-group">
+                        <input
+                            id="classroomInviteLink"
+                            type="text"
+                            class="form-control form-control-sm"
+                            readonly
+                        >
+                        <button
+                            class="btn btn-light btn-sm border"
+                            type="button"
+                            id="copyClassroomInviteLink"
+                            title="Скопировать"
+                        >
+                            <i class="bi bi-clipboard"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Пароль класса -->
+                <div class="mb-3">
+                    <label class="form-label text-muted small mb-1">
+                        Пароль класса
+                    </label>
+                    <div class="input-group">
+                        <input
+                            id="classroomPassword"
+                            type="text"
+                            class="form-control form-control-sm"
+                            maxlength="12"
+                            readonly
+                        >
+                        <button
+                            class="btn btn-light btn-sm border d-flex align-items-center justify-content-center rounded-end"
+                            type="button"
+                            id="editPasswordBtn"
+                            title="Редактировать пароль"
+                        >
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button
+                            class="btn btn-light btn-sm border d-flex align-items-center justify-content-center d-none"
+                            id="savePasswordBtn"
+                            title="Сохранить"
+                        >
+                            <i class="bi bi-check"></i>
+                        </button>
+                        <button
+                            class="btn btn-light btn-sm border d-flex align-items-center justify-content-center rounded-end d-none"
+                            id="cancelPasswordBtn"
+                            title="Отменить"
+                        >
+                            <i class="bi bi-x"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="small text-muted mb-3">
+                    Отправьте ссылку ученикам. Вы увидите их действия в реальном времени.
+                    Регистрация не требуется.
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 pt-2">
+                    <button
+                        type="button"
+                        class="btn btn-sm btn-light"
+                        data-bs-dismiss="modal"
+                    >
+                        Закрыть
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

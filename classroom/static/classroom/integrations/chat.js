@@ -23,25 +23,17 @@ const MAX_MESSAGES = 50;
 const MAX_NAME_LENGTH = 20;
 const MESSAGE_RATE_LIMIT = isTeacher ? 10 : 5;
 const RATE_LIMIT_WINDOW = 60000;
+const MAX_DISPLAY_CHARS = 1024;
 
-/**
- * Форматирует имя пользователя
- */
 function formatName(name) {
     if (!name) return '';
     return name.length <= MAX_NAME_LENGTH ? name : name.slice(0, MAX_NAME_LENGTH - 1) + '…';
 }
 
-/**
- * Безопасно преобразует значение для использования в data-атрибутах
- */
 function safeDatasetValue(value) {
     return value ? String(value).replace(/[^a-zA-Z0-9-_]/g, '-') : '';
 }
 
-/**
- * Проверяет ограничение скорости отправки/редактирования сообщений
- */
 function checkRateLimit() {
     const now = Date.now();
     const currentUserId = getCurrentUserId();
@@ -51,10 +43,6 @@ function checkRateLimit() {
     );
 
     if (userActions.length >= MESSAGE_RATE_LIMIT) {
-        const oldestAction = userActions.reduce((oldest, current) =>
-            current.timestamp < oldest.timestamp ? current : oldest
-        );
-        const timeLeft = RATE_LIMIT_WINDOW - (now - oldestAction.timestamp);
         showNotification(`Нельзя отправлять больше ${MESSAGE_RATE_LIMIT} сообщений в минуту`);
         return false;
     }
@@ -62,9 +50,6 @@ function checkRateLimit() {
     return true;
 }
 
-/**
- * Добавляет запись о действии для отслеживания лимита
- */
 function addActionToRateLimit() {
     const currentUserId = getCurrentUserId();
     const now = Date.now();
@@ -77,9 +62,15 @@ function addActionToRateLimit() {
     rateLimitActions = rateLimitActions.filter(action => (now - action.timestamp) < RATE_LIMIT_WINDOW * 2);
 }
 
-/**
- * Прокручивает чат к последнему сообщению
- */
+function autoResizeTextarea(el, maxHeight = 100) {
+    if (!el) return;
+    el.style.height = 'auto';
+    const scrollH = el.scrollHeight;
+    const newH = Math.min(scrollH, maxHeight);
+    el.style.height = newH + 'px';
+    el.style.overflowY = scrollH > maxHeight ? 'auto' : 'hidden';
+}
+
 function scrollToBottom(smooth = true) {
     if (!chatMessages) return;
     try {
@@ -89,9 +80,22 @@ function scrollToBottom(smooth = true) {
     }
 }
 
-/**
- * Создает элемент иконки для управления сообщением
- */
+function scrollToBottomIfNeeded() {
+    if (!chatMessages) return;
+
+    const scrollDifference = chatMessages.scrollHeight - (chatMessages.scrollTop + chatMessages.clientHeight);
+    const lastMessage = chatMessages.lastElementChild;
+    const lastMessageHeight = lastMessage ? lastMessage.offsetHeight : 0;
+
+    if (scrollDifference < lastMessageHeight + 50) {
+        try {
+            chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
+        } catch {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+    }
+}
+
 function createIconElement(iconClass, title) {
     const el = document.createElement('i');
     el.className = iconClass;
@@ -109,7 +113,9 @@ function createIconElement(iconClass, title) {
 }
 
 /**
- * Создает элемент сообщения с группировкой сообщений от одного пользователя
+ * Создаёт HTML-пузырь для сообщения.
+ *
+ * Ограничивает отображаемый текст до MAX_DISPLAY_CHARS и экранирует HTML.
  */
 export function createBubbleNode(message, showSenderName = true) {
     const currentUserId = getCurrentUserId();
@@ -146,7 +152,11 @@ export function createBubbleNode(message, showSenderName = true) {
 
     const text = document.createElement('div');
     text.className = 'chat-text';
-    text.innerHTML = escapeHtml(message.text || '');
+
+    const raw = String(message.text || '');
+    const truncated = raw.length > MAX_DISPLAY_CHARS ? raw.slice(0, MAX_DISPLAY_CHARS - 1) + '…' : raw;
+    text.innerHTML = escapeHtml(truncated);
+
     bubble.appendChild(text);
 
     const controls = document.createElement('div');
@@ -163,9 +173,7 @@ export function createBubbleNode(message, showSenderName = true) {
     }
 
     if (isOwn || canDeleteOthers) {
-        const delIcon = createIconElement('bi bi-trash', 'Удалить');
-        const deleteTitle = canDeleteOthers ? 'Удалить сообщение ученика' : 'Удалить';
-        delIcon.title = deleteTitle;
+        const delIcon = createIconElement('bi bi-trash', isTeacher && !isOwn ? 'Удалить сообщение ученика' : 'Удалить');
         delIcon.addEventListener('click', async (e) => { e.stopPropagation(); await handleDeleteMessage(message.id); });
         controls.appendChild(delIcon);
     }
@@ -215,9 +223,6 @@ export function createBubbleNode(message, showSenderName = true) {
     return container;
 }
 
-/**
- * Удаляет старые сообщения, превышающие лимит
- */
 function removeOldMessages() {
     if (!chatMessages) return;
     while (chatMessages.children.length > MAX_MESSAGES) {
@@ -235,23 +240,20 @@ function removeOldMessages() {
     }
 }
 
-/**
- * Очищает окно чата
- */
 export function clearChat() {
     if (chatMessages) chatMessages.innerHTML = '';
     lastSenderId = null;
 }
 
 /**
- * Начинает редактирование сообщения
+ * Начинает режим редактирования: заполняет textarea, ставит иконку подтверждения
  */
 function startEditMessage(message) {
     editingMessageId = message.id;
     if (!chatInput) return;
     chatInput.value = message.text || '';
-    chatInput.focus();
-    chatInput.select();
+    autoResizeTextarea(chatInput);
+    updateSendButtonState();
 
     if (chatSend) {
         chatSend.innerHTML = '<i class="bi bi-check-lg"></i>';
@@ -264,16 +266,17 @@ function startEditMessage(message) {
     }
 
     if (!chatCancelBtn) {
-        chatCancelBtn = document.createElement('i');
-        chatCancelBtn.className = 'bi bi-x-lg';
+        chatCancelBtn = document.createElement('button');
+        chatCancelBtn.type = 'button';
+        chatCancelBtn.className = 'btn border-0 d-flex align-items-center justify-content-center';
         chatCancelBtn.title = 'Отменить';
-        chatCancelBtn.style.cursor = 'pointer';
-        chatCancelBtn.style.fontSize = '20px';
-        chatCancelBtn.style.display = 'inline-flex';
-        chatCancelBtn.style.alignItems = 'center';
-        chatCancelBtn.style.justifyContent = 'center';
-        chatCancelBtn.style.marginLeft = '8px';
-        chatCancelBtn.addEventListener('click', (e) => { e.stopPropagation(); cancelEditMode(); });
+        chatCancelBtn.style.height = '36px';
+        chatCancelBtn.style.padding = '0 8px';
+        chatCancelBtn.innerHTML = '<i class="bi bi-x-lg"></i>';
+        chatCancelBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            cancelEditMode();
+        });
     }
 
     const footer = chatSend && chatSend.parentElement;
@@ -282,12 +285,12 @@ function startEditMessage(message) {
     }
 }
 
-/**
- * Отменяет режим редактирования
- */
 function cancelEditMode() {
     editingMessageId = null;
-    if (chatInput) chatInput.value = '';
+    if (chatInput) {
+        chatInput.value = '';
+        autoResizeTextarea(chatInput);
+    }
     if (chatSend) {
         chatSend.innerHTML = '<i class="bi bi-send"></i>';
         chatSend.style.width = '';
@@ -297,11 +300,9 @@ function cancelEditMode() {
     if (chatCancelBtn && chatCancelBtn.parentElement) {
         chatCancelBtn.parentElement.removeChild(chatCancelBtn);
     }
+    updateSendButtonState();
 }
 
-/**
- * Отправляет запрос на редактирование сообщения
- */
 async function editMessageRequest(messageId, newText) {
     if (!messageId) throw new Error('No message id');
     const safeId = safeDatasetValue(messageId);
@@ -322,9 +323,6 @@ async function editMessageRequest(messageId, newText) {
     return resp.json();
 }
 
-/**
- * Обрабатывает удаление сообщения
- */
 async function handleDeleteMessage(messageId) {
     if (!messageId) return;
 
@@ -366,11 +364,26 @@ async function handleDeleteMessage(messageId) {
 }
 
 /**
- * Отправляет новое сообщение или сохраняет отредактированное
+ * Убирает пустые строки в начале и в конце текста
  */
+function trimBlankLines(text) {
+    if (typeof text !== 'string') return '';
+    const lines = text.split(/\r\n|\n/);
+    let start = 0;
+    let end = lines.length - 1;
+
+    while (start <= end && lines[start].trim() === '') start++;
+    while (end >= start && lines[end].trim() === '') end--;
+
+    return lines.slice(start, end + 1).join('\n');
+}
+
 async function sendMessage() {
     if (!chatInput) return;
-    const text = chatInput.value.trim();
+    let text = chatInput.value;
+    if (!text) return;
+
+    text = trimBlankLines(text);
     if (!text) return;
 
     if (!checkRateLimit()) {
@@ -410,8 +423,6 @@ async function sendMessage() {
             throw new Error(`Send failed: ${resp.status} ${txt}`);
         }
 
-        chatInput.value = '';
-
         addActionToRateLimit();
 
         const data = await resp.json();
@@ -422,11 +433,15 @@ async function sendMessage() {
             }
 
             const currentUserId = getCurrentUserId();
-            const showSenderName = lastSenderId !== currentUserId;
-            lastSenderId = currentUserId;
+            const showSenderName = lastSenderId !== data.message.sender_id;
+            lastSenderId = data.message.sender_id;
 
             chatMessages.appendChild(createBubbleNode(data.message, showSenderName));
             removeOldMessages();
+
+            chatInput.value = '';
+            autoResizeTextarea(chatInput);
+            updateSendButtonState();
             eventBus.emit('chat:send_message', { text });
             scrollToBottom(true);
         }
@@ -436,9 +451,6 @@ async function sendMessage() {
     }
 }
 
-/**
- * Создает индикатор новых сообщений
- */
 function createNewMessageIndicator() {
     const indicator = document.createElement('div');
     indicator.className = 'new-message-indicator';
@@ -461,9 +473,6 @@ function createNewMessageIndicator() {
     return indicator;
 }
 
-/**
- * Показывает индикатор новых сообщений
- */
 function showNewMessageIndicator() {
     if (!newMessageIndicator) {
         newMessageIndicator = createNewMessageIndicator();
@@ -476,18 +485,12 @@ function showNewMessageIndicator() {
     newMessageIndicator.style.display = 'block';
 }
 
-/**
- * Скрывает индикатор новых сообщений
- */
 function hideNewMessageIndicator() {
     if (newMessageIndicator) {
         newMessageIndicator.style.display = 'none';
     }
 }
 
-/**
- * Добавляет новое сообщение в чат
- */
 export function pointNewMessage(messageData) {
     if (!messageData || !messageData.text) return;
 
@@ -512,12 +515,11 @@ export function pointNewMessage(messageData) {
 
     if (!isChatOpen) {
         showNewMessageIndicator();
+    } else {
+        scrollToBottomIfNeeded();
     }
 }
 
-/**
- * Обновляет чат, загружая последние сообщения с сервера
- */
 export async function refreshChat() {
     try {
         const classroomId = getClassroomId();
@@ -539,14 +541,6 @@ export async function refreshChat() {
         lastSenderId = null;
 
         if (recent.length > 0) {
-            const infoMessage = document.createElement('div');
-            infoMessage.className = 'chat-info-message text-center text-muted small mb-3';
-            infoMessage.style.fontSize = '0.8rem';
-            infoMessage.style.opacity = '0.7';
-            infoMessage.style.padding = '4px 8px';
-            infoMessage.textContent = `Показаны последние ${Math.min(recent.length, MAX_MESSAGES)} сообщений`;
-            chatMessages.appendChild(infoMessage);
-
             let prevSenderId = null;
             for (const m of recent) {
                 const showSenderName = prevSenderId !== m.sender_id;
@@ -561,9 +555,6 @@ export async function refreshChat() {
     }
 }
 
-/**
- * Переключает видимость панели чата
- */
 function togglePanel() {
     if (!chatPanel) return;
     const isVisible = chatPanel.style.display === 'flex';
@@ -582,9 +573,6 @@ function togglePanel() {
     }
 }
 
-/**
- * Закрывает панель чата
- */
 function closeChatPanel() {
     if (chatPanel) {
         chatPanel.style.display = 'none';
@@ -592,32 +580,51 @@ function closeChatPanel() {
     }
 }
 
-/**
- * Прикрепляет обработчики событий к элементам чата
- */
+function updateSendButtonState() {
+    if (!chatSend || !chatInput) return;
+    const text = String(chatInput.value || '');
+    const trimmed = trimBlankLines(text);
+    const hasText = trimmed.trim().length > 0;
+    if (hasText) {
+        chatSend.removeAttribute('disabled');
+    } else {
+        chatSend.setAttribute('disabled', 'disabled');
+    }
+}
+
 function attachEventHandlers() {
     if (handlersAttached) return;
 
     if (chatButton) chatButton.addEventListener('click', togglePanel);
     if (closeChat) closeChat.addEventListener('click', closeChatPanel);
-    if (chatSend) chatSend.addEventListener('click', sendMessage);
+    if (chatSend) {
+        chatSend.addEventListener('click', (e) => {
+            if (chatSend.hasAttribute('disabled')) return;
+            sendMessage();
+        });
+    }
     if (chatInput) {
         chatInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
+            if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
+                if (!chatSend || chatSend.hasAttribute('disabled')) return;
                 sendMessage();
             } else if (e.key === 'Escape' && editingMessageId) {
                 cancelEditMode();
             }
         });
+
+        chatInput.addEventListener('input', () => {
+            autoResizeTextarea(chatInput);
+            updateSendButtonState();
+        });
     }
 
+    // ensure send button disabled by default
+    updateSendButtonState();
     handlersAttached = true;
 }
 
-/**
- * Инициализирует чат
- */
 export async function initChat() {
     if (!chatPanel || !chatButton || !chatMessages) {
         console.error('Не найдены необходимые элементы чата');
@@ -626,4 +633,9 @@ export async function initChat() {
     attachEventHandlers();
     await refreshChat();
     needsScroll = true;
+
+    if (chatInput) {
+        autoResizeTextarea(chatInput);
+    }
+    updateSendButtonState();
 }

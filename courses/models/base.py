@@ -1,4 +1,3 @@
-import uuid
 from django.db import models, transaction
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
@@ -11,12 +10,7 @@ User = get_user_model()
 
 
 class Course(models.Model):
-    id = models.CharField(
-        primary_key=True,
-        max_length=8,
-        editable=False,
-        default=generate_course_id
-    )
+    id = models.BigAutoField(primary_key=True)
     creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name="courses")
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
@@ -37,13 +31,11 @@ class Course(models.Model):
 
 
 class Lesson(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    id = models.BigAutoField(primary_key=True)
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="lessons")
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     order = models.PositiveIntegerField(default=0)
-    is_free = models.BooleanField(default=False)
-    is_open = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["order"]
@@ -62,7 +54,7 @@ class Lesson(models.Model):
 
 
 class Section(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    id = models.BigAutoField(primary_key=True)
     lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name="sections")
     title = models.CharField(max_length=255)
     order = models.PositiveIntegerField(default=0)
@@ -96,12 +88,7 @@ TYPE_CHOICES = [
 
 
 class Task(models.Model):
-    id = models.CharField(
-        primary_key=True,
-        max_length=50,
-        default=uuid.uuid4,
-        editable=False,
-    )
+    id = models.BigAutoField(primary_key=True)
     section = models.ForeignKey(Section, on_delete=models.CASCADE, related_name="tasks")
     task_type = models.CharField(max_length=50, choices=TYPE_CHOICES, db_index=True)
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)

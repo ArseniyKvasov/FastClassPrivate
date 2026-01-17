@@ -1,0 +1,168 @@
+{% extends "core/base.html" %}
+{% load static %}
+
+{% block content %}
+
+<div id="info"
+     data-classroom-id="{{ classroom.id }}"
+     data-password-verified="{{ password_verified|yesno:"true,false" }}"
+     data-login-url="{% url 'login' %}"
+     style="display:none;"></div>
+
+<!-- Модалка: выбор роли -->
+<div class="modal fade" id="roleSelectModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow-sm">
+            <div class="modal-body p-4">
+                <h6 class="mb-3">Выберите роль</h6>
+
+                <div class="row gx-2 mb-2">
+                    <div class="col">
+                        <button
+                            type="button"
+                            class="btn btn-sm btn-light w-100 active"
+                            id="roleStudentBtn"
+                        >
+                            Ученик
+                        </button>
+                    </div>
+                    <div class="col">
+                        <button
+                            type="button"
+                            class="btn btn-sm btn-light w-100"
+                            id="roleTeacherBtn"
+                        >
+                            Учитель
+                        </button>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end mt-3">
+                    <button
+                        class="btn btn-sm btn-primary"
+                        id="submitRoleBtn"
+                    >
+                        Далее
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модалка: пароль класса -->
+<div class="modal fade" id="classroomPasswordModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow-sm">
+            <div class="modal-body p-4">
+                <h6 class="mb-3">Введите пароль класса</h6>
+
+                <input
+                    id="classroomPasswordInput"
+                    type="text"
+                    class="form-control form-control-sm mb-2"
+                    maxlength="12"
+                    placeholder="Пароль класса"
+                    autocomplete="off"
+                >
+
+                <div
+                    id="passwordError"
+                    class="text-danger small d-none"
+                >
+                    Неверный пароль
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center gap-2 mt-3">
+                    <div>
+                        <button
+                            class="btn btn-sm p-0 text-muted border-0"
+                            id="backFromPassword"
+                            type="button"
+                            aria-label="Назад"
+                        >
+                            <i class="bi bi-arrow-left" style="font-size: 1rem;"></i>
+                        </button>
+                    </div>
+
+                    <div>
+                        <button
+                            class="btn btn-sm btn-primary"
+                            id="submitPasswordBtn"
+                            disabled
+                        >
+                            Продолжить
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модалка: имя и фамилия ученика -->
+<div class="modal fade" id="studentNameModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow-sm">
+            <div class="modal-body p-4">
+                <h6 class="mb-3">Как вас зовут?</h6>
+
+                <div class="row gx-2">
+                    <div class="col">
+                        <input
+                            id="studentFirstNameInput"
+                            type="text"
+                            class="form-control form-control-sm mb-2"
+                            maxlength="18"
+                            placeholder="Имя"
+                            autocomplete="given-name"
+                        >
+                    </div>
+                    <div class="col">
+                        <input
+                            id="studentLastNameInput"
+                            type="text"
+                            class="form-control form-control-sm mb-2"
+                            maxlength="18"
+                            placeholder="Фамилия"
+                            autocomplete="family-name"
+                        >
+                    </div>
+                </div>
+
+                <div
+                    id="nameError"
+                    class="text-danger small d-none"
+                >
+                    Введите корректное имя и фамилию
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center gap-2 mt-3">
+                    <div>
+                        <button
+                            class="btn btn-sm p-0 text-muted border-0"
+                            id="backFromName"
+                            type="button"
+                            aria-label="Назад"
+                        >
+                            <i class="bi bi-arrow-left" style="font-size: 1rem;"></i>
+                        </button>
+                    </div>
+
+                    <div>
+                        <button
+                            class="btn btn-sm btn-primary"
+                            id="submitNameBtn"
+                        >
+                            Войти
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="module" src="{% static 'classroom/join.js' %}"></script>
+
+{% endblock %}

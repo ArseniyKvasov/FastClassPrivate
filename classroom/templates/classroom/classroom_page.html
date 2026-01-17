@@ -66,6 +66,7 @@
         <!-- Загрузка модальных окон для редактирования -->
         {% include 'core/tasks/task_selection_modal.html' %}
         {% include 'core/tasks/section_create_modal.html' %}
+        {% include 'core/tasks/invitation_modal.html' %}
 
         <!-- Редактирование заданий -->
         <script type="module">
@@ -78,17 +79,42 @@
         <script type="module">
             import { initStudentPanel, showAllPanelElements } from "{% static 'classroom/answers/classroomPanel.js' %}";
             import { eventBus } from "{% static 'js/tasks/events/eventBus.js' %}";
-            import { checkAllStudentsStatus } from "{% static 'classroom/tests.js' %}";
+            import { sendWS } from "{% static 'classroom/websocket/sendMessage.js' %}";
 
             const studentsList = JSON.parse(
                 document.getElementById("students-data").textContent
             );
 
             showAllPanelElements();
-            await initStudentPanel(studentsList);
+            initStudentPanel(studentsList);
 
-            eventBus.on("WS_connected", () => checkAllStudentsStatus(studentsList));
-            setInterval(() => checkAllStudentsStatus(studentsList), 90000);
+            eventBus.on("WS_connected", async () => {
+                try {
+                    sendWS("users:online");
+                } catch (e) {
+                    console.error("eventBus users:online failed", e);
+                }
+            });
+        </script>
+
+        <!-- Инициализация модальных окон -->
+        <script type="module">
+            import { initClassroomInviteModal } from "{% static 'classroom/modals/invitation.js' %}";
+
+            initClassroomInviteModal(`{{ classroom_id }}`, `{{ classroom.join_password }}`);
+        </script>
+    {% else %}
+        <!-- Разрешение копирования -->
+        <script type="module">
+            import { enableCopying, disableCopying } from "/static/classroom/copyingMode.js";
+
+            const copying_enabled = {{ copying_enabled|yesno:"true,false" }};
+
+            if (copying_enabled) {
+                enableCopying();
+            } else {
+                disableCopying();
+            }
         </script>
     {% endif %}
 

@@ -6,8 +6,9 @@ import { getViewedUserId, scrollToTask, refreshSections } from '/static/classroo
 import { fetchTaskAnswer } from "/static/classroom/answers/api.js";
 import { handleAnswer } from "/static/classroom/answers/handleAnswer.js";
 import { clearTask } from "/static/classroom/answers/handlers/clearAnswers.js"
-import { markUserOnline, markUserOffline, onlineTimers } from "/static/classroom/answers/classroomPanel.js";
+import { markUserOnline, markUserOffline } from "/static/classroom/answers/classroomPanel.js";
 import { createBubbleNode, refreshChat, pointNewMessage } from "/static/classroom/integrations/chat.js"
+import { enableCopying, disableCopying } from "/static/classroom/copyingMode.js";
 import { sendWS } from "/static/classroom/websocket/sendMessage.js"
 
 /**
@@ -26,8 +27,8 @@ export async function handleWSMessage(ev) {
     }
 
     const { type, data } = msg;
-    if (!type || !data?.student_id) return;
-    if (!shouldProcessMessage(data) && !["user:is_online:confirmed", "chat:send_message", "chat:update"].includes(type)) return;
+    if (!type) return;
+    if (!shouldProcessMessage(data) && !["users:online", "user:online:event", "user:offline:event", "chat:send_message", "chat:update"].includes(type)) return;
 
     switch(type) {
         case "answer:sent":
@@ -69,17 +70,27 @@ export async function handleWSMessage(ev) {
             break;
 
 
-        case "user:is_online":
-            sendWS("user:is_online:confirmed", data);
+        case "users:online":
+            data.forEach(student => {
+                handleUserStatusMessage(student.student_id, student.online);
+            });
             break;
 
-        case "user:is_online:confirmed":
-        case "user:mark_online":
-        case "user:mark_offline":
-            handleUserOnlineMessage({
-                student_id: data?.student_id,
-                is_online: type !== "user:mark_offline"
-            });
+        case "user:online:event":
+            markUserOnline(data?.student_id);
+            break;
+        case "user:offline:event":
+            markUserOffline(data?.student_id);
+            break;
+
+        case "copying:changed":
+            if (typeof data.allowed === "boolean") {
+                if (data.allowed) {
+                    enableCopying();
+                } else {
+                    disableCopying();
+                }
+            }
             break;
     }
 }
@@ -91,6 +102,8 @@ export async function handleWSMessage(ev) {
  * @returns {boolean}
  */
 function shouldProcessMessage({ student_id }) {
+    if (!student_id) return false;
+
     const isTeacher = getIsTeacher();
     if (isTeacher) {
         const userId = getViewedUserId();
@@ -134,20 +147,14 @@ function highlightTaskRed(taskCard) {
 
 /**
  * Обработка входящего сообщения о статусе пользователя
- * @param {{student_id: string|number, is_online: boolean}} data
+ * @param {student_id: string|number, is_online: boolean}
  */
-export function handleUserOnlineMessage(data) {
-    const userId = data?.student_id;
-    if (!userId) return;
+export function handleUserStatusMessage(student_id, is_online) {
+    if (!student_id) return;
 
-    if (onlineTimers[userId]) {
-        clearTimeout(onlineTimers[userId]);
-        delete onlineTimers[userId];
-    }
-
-    if (data.is_online) {
-        markUserOnline(userId);
+    if (is_online) {
+        markUserOnline(student_id);
     } else {
-        markUserOffline(userId);
+        markUserOffline(student_id);
     }
 }

@@ -5,6 +5,7 @@ from django.http import JsonResponse
 from courses.models import Section, Task, TestTask, TrueFalseTask, ImageTask
 from courses.task_serializers import TASK_SERIALIZER_MAP
 
+from core.services import get_display_name_from_username
 from classroom.models import Classroom, TestTaskAnswer, TrueFalseTaskAnswer, FillGapsTaskAnswer, MatchCardsTaskAnswer, \
     TextInputTaskAnswer
 
@@ -71,7 +72,7 @@ def get_classroom_section_statistics(request, classroom_id, section_id):
                 success_percentage = round((correct / (total + wrong)) * 100) if total + wrong > 0 else 0
 
                 task_stats.append({
-                    'user': {'id': student.id, 'username': student.username},
+                    'user': {'id': student.id, 'username': get_display_name_from_username(student.username)},
                     'correct_answers': correct,
                     'wrong_answers': wrong,
                     'success_percentage': success_percentage
@@ -142,7 +143,7 @@ def get_classroom_task_statistics(request, classroom_id, task_id):
             success_percentage = round((correct / (total + wrong)) * 100) if total + wrong > 0 else 0
 
             statistics.append({
-                'user': {'id': student.id, 'username': student.username},
+                'user': {'id': student.id, 'username': get_display_name_from_username(student.username)},
                 'correct_answers': correct,
                 'wrong_answers': wrong,
                 'success_percentage': success_percentage

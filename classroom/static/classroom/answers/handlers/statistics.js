@@ -19,26 +19,57 @@ export function showStatistics(taskId, stats) {
         const taskType = container.dataset.taskType;
         if (!ANSWER_HANDLER_MAP[taskType]?.statistics) return;
 
-        let statsContainer = container.querySelector(".horizontal-cards");
-        if (statsContainer) statsContainer.remove();
+        let wrapper = container.querySelector(".horizontal-cards-container");
+        let scrollContainer;
 
-        statsContainer = document.createElement("div");
-        statsContainer.className = "horizontal-cards";
+        if (!wrapper) {
+            wrapper = document.createElement("div");
+            wrapper.className = "horizontal-cards-container";
+            container.appendChild(wrapper);
+        }
+
+        scrollContainer = wrapper.querySelector(".horizontal-cards-scroll");
+        if (!scrollContainer) {
+            scrollContainer = document.createElement("div");
+            scrollContainer.className = "horizontal-cards-scroll";
+            wrapper.appendChild(scrollContainer);
+        }
 
         const sortedStats = [...stats].sort(
             (a, b) => b.success_percentage - a.success_percentage
         );
 
+        const existingCards = scrollContainer.querySelectorAll(".student-card");
+        const existingCardMap = new Map();
+
+        existingCards.forEach(card => {
+            const nameDiv = card.querySelector(".name");
+            if (nameDiv) {
+                existingCardMap.set(nameDiv.textContent.trim(), card);
+            }
+        });
+
         sortedStats.forEach(student => {
-            const card = document.createElement("div");
-            card.className = "student-card";
+            const username = student.user.username;
+            let card = existingCardMap.get(username);
 
-            const nameDiv = document.createElement("div");
-            nameDiv.className = "name";
-            nameDiv.textContent = student.user.username;
+            if (!card) {
+                card = document.createElement("div");
+                card.className = "student-card";
 
-            const statsDiv = document.createElement("div");
-            statsDiv.className = "stats";
+                const nameDiv = document.createElement("div");
+                nameDiv.className = "name";
+                nameDiv.textContent = username;
+                card.appendChild(nameDiv);
+
+                const statsDiv = document.createElement("div");
+                statsDiv.className = "stats";
+                card.appendChild(statsDiv);
+
+                scrollContainer.appendChild(card);
+            }
+
+            const statsDiv = card.querySelector(".stats");
             statsDiv.innerHTML = `
                 <span class="correct text-success">${student.correct_answers}</span>
                 <span>|</span>
@@ -46,13 +77,16 @@ export function showStatistics(taskId, stats) {
                 <span>|</span>
                 <span class="percent text-primary">${student.success_percentage}%</span>
             `;
-
-            card.appendChild(nameDiv);
-            card.appendChild(statsDiv);
-            statsContainer.appendChild(card);
         });
 
-        container.appendChild(statsContainer);
+        const currentUsernames = new Set(sortedStats.map(s => s.user.username));
+        existingCards.forEach(card => {
+            const nameDiv = card.querySelector(".name");
+            if (nameDiv && !currentUsernames.has(nameDiv.textContent.trim())) {
+                card.remove();
+            }
+        });
+
     } catch (error) {
         console.error("Ошибка при отображении статистики:", error);
         showNotification("Не удалось отобразить статистику");
@@ -72,8 +106,10 @@ export function clearStatistics(taskId = null) {
         containers.forEach(container => {
             if (!container) return;
 
-            const statsContainer = container.querySelector(".horizontal-cards");
-            if (statsContainer) statsContainer.remove();
+            const statsWrapper = container.querySelector(".horizontal-cards-container");
+            if (statsWrapper) {
+                statsWrapper.remove();
+            }
 
             const checkBtn = container.querySelector(".check-task-btn");
             if (checkBtn) checkBtn.style.display = "none";
