@@ -61,7 +61,7 @@ export const TaskValidators = {
         const preview = taskCard.querySelector(".preview-img");
 
         if (!input?.files?.length && !preview?.src) {
-            showNotification("Добавьте изображение!");
+            showNotification("Добавьте изображение");
             return null;
         }
 
@@ -248,7 +248,7 @@ export async function saveTask(taskType, taskCard, taskId = null) {
             body.append("task_type", taskType);
             body.append("section_id", sectionId);
             if (taskId) body.append("task_id", taskId);
-            if (fileObj.file) body.append("image", fileObj.file);
+            if (fileObj.file) body.append("file", fileObj.file);
             body.append("caption", fileObj.caption || "");
 
             const res = await fetch("/courses/save-task/", {

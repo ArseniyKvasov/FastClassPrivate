@@ -78,6 +78,9 @@ export async function handleWSMessage(ev) {
 
         case "user:online:event":
             markUserOnline(data?.student_id);
+            if (data?.student_username) {
+                showNotification(`Ученик ${data.student_username} присоединился.`);
+            }
             break;
         case "user:offline:event":
             markUserOffline(data?.student_id);
@@ -91,6 +94,10 @@ export async function handleWSMessage(ev) {
                     disableCopying();
                 }
             }
+            break;
+
+        case "user:deleted":
+            window.location.href = "/";
             break;
     }
 }

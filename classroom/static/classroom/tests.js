@@ -1,4 +1,4 @@
-import { fetchCurrentLessonId, refreshClassroom, getClassroomId } from "/static/classroom/utils.js";
+import { fetchCurrentLesson, refreshClassroom, getClassroomId } from "/static/classroom/utils.js";
 import { getLessonId } from "/static/js/tasks/utils.js";
 
 export async function isCurrentLessonCorrect() {
@@ -6,7 +6,7 @@ export async function isCurrentLessonCorrect() {
     if (!classroomId) return;
 
     const frontendLessonId = getLessonId();
-    const backendLessonId = await fetchCurrentLessonId(classroomId);
+    const backendLessonId = await fetchCurrentLesson(classroomId);
     if (String(frontendLessonId) !== String(backendLessonId)) {
         await refreshClassroom();
     }

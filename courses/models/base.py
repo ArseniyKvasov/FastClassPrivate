@@ -14,7 +14,9 @@ class Course(models.Model):
     creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name="courses")
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
+    version = models.IntegerField(default=1)
     is_public = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

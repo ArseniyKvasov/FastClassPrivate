@@ -20,7 +20,7 @@ export function getCsrfToken() {
  * Показывает уведомление в правом нижнем углу экрана
  * @param {string} text - Текст уведомления
  */
-export function showNotification(text) {
+export function showNotification(text, seconds = 3) {
     let container = document.getElementById("notification-container");
 
     if (!container) {
@@ -70,7 +70,7 @@ export function showNotification(text) {
         toast.style.opacity = "0";
         toast.style.transform = "translateX(-20px)";
         toast.addEventListener("transitionend", () => toast.remove());
-    }, 3000);
+    }, seconds * 1000);
 }
 
 /**
@@ -263,12 +263,12 @@ export function readSectionId() {
 
 /**
  * Загружает отдельное задание по ID
- * @param {string} id
+ * @param {string} taskId
  * @returns {Promise<Object|null>}
  */
-export async function fetchSingleTask(id) {
+export async function fetchSingleTask(taskId) {
     try {
-        const res = await fetch(`/courses/get-task/${id}/`);
+        const res = await fetch(`/courses/get-task/${taskId}/`);
         if (!res.ok) throw new Error("Ошибка запроса");
         return await res.json();
     } catch (err) {

@@ -32,6 +32,17 @@ const backFromNameBtn = document.getElementById("backFromName");
 
 const namePattern = /^[A-Za-zА-Яа-яЁё\-\/]{1,18}$/;
 
+roleModalEl.addEventListener('shown.bs.modal', function () {
+    setTimeout(() => roleStudentBtn.focus(), 50);
+});
+
+passwordModalEl.addEventListener('shown.bs.modal', function () {
+    setTimeout(() => passwordInput.focus(), 50);
+});
+
+nameModalEl.addEventListener('shown.bs.modal', function () {
+    setTimeout(() => firstNameInput.focus(), 50);
+});
 
 roleStudentBtn.addEventListener("click", () => {
     selectedRole = "student";
@@ -52,11 +63,10 @@ submitRoleBtn.addEventListener("click", () => {
     }
 
     roleModal.hide();
-    passwordModal.show();
-    setTimeout(() => passwordInput.focus(), 150);
+    setTimeout(() => {
+        passwordModal.show();
+    }, 300);
 });
-
-
 
 passwordInput.addEventListener("input", () => {
     submitPasswordBtn.disabled = passwordInput.value.trim().length === 0;
@@ -64,10 +74,10 @@ passwordInput.addEventListener("input", () => {
 
 backFromPasswordBtn.addEventListener("click", () => {
     passwordVerified = false;
-
     passwordModal.hide();
-    roleModal.show();
-    setTimeout(() => roleStudentBtn.focus(), 150);
+    setTimeout(() => {
+        roleModal.show();
+    }, 300);
 });
 
 submitPasswordBtn.addEventListener("click", async () => {
@@ -103,29 +113,26 @@ submitPasswordBtn.addEventListener("click", async () => {
         }
 
         passwordVerified = true;
-
         passwordModal.hide();
-        nameModal.show();
-        setTimeout(() => firstNameInput.focus(), 150);
+        setTimeout(() => {
+            nameModal.show();
+        }, 300);
     } catch {
         passwordError.textContent = "Ошибка сервера, попробуйте ещё раз";
         passwordError.classList.remove("d-none");
     }
 });
 
-
-
-
 backFromNameBtn.addEventListener("click", () => {
     nameModal.hide();
 
-    if (passwordVerified) {
-        passwordModal.show();
-        setTimeout(() => passwordInput.focus(), 150);
-    } else {
-        roleModal.show();
-        setTimeout(() => roleStudentBtn.focus(), 150);
-    }
+    setTimeout(() => {
+        if (passwordVerified) {
+            passwordModal.show();
+        } else {
+            roleModal.show();
+        }
+    }, 300);
 });
 
 submitNameBtn.addEventListener("click", async () => {
@@ -184,7 +191,6 @@ lastNameInput.addEventListener("keydown", (e) => {
     }
 });
 
-
 function setupEnterKeyBindings() {
     roleModalEl.addEventListener("keydown", (e) => {
         if (e.key === "Enter") {
@@ -201,19 +207,15 @@ function setupEnterKeyBindings() {
     });
 }
 
-
-
 function init() {
     setupEnterKeyBindings();
 
     if (passwordVerified) {
         nameModal.show();
-        setTimeout(() => firstNameInput.focus(), 150);
         return;
     }
 
     roleModal.show();
-    setTimeout(() => roleStudentBtn.focus(), 150);
 }
 
 document.addEventListener("DOMContentLoaded", init);

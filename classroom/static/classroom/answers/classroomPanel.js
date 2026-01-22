@@ -1,4 +1,4 @@
-import { showNotification, escapeHtml, getInfoElement, getCsrfToken, confirmAction } from "/static/js/tasks/utils.js";
+import { showNotification, escapeHtml, getInfoElement, getCsrfToken, confirmAction, getCurrentUserId } from "/static/js/tasks/utils.js";
 import { eventBus } from "/static/js/tasks/events/eventBus.js";
 import { startTasksOrderEditing } from "/static/js/tasks/editor/changeTasksOrder.js";
 import { getViewedUserId, getClassroomId, getUsernameById } from "/static/classroom/utils.js";
@@ -23,125 +23,197 @@ function createStudentItem(studentId, name) {
     const safeName = String(name);
     const displayName = safeName.length > 20 ? `${safeName.slice(0, 20)}…` : safeName;
 
+    const showIndicators = !["all", getCurrentUserId()].includes(studentId);
+
     const li = document.createElement("li");
     li.className = "student-menu-item";
-    li.innerHTML = `
-        <a class="dropdown-item student-option text-black d-flex align-items-center"
-           href="#"
-           data-student-id="${escapeHtml(String(studentId))}"
-           title="${escapeHtml(safeName)}">
-            <span class="student-name flex-grow-1">${escapeHtml(displayName)}</span>
 
-            <span class="student-action-slot ms-2">
-                <span class="online-indicator"></span>
-                <i class="bi bi-x student-delete-icon"></i>
-            </span>
-        </a>
-    `;
+    if (showIndicators) {
+        li.innerHTML = `
+            <a class="dropdown-item student-option text-black d-flex align-items-center"
+               href="#"
+               data-student-id="${escapeHtml(String(studentId))}"
+               title="${escapeHtml(safeName)}">
+                <span class="student-name flex-grow-1">${escapeHtml(displayName)}</span>
+
+                <span class="student-action-slot ms-2">
+                    <span class="online-indicator"></span>
+                    <i class="bi bi-x student-delete-icon"></i>
+                </span>
+            </a>
+        `;
+    } else {
+        li.innerHTML = `
+            <a class="dropdown-item student-option text-black d-flex align-items-center"
+               href="#"
+               data-student-id="${escapeHtml(String(studentId))}"
+               title="${escapeHtml(safeName)}">
+                <span class="student-name flex-grow-1">${escapeHtml(displayName)}</span>
+            </a>
+        `;
+    }
 
     const link = li.querySelector(".student-option");
-    const slot = li.querySelector(".student-action-slot");
-    const indicator = li.querySelector(".online-indicator");
-    const deleteIcon = li.querySelector(".student-delete-icon");
 
-    Object.assign(slot.style, {
-        width: "14px",
-        height: "14px",
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        position: "relative"
-    });
+    if (showIndicators) {
+        const slot = li.querySelector(".student-action-slot");
+        const indicator = li.querySelector(".online-indicator");
+        const deleteIcon = li.querySelector(".student-delete-icon");
 
-    Object.assign(indicator.style, {
-        width: "10px",
-        height: "10px",
-        borderRadius: "50%",
-        display: "none"
-    });
+        Object.assign(slot.style, {
+            width: "14px",
+            height: "14px",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            position: "relative"
+        });
 
-    Object.assign(deleteIcon.style, {
-        display: "none",
-        opacity: ".6",
-        cursor: "pointer",
-        fontSize: "14px",
-        lineHeight: "1"
-    });
+        Object.assign(indicator.style, {
+            width: "10px",
+            height: "10px",
+            borderRadius: "50%",
+            display: "none"
+        });
 
-    link.addEventListener("mouseenter", () => {
-        indicator.style.display = "none";
-        deleteIcon.style.display = "block";
-    });
+        Object.assign(deleteIcon.style, {
+            display: "none",
+            opacity: ".6",
+            cursor: "pointer",
+            fontSize: "14px",
+            lineHeight: "1"
+        });
 
-    link.addEventListener("mouseleave", () => {
-        if (indicator.style.backgroundColor && indicator.style.backgroundColor !== "transparent") {
-            indicator.style.display = "block";
-        }
-        deleteIcon.style.display = "none";
-    });
-
-    let touchTimer;
-    link.addEventListener("touchstart", () => {
-        touchTimer = setTimeout(() => {
+        link.addEventListener("mouseenter", () => {
             indicator.style.display = "none";
             deleteIcon.style.display = "block";
-        }, 500);
-    });
+        });
 
-    link.addEventListener("touchend", () => clearTimeout(touchTimer));
-    link.addEventListener("touchmove", () => clearTimeout(touchTimer));
-
-    deleteIcon.addEventListener("mouseenter", () => {
-        deleteIcon.style.opacity = "1";
-    });
-
-    deleteIcon.addEventListener("mouseleave", () => {
-        deleteIcon.style.opacity = ".6";
-    });
-
-    deleteIcon.addEventListener("click", async (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-
-        if (studentId === "all") return;
-
-        try {
-            const confirmed = await confirmAction("Вы уверены, что хотите удалить ученика?");
-            if (!confirmed) return;
-
-            const classroomId = getClassroomId();
-            const response = await fetch(`/classroom/api/${classroomId}/delete-student/`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-CSRFToken": getCsrfToken()
-                },
-                body: JSON.stringify({ student_id: studentId })
-            });
-
-            if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.message || "Ошибка при удалении ученика");
+        link.addEventListener("mouseleave", () => {
+            if (indicator.style.backgroundColor && indicator.style.backgroundColor !== "transparent") {
+                indicator.style.display = "block";
             }
+            deleteIcon.style.display = "none";
+        });
 
-            li.remove();
-            eventBus.emit("user:delete", studentId);
-            showNotification("Ученик успешно удален");
+        let touchTimer;
+        link.addEventListener("touchstart", () => {
+            touchTimer = setTimeout(() => {
+                indicator.style.display = "none";
+                deleteIcon.style.display = "block";
+            }, 500);
+        });
 
-            const currentViewedId = getViewedUserId();
-            if (String(currentViewedId) === studentId) {
-                const allOption = document.querySelector(
-                    '.student-option[data-student-id="all"]'
-                );
-                if (allOption) allOption.click();
+        link.addEventListener("touchend", () => clearTimeout(touchTimer));
+        link.addEventListener("touchmove", () => clearTimeout(touchTimer));
+
+        deleteIcon.addEventListener("mouseenter", () => {
+            deleteIcon.style.opacity = "1";
+        });
+
+        deleteIcon.addEventListener("mouseleave", () => {
+            deleteIcon.style.opacity = ".6";
+        });
+
+        deleteIcon.addEventListener("click", async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            try {
+                const confirmed = await confirmAction("Вы уверены, что хотите удалить ученика?");
+                if (!confirmed) return;
+
+                const classroomId = getClassroomId();
+                const response = await fetch(`/classroom/api/${classroomId}/delete-student/`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": getCsrfToken()
+                    },
+                    body: JSON.stringify({ student_id: studentId })
+                });
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.error || "Ошибка при удалении ученика");
+                }
+
+                li.remove();
+                eventBus.emit("user:delete", studentId);
+                showNotification("Ученик удалён. Обновите пароль класса через кнопку «Добавить ученика».", 6);
+
+                const currentViewedId = getViewedUserId();
+                if (String(currentViewedId) === studentId) {
+                    await selectStudent("all", false);
+                }
+            } catch (error) {
+                console.error("Ошибка при удалении ученика:", error);
+                showNotification(error.message || "Не удалось удалить ученика", "error");
             }
-        } catch (error) {
-            console.error("Ошибка при удалении ученика:", error);
-            showNotification(error.message || "Не удалось удалить ученика", "error");
-        }
-    });
+        });
+    }
 
     return li;
+}
+
+async function selectStudent(studentId, isInitial = false) {
+    const dropdownMenu = document.getElementById("studentDropdownMenu");
+    const dropdownButton = document.getElementById("studentDropdown");
+    const infoEl = getInfoElement();
+
+    if (!dropdownMenu || !dropdownButton || !infoEl) {
+        console.warn("Элементы UI не найдены для selectStudent");
+        return;
+    }
+
+    const itemEl = dropdownMenu.querySelector(`.student-option[data-student-id="${studentId}"]`);
+
+    if (itemEl && !isInitial) {
+        itemEl.classList.add("disabled");
+        itemEl.style.pointerEvents = "none";
+        itemEl.style.opacity = "0.6";
+
+        setTimeout(() => {
+            itemEl.classList.remove("disabled");
+            itemEl.style.pointerEvents = "";
+            itemEl.style.opacity = "";
+        }, 3000);
+    }
+
+    dropdownMenu.querySelectorAll(".student-option").forEach(i => i.classList.remove("active"));
+    itemEl?.classList.add("active");
+
+    const fullName = itemEl
+        ? itemEl.querySelector('.student-name')?.textContent.trim() || itemEl.textContent.trim()
+        : studentId === "all"
+            ? "Статистика"
+            : String(studentId);
+    dropdownButton.textContent = formatStudentName(fullName);
+
+    infoEl.dataset.viewedUserId = String(studentId);
+    infoEl.dataset.studentUsername = String(fullName);
+
+    if (isInitial) return;
+
+    if (statsInterval) {
+        clearInterval(statsInterval);
+        statsInterval = null;
+    }
+
+    await clearAllTaskContainers();
+    clearStatistics();
+
+    if (studentId === "all") {
+        loadSectionStatistics();
+        statsInterval = setInterval(loadSectionStatistics, 5000);
+    } else {
+        try {
+            handleSectionAnswers();
+        } catch (err) {
+            console.error("Ошибка при загрузке данных ученика:", err);
+            showNotification("Не удалось загрузить данные ученика");
+        }
+    }
 }
 
 export async function markUserOnline(userId) {
@@ -214,27 +286,6 @@ export function showAllPanelElements() {
 
     const menuDropdown = document.getElementById('menuDropdown');
     if (menuDropdown) menuDropdown.classList.remove('d-none');
-}
-
-async function selectStudent(studentId, itemEl, dropdownMenu, dropdownButton, infoEl, isInitial = false) {
-    dropdownMenu.querySelectorAll(".student-option").forEach(i => i.classList.remove("active"));
-    itemEl?.classList.add("active");
-
-    const fullName = itemEl
-        ? itemEl.querySelector('.student-name')?.textContent.trim() || itemEl.textContent.trim()
-        : studentId === "all"
-            ? "Статистика"
-            : String(studentId);
-    dropdownButton.textContent = formatStudentName(fullName);
-
-    infoEl.dataset.viewedUserId = String(studentId);
-    infoEl.dataset.studentUsername = String(fullName);
-
-    if (isInitial) return;
-
-    await clearAllTaskContainers();
-    clearStatistics();
-    safeInvoke(loadStudentData, "Не удалось загрузить данные ученика");
 }
 
 async function initCopyingButton(btn) {
@@ -338,16 +389,7 @@ export async function initStudentPanel(studentsList = []) {
             const studentId = item.dataset.studentId;
             if (!studentId) return;
 
-            if (statsInterval) {
-                clearInterval(statsInterval);
-                statsInterval = null;
-            }
-
-            selectStudent(studentId, item, dropdownMenu, dropdownButton, infoEl);
-
-            if (studentId === "all") {
-                statsInterval = setInterval(loadSectionStatistics, 5000);
-            }
+            selectStudent(studentId, false);
         });
         dropdownMenu.dataset.bound = "1";
     }
@@ -377,11 +419,6 @@ export async function initStudentPanel(studentsList = []) {
 
     if (initialOption) {
         const studentId = initialOption.dataset.studentId;
-        selectStudent(studentId, initialOption, dropdownMenu, dropdownButton, infoEl, true);
-
-        if (studentId === "all") {
-            loadSectionStatistics();
-            statsInterval = setInterval(loadSectionStatistics, 5000);
-        }
+        await selectStudent(studentId, true);
     }
 }

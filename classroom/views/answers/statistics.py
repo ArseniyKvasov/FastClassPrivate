@@ -2,12 +2,11 @@ from django.contrib.auth import get_user_model
 from django.db.models import Sum
 from django.http import JsonResponse
 
-from courses.models import Section, Task, TestTask, TrueFalseTask, ImageTask
-from courses.task_serializers import TASK_SERIALIZER_MAP
-
+from courses.models import Section, Task
 from core.services import get_display_name_from_username
-from classroom.models import Classroom, TestTaskAnswer, TrueFalseTaskAnswer, FillGapsTaskAnswer, MatchCardsTaskAnswer, \
-    TextInputTaskAnswer
+from classroom.models import Classroom
+
+from classroom.registry import get_all_answer_models
 
 User = get_user_model()
 
@@ -45,7 +44,7 @@ def get_classroom_section_statistics(request, classroom_id, section_id):
         students = classroom.students.all()
         tasks = Task.objects.filter(section=section)
 
-        answer_models = [TestTaskAnswer, TrueFalseTaskAnswer, FillGapsTaskAnswer, MatchCardsTaskAnswer]
+        answer_models = get_all_answer_models()
 
         tasks_data = []
 
@@ -119,7 +118,8 @@ def get_classroom_task_statistics(request, classroom_id, task_id):
 
         task = Task.objects.get(id=task_id)
         students = classroom.students.all()
-        answer_models = [TestTaskAnswer, TrueFalseTaskAnswer, FillGapsTaskAnswer, MatchCardsTaskAnswer]
+
+        answer_models = get_all_answer_models()
 
         aggregated = {}
         for model in answer_models:

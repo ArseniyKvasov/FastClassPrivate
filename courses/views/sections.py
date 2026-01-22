@@ -1,6 +1,4 @@
-from courses.models import Lesson, Section, Task, TestTask, NoteTask, ImageTask, TrueFalseTask, FillGapsTask, \
-    MatchCardsTask, \
-    TextInputTask
+from courses.models import Lesson, Section, Task, LessonCopy, SectionCopy
 import json
 from django.db import transaction
 from django.views.decorators.http import require_POST
@@ -13,26 +11,23 @@ from courses.task_serializers import TASK_SERIALIZER_MAP
 @login_required
 def lesson_sections(request, lesson_id):
     """
-    Возвращает список разделов для указанного урока.
-    Если разделов нет — создаёт один по умолчанию.
-    Формат: { success: True, sections: [ {id, title, order}, ... ] }
+    Возвращает список разделов урока (оригинал или копия)
     """
     lesson = get_object_or_404(Lesson, id=lesson_id)
-
-    sections_qs = lesson.sections.all().order_by('order')
+    sections_qs = lesson.sections.all().order_by("order")
 
     if not sections_qs.exists():
         with transaction.atomic():
             Section.objects.create(
                 lesson=lesson,
                 title="Новый раздел",
-                order=1
+                order=1,
             )
-            sections_qs = lesson.sections.all().order_by('order')
+            sections_qs = lesson.sections.all().order_by("order")
 
     sections = [
         {
-            "id": str(section.id),
+            "id": section.id,
             "title": section.title,
             "order": section.order,
         }
@@ -87,19 +82,8 @@ def create_section(request):
 @login_required
 def reorder_sections(request, lesson_id):
     """
-    dogstring:
-    Принимает новый порядок секций урока и пересчитывает поле order.
-    Ожидаемый payload:
-    {
-        "order": ["uuid1", "uuid2", ...]
-    }
+    Меняет порядок разделов
     """
-    lesson = get_object_or_404(
-        Lesson,
-        id=lesson_id,
-        course__creator=request.user
-    )
-
     try:
         payload = json.loads(request.body.decode("utf-8"))
         order = payload.get("order", [])
@@ -109,11 +93,19 @@ def reorder_sections(request, lesson_id):
     if not isinstance(order, list):
         return JsonResponse({"error": "Order must be a list"}, status=400)
 
+    lesson = get_object_or_404(
+        Lesson,
+        id=lesson_id,
+        course__creator=request.user,
+    )
+
+    if lesson.course.creator != request.user:
+        return JsonResponse({"error": "Ошибка доступа."}, status=403)
+
+    qs = lesson.sections.select_for_update()
+
     with transaction.atomic():
-        sections = {
-            str(section.id): section
-            for section in lesson.sections.select_for_update()
-        }
+        sections = {str(s.id): s for s in qs}
 
         for index, section_id in enumerate(order):
             section = sections.get(str(section_id))
@@ -128,10 +120,10 @@ def reorder_sections(request, lesson_id):
 
 
 @require_POST
+@login_required
 def edit_section(request, section_id):
     """
-    Редактирование названия раздела
-    URL: /section/<section_id>/edit/
+    Редактирование раздела
     """
     try:
         data = json.loads(request.body)
@@ -141,12 +133,16 @@ def edit_section(request, section_id):
             return JsonResponse({"error": "Название не может быть пустым"}, status=400)
 
         section = get_object_or_404(Section, id=section_id)
+
+        if section.lesson.course.creator != request.user:
+            return JsonResponse({"error": "Ошибка доступа."}, status=403)
+
         section.title = title
         section.save(update_fields=["title"])
 
         return JsonResponse({
-            "id": str(section.id),
-            "title": section.title
+            "id": section.id,
+            "title": section.title,
         })
 
     except json.JSONDecodeError:
@@ -155,26 +151,28 @@ def edit_section(request, section_id):
         return JsonResponse({"error": str(e)}, status=500)
 
 
+
 @require_POST
+@login_required
 def delete_section(request, section_id):
     """
-    Удаление раздела.
-    Запрещено удалять единственный раздел в уроке.
-    URL: /section/<section_id>/delete/
+    Удаление раздела
     """
-
     section = get_object_or_404(Section, id=section_id)
-
     sections_count = Section.objects.filter(lesson=section.lesson).count()
+
+    if section.lesson.course.creator != request.user:
+        return JsonResponse({"error": "Ошибка доступа."}, status=403)
+
     if sections_count <= 1:
         return JsonResponse(
             {
                 "success": False,
-                "error": "Нельзя удалить единственный раздел в уроке"
+                "error": "Нельзя удалить единственный раздел в уроке",
             },
-            status=400
+            status=400,
         )
 
     section.delete()
-
     return JsonResponse({"success": True})
+

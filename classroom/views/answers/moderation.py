@@ -3,13 +3,11 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_http_methods
 
-from courses.models import Section, Task, TestTask, TrueFalseTask, ImageTask
-from courses.task_serializers import TASK_SERIALIZER_MAP
-
-from classroom.models import Classroom, TestTaskAnswer, TrueFalseTaskAnswer, FillGapsTaskAnswer, MatchCardsTaskAnswer, \
-    TextInputTaskAnswer
-
+from courses.models import Task
+from classroom.models import Classroom
 from classroom.services import check_user_access
+
+from classroom.registry import get_all_answer_models
 
 User = get_user_model()
 
@@ -29,15 +27,9 @@ def delete_user_task_answers(request, classroom_id, task_id, user_id):
 
         deleted_count = 0
 
-        answer_types = [
-            TestTaskAnswer,
-            TrueFalseTaskAnswer,
-            FillGapsTaskAnswer,
-            MatchCardsTaskAnswer,
-            TextInputTaskAnswer
-        ]
+        answer_models = get_all_answer_models()
 
-        for answer_model in answer_types:
+        for answer_model in answer_models:
             try:
                 answer = answer_model.objects.filter(
                     classroom=classroom,
@@ -83,18 +75,12 @@ def delete_classroom_task_answers(request, classroom_id, task_id):
         students = classroom.students.all()
         teacher = classroom.teacher
 
-        answer_types = [
-            TestTaskAnswer,
-            TrueFalseTaskAnswer,
-            FillGapsTaskAnswer,
-            MatchCardsTaskAnswer,
-            TextInputTaskAnswer
-        ]
+        answer_models = get_all_answer_models()
 
         for student in list(students) + [teacher]:
             user_deleted_types = 0
 
-            for answer_model in answer_types:
+            for answer_model in answer_models:
                 try:
                     answer = answer_model.objects.filter(
                         classroom=classroom,

@@ -122,4 +122,19 @@ export function initEvents(isTeacher = false) {
             console.error("eventBus copying:changed failed", e);
         }
     });
+
+    /**
+     * Обрабатывает удаление ученика.
+     * @param {string|number} studentId - ID удалённого ученика
+     */
+    eventBus.on("user:delete", async (studentId) => {
+        try {
+            if (!studentId) return;
+            sendWS("user:delete", {
+                student_id: studentId,
+            });
+        } catch (e) {
+            console.error("eventBus user:delete failed", e);
+        }
+    });
 }

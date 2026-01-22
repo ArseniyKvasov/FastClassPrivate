@@ -6,6 +6,7 @@ from django.contrib.auth import get_user_model
 from django.views.decorators.http import require_GET
 from django.contrib.auth.decorators import login_required
 from core.services import get_display_name_from_username
+from classroom.models import Classroom
 
 User = get_user_model()
 
@@ -20,8 +21,13 @@ def home(request):
 
 def course_detail(request, course_id):
     course = get_object_or_404(Course, id=course_id)
-    lessons = course.lessons.all()  # все уроки курса
-    return render(request, "core/pages/courses/detail.html", {"course": course, "lessons": lessons})
+    lessons = course.lessons.all()
+    classrooms_list = Classroom.objects.filter(teacher=request.user)
+    return render(request, "core/pages/courses/detail.html", {
+        "course": course,
+        "lessons": lessons,
+        "classrooms_list": classrooms_list
+    })
 
 
 @require_GET

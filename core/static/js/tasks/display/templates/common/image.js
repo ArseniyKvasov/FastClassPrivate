@@ -2,7 +2,7 @@
  * Рендерит задание с изображением
  * @param {Object} task - Объект задания
  * @param {Object} task.data - Данные задания
- * @param {string} task.data.image_url - URL изображения
+ * @param {string} task.data.file_url - URL изображения
  * @param {string} [task.data.caption] - Подпись к изображению
  * @param {string} [task.data.title] - Заголовок задания
  * @param {HTMLElement} container - Контейнер для рендеринга
@@ -29,7 +29,7 @@ export function renderImageTask(task, container) {
         imgWrapper.className = "text-center mb-2";
 
         const img = document.createElement("img");
-        img.src = task.data.image_url;
+        img.src = task.data.file_url;
         img.alt = "Изображение задания";
         img.className = "img-fluid rounded-3";
 

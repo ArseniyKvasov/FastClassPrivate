@@ -4,14 +4,14 @@ import { showNotification } from "/static/js/tasks/utils.js";
  * Рендерит редактор задания типа «Изображение».
  *
  * @param {Object|null} taskData
- * @param {string} [taskData.image_url]
+ * @param {string} [taskData.file_url]
  * @param {string} [taskData.caption]
  */
 export function renderImageTaskEditor(taskData = null) {
     const card = document.createElement("div");
     card.className = "task-editor-card mb-4 p-3 bg-white border-0 rounded";
 
-    const imageUrl = taskData?.image_url || "";
+    const imageUrl = taskData?.file_url || "";
     const captionText = taskData?.caption || "";
 
     card.innerHTML = `

@@ -13,7 +13,7 @@ class VirtualClassConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         Classroom = apps.get_model("classroom", "Classroom")
 
-        self.classroom_id: Optional[str] = (
+        self.classroom_id = (
             self.scope.get("url_route", {}).get("kwargs", {}).get("classroom_id")
         )
         self.user = self.scope.get("user")
@@ -99,6 +99,10 @@ class VirtualClassConsumer(AsyncWebsocketConsumer):
             await self._handle_chat_message(action_type, data)
             return
 
+        if action_type == "user:delete":
+            await self._handle_user_delete(data)
+            return
+
         if self.is_teacher:
             if action_type == "users:online":
                 await self._handle_users_online()
@@ -114,10 +118,43 @@ class VirtualClassConsumer(AsyncWebsocketConsumer):
             await self._handle_student_message(action_type, task_id, data)
             return
 
-        await self.send_error("Unauthorized action")
+        await self.send_error("Доступ запрещен.")
+
+    async def _handle_user_delete(self, payload):
+        if not self.is_teacher:
+            await self.send_error("Только учитель может удалить ученика")
+            return
+
+        student_id = payload.get("student_id")
+        if not student_id:
+            await self.send_error("student_id is required for user:delete")
+            return
+
+        await self.channel_layer.group_send(
+            f"user_{student_id}",
+            {
+                "type": "user_deleted_event",
+                "action": "user:delete",
+                "student_id": student_id,
+                "sender_id": self.user_id,
+                "sender_username": getattr(self.user, "username", "Anonymous"),
+                "payload": payload,
+            }
+        )
+
+        await self.channel_layer.group_send(
+            self.groups_map["teacher"],
+            {
+                "type": "user_deleted_event",
+                "action": "user:delete",
+                "student_id": student_id,
+                "sender_id": self.user_id,
+                "sender_username": getattr(self.user, "username", "Anonymous"),
+                "payload": payload,
+            }
+        )
 
     async def _handle_users_online(self):
-        """Возвращает учителю список всех учеников с их статусом онлайн/оффлайн"""
         if not self.is_teacher:
             await self.send_error("Only teacher can request users online")
             return
@@ -145,7 +182,7 @@ class VirtualClassConsumer(AsyncWebsocketConsumer):
 
         if action_type == "chat:send_message":
             if not text:
-                await self.send_error("Message text is required for chat")
+                await self.send_error("Добавьте текст сообщения")
                 return
 
             sender_name = await self._get_user_name()
@@ -183,7 +220,7 @@ class VirtualClassConsumer(AsyncWebsocketConsumer):
             return
 
         if not await self._student_in_class(student_id):
-            await self.send_error("Target student does not belong to this classroom")
+            await self.send_error("Ученик не находится в классе")
             return
 
         await self.channel_layer.group_send(
@@ -205,7 +242,6 @@ class VirtualClassConsumer(AsyncWebsocketConsumer):
             "student_id": student_id,
             "sender_id": self.user_id,
             "sender_username": getattr(self.user, "username", "Anonymous"),
-            "sender_name": getattr(self.user, "first_name", "") or getattr(self.user, "username", "Anonymous"),
             "payload": payload,
         }
 
@@ -244,16 +280,15 @@ class VirtualClassConsumer(AsyncWebsocketConsumer):
         }))
 
     async def user_online_event(self, event):
-        """Обработчик события онлайн"""
         await self.send(text_data=json.dumps({
             "type": "user:online:event",
             "data": {
                 "student_id": event.get("student_id"),
+                "student_username": event.get("student_username"),
             }
         }))
 
     async def user_offline_event(self, event):
-        """Обработчик события оффлайн"""
         await self.send(text_data=json.dumps({
             "type": "user:offline:event",
             "data": {
@@ -261,25 +296,56 @@ class VirtualClassConsumer(AsyncWebsocketConsumer):
             }
         }))
 
+    async def user_deleted_event(self, event):
+        if self.is_student and str(self.user_id) == str(event.get("student_id")):
+            try:
+                await self.send(text_data=json.dumps({
+                    "type": "user:deleted",
+                    "data": {
+                        "student_id": event.get("student_id"),
+                        "message": "Вы были удалены из класса",
+                    }
+                }))
+            except:
+                pass
+            return
+
+        if self.is_teacher and str(self.user_id) != str(event.get("sender_id")):
+            try:
+                await self.send(text_data=json.dumps({
+                    "type": "user:delete:event",
+                    "data": {
+                        "student_id": event.get("student_id"),
+                        "deleted_by": event.get("sender_id"),
+                    }
+                }))
+            except:
+                pass
+
     async def _send_event(self, event):
         sender_id = event.get("sender_id")
         if event.get("action") in ["answer:sent", "answer:reset"]:
             if self.is_student and sender_id == self.user_id:
                 return
-        await self.send(text_data=json.dumps({
-            "type": event.get("action"),
-            "data": {
-                "task_id": event.get("task_id"),
-                "student_id": event.get("student_id"),
-                "sender_id": event.get("sender_id"),
-                "sender_username": event.get("sender_username"),
-                "sender_name": event.get("sender_name"),
-                "payload": event.get("payload"),
-            }
-        }))
+        try:
+            await self.send(text_data=json.dumps({
+                "type": event.get("action"),
+                "data": {
+                    "task_id": event.get("task_id"),
+                    "student_id": event.get("student_id"),
+                    "sender_id": event.get("sender_id"),
+                    "sender_username": event.get("sender_username"),
+                    "payload": event.get("payload"),
+                }
+            }))
+        except:
+            pass
 
     async def send_error(self, message: str):
-        await self.send(text_data=json.dumps({"type": "error", "message": message}))
+        try:
+            await self.send(text_data=json.dumps({"type": "error", "message": message}))
+        except:
+            pass
 
     async def _send_online_status_to_teacher(self, online: bool):
         async with self._lock:
@@ -288,25 +354,34 @@ class VirtualClassConsumer(AsyncWebsocketConsumer):
 
             if online:
                 if current_count == 0:
-                    await self.channel_layer.group_send(
-                        self.groups_map["teacher"],
-                        {
-                            "type": "user_online_event",
-                            "student_id": str(self.user_id),
-                            "online": True,
-                        }
-                    )
+                    try:
+                        sender_name = await self._get_user_name()
+
+                        await self.channel_layer.group_send(
+                            self.groups_map["teacher"],
+                            {
+                                "type": "user_online_event",
+                                "student_id": str(self.user_id),
+                                "student_username": sender_name,
+                                "online": True,
+                            }
+                        )
+                    except:
+                        pass
                 self._active_connections[key] = current_count + 1
             else:
                 if current_count == 1:
-                    await self.channel_layer.group_send(
-                        self.groups_map["teacher"],
-                        {
-                            "type": "user_offline_event",
-                            "student_id": str(self.user_id),
-                            "online": False,
-                        }
-                    )
+                    try:
+                        await self.channel_layer.group_send(
+                            self.groups_map["teacher"],
+                            {
+                                "type": "user_offline_event",
+                                "student_id": str(self.user_id),
+                                "online": False,
+                            }
+                        )
+                    except:
+                        pass
                     del self._active_connections[key]
                 elif current_count > 1:
                     self._active_connections[key] = current_count - 1

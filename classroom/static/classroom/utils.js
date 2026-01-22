@@ -37,9 +37,9 @@ export async function scrollToTask(sectionId, taskId) {
 /**
  * Получает ID текущего урока для указанного класса
  * @param {string} classroomId
- * @returns {Promise<string|null>} lesson_id или null, если урока нет
+ * @returns {Promise<string|null>} lesson_id или null, если урока нет;
  */
-export async function fetchCurrentLessonId() {
+export async function fetchCurrentLesson() {
     const classroomId = getClassroomId();
     if (!classroomId) {
         showNotification("Не удалось найти classroom id. Обновите страницу.")
@@ -92,9 +92,9 @@ export async function refreshClassroom() {
     if (infoEl && classroomId) {
         infoEl.dataset.sectionId = "";
 
-        const currentLessonId = await fetchCurrentLessonId(classroomId);
+        const lessonId = await fetchCurrentLesson(classroomId);
         if (currentLessonId) {
-            infoEl.dataset.lessonId = currentLessonId;
+            infoEl.dataset.lessonId = lessonId;
         }
 
         const sectionToSelect = await refreshSections();

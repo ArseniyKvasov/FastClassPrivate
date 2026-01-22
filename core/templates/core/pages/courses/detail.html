@@ -3,42 +3,330 @@
 {% block title %}{{ course.title }}{% endblock %}
 
 {% block content %}
-    <!-- Название курса -->
-    <div class="mb-4">
-        <h1 class="fw-bold">{{ course.title }}</h1>
-        <p class="text-secondary">{{ course.description }}</p>
-        <p class="text-muted small">Создатель: {{ course.creator.get_full_name|default:course.creator.username }}</p>
-    </div>
+<div class="d-flex align-items-center mb-3">
+    <a href="{% url 'home' %}" class="btn btn-link p-0 me-2">
+        <i class="bi bi-arrow-left fw-bold fs-4"></i>
+    </a>
+    <h1 class="fw-bold mb-0 fs-4">{{ course.title }}</h1>
+</div>
+<p class="text-secondary mb-3 small">{{ course.description }}</p>
 
-    <!-- Список уроков -->
-    <h4 class="mb-3">Уроки</h4>
-    <div class="row g-3">
+<div class="position-relative" style="height: 400px; overflow: hidden;">
+    <div class="list-group h-100 overflow-auto p-3" id="lessons-container" style="scrollbar-width: none;">
         {% for lesson in lessons %}
-        <div class="col-md-6 col-lg-4">
-            <div class="card h-100 shadow-sm">
-                <div class="card-body d-flex flex-column">
-                    <h5 class="card-title">{{ lesson.title }}</h5>
-                    <p class="card-text text-truncate">{{ lesson.description }}</p>
-                    <p class="mb-2">
-                        {% if lesson.is_free %}
-                            <span class="badge bg-success">Бесплатно</span>
-                        {% endif %}
-                        {% if lesson.is_open %}
-                            <span class="badge bg-primary">Открыт</span>
-                        {% endif %}
-                    </p>
-                    <a href="{% url 'page_editor_view' lesson.id %}" class="btn btn-outline-primary mt-auto">Открыть урок</a>
+        <div class="list-group-item d-flex flex-column flex-md-row justify-content-between align-items-start p-2 shadow-sm mb-1 rounded-2"
+             data-lesson-id="{{ lesson.id }}">
+            <div class="flex-grow-1 me-2">
+                <div class="fw-semibold text-truncate fs-6" style="max-width: 100%;">
+                    {{ lesson.title|truncatechars:30 }}
                 </div>
+                <div class="text-muted mt-1 small">
+                    {% if lesson.description|length > 50 %}
+                        <span class="description-short">{{ lesson.description|slice:":50" }}...</span>
+                        <span class="description-full d-none">{{ lesson.description }}</span>
+                        <button type="button" class="btn btn-link p-0 tiny toggle-desc">Подробнее</button>
+                    {% else %}
+                        {{ lesson.description }}
+                    {% endif %}
+                </div>
+            </div>
+            <div class="mt-2 mt-md-0 d-flex align-items-center justify-content-end flex-md-column">
+                <button class="btn btn-primary btn-sm fw-bold open-lesson-btn">Открыть</button>
             </div>
         </div>
         {% empty %}
-        <p>Уроков пока нет.</p>
+        <p class="small ms-2 mt-2">Уроков пока нет.</p>
         {% endfor %}
     </div>
 
-    <!-- Кнопка назад -->
-    <div class="mt-4">
-        <a href="{% url 'home' %}" class="btn btn-secondary">Вернуться к курсам</a>
-    </div>
+    <button id="scroll-down-btn" class="btn btn-primary btn-sm position-absolute"
+            style="bottom: 5px; right: 5px; display: none;">
+        <i class="bi bi-chevron-down"></i>
+    </button>
+</div>
 
+<div class="mt-3">
+    <button class="btn btn-outline-primary btn-sm fw-bold" data-bs-toggle="modal" data-bs-target="#addLessonModal">
+        Добавить урок
+    </button>
+</div>
+
+<!-- Modal 1: Добавить урок -->
+<div class="modal fade" id="addLessonModal" tabindex="-1" aria-labelledby="addLessonModalLabel" aria-modal="true"
+     role="dialog">
+    <div class="modal-dialog modal-dialog-centered modal-md">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-semibold" id="addLessonModalLabel">Добавление урока</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+            </div>
+
+            <div class="modal-body d-flex flex-column gap-3 py-4">
+                <div class="d-flex gap-3 flex-column flex-md-row justify-content-center">
+                    <button id="chooseExistingClassBtn"
+                            class="btn btn-light border shadow-sm w-100 text-start p-4 d-flex flex-column align-items-start rounded-4 hover-shadow"
+                            style="transition: all 0.3s;">
+                        <i class="bi bi-people fs-3 text-primary mb-2"></i>
+                        <span class="fw-semibold fs-5 text-dark">Существующий класс</span>
+                        <small class="text-muted">Выберите уже созданный класс</small>
+                    </button>
+
+                    <button id="createNewClassBtn"
+                            class="btn btn-primary w-100 text-start p-4 d-flex flex-column align-items-start rounded-4 hover-shadow"
+                            style="transition: all 0.3s;">
+                        <i class="bi bi-plus-circle fs-3 mb-2"></i>
+                        <span class="fw-semibold fs-5">Создать класс</span>
+                        <small class="text-white-50">Введите название нового класса</small>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal 2a: Выбор существующего класса -->
+<div class="modal fade" id="classroomChooseModal" tabindex="-1" aria-labelledby="classroomChooseModalLabel"
+     aria-modal="true" role="dialog">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-0 pb-0 d-flex align-items-center">
+                <h5 class="modal-title fw-bold mb-0" id="classroomChooseModalLabel">Выберите класс</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+            </div>
+
+            <div class="modal-body pt-3 pb-4 d-flex flex-column gap-3">
+                <div id="existingClassList" class="d-flex flex-column gap-2" style="max-height: 50vh; overflow-y: auto;">
+                    {% for classroom in classrooms_list %}
+                    <button type="button"
+                            class="btn btn-light text-start rounded-3 shadow-sm classroom-btn"
+                            data-classroom-id="{{ classroom.id }}">
+                        {{ classroom.title }}
+                    </button>
+                    {% endfor %}
+                    {% if classrooms_list|length == 0 %}
+                    <p class="text-muted small">У вас пока нет классов.</p>
+                    {% endif %}
+                </div>
+
+                <button id="confirmChooseBtn" class="btn btn-primary fw-semibold mt-2 w-100" disabled>
+                    Перейти
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal 2b: Создать новый класс -->
+<div class="modal fade" id="classroomCreateModal" tabindex="-1" aria-labelledby="classroomCreateModalLabel"
+     aria-modal="true" role="dialog">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-0 pb-0 d-flex align-items-center">
+                <h5 class="modal-title fw-bold mb-0" id="classroomCreateModalLabel">Создать класс</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+            </div>
+
+            <div class="modal-body pt-3 pb-4 d-flex flex-column gap-3">
+                <input type="text" class="form-control rounded-3 shadow-sm" id="createClassName"
+                       placeholder="Название класса">
+                <button id="createAndGoBtn" class="btn btn-primary fw-semibold mt-1 w-100">
+                    Создать и перейти
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const csrftoken = '{{ csrf_token }}';
+
+    // Подробнее для длинных описаний
+    document.querySelectorAll('.toggle-desc').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const shortDesc = btn.previousElementSibling.previousElementSibling;
+            const fullDesc = btn.previousElementSibling;
+            if (fullDesc.classList.contains('d-none')) {
+                fullDesc.classList.remove('d-none');
+                shortDesc.classList.add('d-none');
+                btn.textContent = 'Свернуть';
+            } else {
+                fullDesc.classList.add('d-none');
+                shortDesc.classList.remove('d-none');
+                btn.textContent = 'Подробнее';
+            }
+        });
+    });
+
+    // Скролл списка уроков и кнопка пролистать вниз
+    const container = document.getElementById('lessons-container');
+    const scrollBtn = document.getElementById('scroll-down-btn');
+    function checkScroll() {
+        scrollBtn.style.display = container.scrollHeight > container.clientHeight ? 'block' : 'none';
+    }
+    checkScroll();
+    window.addEventListener('resize', checkScroll);
+    scrollBtn.addEventListener('click', function () {
+        container.scrollBy({ top: 150, behavior: 'smooth' });
+    });
+
+    // Модалки bootstrap instances
+    const addLessonModalEl = document.getElementById('addLessonModal');
+    const addLessonModal = new bootstrap.Modal(addLessonModalEl);
+
+    const chooseModalEl = document.getElementById('classroomChooseModal');
+    const chooseModal = new bootstrap.Modal(chooseModalEl);
+
+    const createModalEl = document.getElementById('classroomCreateModal');
+    const createModal = new bootstrap.Modal(createModalEl);
+
+    // Открыть addLessonModal по кнопке "Открыть" урока
+    let selectedLessonId = null;
+    document.querySelectorAll('.open-lesson-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            selectedLessonId = this.closest('.list-group-item').dataset.lessonId;
+            addLessonModal.show();
+            // сброс выборов в модалках
+            resetChooseModalState();
+            resetCreateModalState();
+        });
+    });
+
+    // Переходы из первой модалки: закрываем первую, открываем нужную вторую
+    document.getElementById('chooseExistingClassBtn').addEventListener('click', function () {
+        addLessonModal.hide();
+        resetChooseModalState();
+        chooseModal.show();
+    });
+
+    document.getElementById('createNewClassBtn').addEventListener('click', function () {
+        addLessonModal.hide();
+        resetCreateModalState();
+        createModal.show();
+    });
+
+    // ------- Choose modal logic -------
+    let selectedClassId = null;
+    const classroomButtons = () => Array.from(document.querySelectorAll('#existingClassList .classroom-btn'));
+    const confirmChooseBtn = document.getElementById('confirmChooseBtn');
+
+    function resetChooseModalState() {
+        selectedClassId = null;
+        confirmChooseBtn.disabled = true;
+        classroomButtons().forEach(b => {
+            b.classList.remove('selected');
+            // keep text color unchanged: do not add text-white class
+        });
+    }
+
+    // делегируем события для кнопок классов (на случай динамики)
+    document.getElementById('existingClassList').addEventListener('click', function (e) {
+        const btn = e.target.closest('.classroom-btn');
+        if (!btn) return;
+        // снять выделение у всех
+        classroomButtons().forEach(b => b.classList.remove('selected'));
+        // выделить текущую
+        btn.classList.add('selected');
+        selectedClassId = btn.dataset.classroomId;
+        confirmChooseBtn.disabled = false;
+    });
+
+    // При подтверждении в choose modal — POST attach и редирект на страницу класса
+    confirmChooseBtn.addEventListener('click', function () {
+        if (!selectedClassId) return;
+        fetch(`/classroom/api/${selectedClassId}/attach-lesson/${selectedLessonId}/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrftoken }
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    // редирект на страницу класса
+                    window.location.href = `/classroom/page/${selectedClassId}/`;
+                } else {
+                    alert(data.detail || 'Ошибка при привязке урока');
+                }
+            })
+            .catch(() => alert('Ошибка сети, попробуйте позже'));
+    });
+
+    // ------- Create modal logic -------
+    const createAndGoBtn = document.getElementById('createAndGoBtn');
+    const createClassNameInput = document.getElementById('createClassName');
+
+    function resetCreateModalState() {
+        createClassNameInput.value = '';
+    }
+
+    createAndGoBtn.addEventListener('click', function () {
+        const title = createClassNameInput.value.trim();
+        if (!title) {
+            alert('Введите название класса');
+            return;
+        }
+        const formData = new FormData();
+        formData.append('title', title);
+        formData.append('lesson_id', selectedLessonId);
+
+        fetch('/classroom/api/create-classroom/', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrftoken },
+            body: formData
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'ok' && data.classroom && data.classroom.id) {
+                    const newId = data.classroom.id;
+                    // перейти на страницу нового класса
+                    window.location.href = `/classroom/page/${newId}/`;
+                } else {
+                    alert(data.detail || 'Ошибка при создании класса');
+                }
+            })
+            .catch(() => alert('Ошибка сети, попробуйте позже'));
+    });
+
+    // Accessibility: закрывать все модалки при навигации away
+    document.querySelectorAll('.modal').forEach(modalEl => {
+        modalEl.addEventListener('hidden.bs.modal', function () {
+            // очистить состояния при закрытии модалки
+            if (modalEl.id === 'classroomChooseModal') resetChooseModalState();
+            if (modalEl.id === 'classroomCreateModal') resetCreateModalState();
+        });
+    });
+});
+</script>
+
+<style>
+/* Скрываем скроллбар внутри списка уроков */
+#lessons-container::-webkit-scrollbar { display: none; }
+#lessons-container { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* немножко уменьшенные кнопки/текст */
+.btn-sm, .form-control { font-size: .9rem; }
+
+/* стиль выбранной кнопки класса: чуть темнее фон, текст остается тем же */
+.classroom-btn.selected {
+    background-color: #e9ecef; /* немного темнее чем btn-light */
+    filter: brightness(.98);
+}
+
+/* сохраняем текстовую палитру (не делаем text-white) */
+.classroom-btn.selected,
+.classroom-btn.selected .btn-text { color: inherit; }
+
+/* При наведении - аккуратный эффект */
+.hover-shadow:hover { transform: translateY(-2px); box-shadow: 0 .5rem 1rem rgba(0,0,0,0.08); }
+
+/* Кнопка "Открыть": по центру справа на desktop, снизу справа на мобильных */
+@media (min-width: 768px) {
+    .list-group-item > div:last-child { justify-content: center !important; }
+}
+@media (max-width: 767.98px) {
+    .list-group-item > div:last-child { align-self: flex-end !important; }
+}
+
+/* небольшая правка для модалок чтобы они выглядели как в примерах */
+.modal-content.rounded-4 { border: 0; }
+</style>
 {% endblock %}

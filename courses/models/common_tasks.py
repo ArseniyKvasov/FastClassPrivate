@@ -42,7 +42,7 @@ class NoteTask(models.Model):
 
 
 class ImageTask(models.Model):
-    image = models.ImageField(
+    file = models.ImageField(
         upload_to=task_image_upload_to,
         max_length=255
     )
@@ -51,14 +51,14 @@ class ImageTask(models.Model):
     def save(self, *args, **kwargs):
         if self.pk:
             old = ImageTask.objects.filter(pk=self.pk).first()
-            if old and old.image and old.image != self.image:
-                old.image.delete(save=False)
+            if old and old.file and old.file != self.file:
+                old.file.delete(save=False)
 
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
-        if self.image:
-            self.image.delete(save=False)
+        if self.file:
+            self.file.delete(save=False)
         super().delete(*args, **kwargs)
 
 

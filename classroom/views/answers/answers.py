@@ -9,27 +9,12 @@ from django.views.decorators.http import require_POST
 from rest_framework.exceptions import ValidationError
 
 from courses.models import Section, Task
-from classroom.models import (
-    Classroom,
-    TestTaskAnswer,
-    TrueFalseTaskAnswer,
-    FillGapsTaskAnswer,
-    MatchCardsTaskAnswer,
-    TextInputTaskAnswer,
-)
-
+from classroom.models import Classroom
 from classroom.services import check_user_access
 
+from classroom.registry import get_answer_model_by_task_type, get_all_answer_models
+
 User = get_user_model()
-
-
-ANSWER_MODEL_MAP = {
-    "test": TestTaskAnswer,
-    "true_false": TrueFalseTaskAnswer,
-    "fill_gaps": FillGapsTaskAnswer,
-    "match_cards": MatchCardsTaskAnswer,
-    "text_input": TextInputTaskAnswer,
-}
 
 
 def get_task_answer(request):
@@ -55,7 +40,7 @@ def get_task_answer(request):
     if not check_user_access(request.user, classroom, target_user):
         return JsonResponse({"error": "Access denied"}, status=403)
 
-    answer_model = ANSWER_MODEL_MAP.get(task.task_type)
+    answer_model = get_answer_model_by_task_type(task.task_type)
     if not answer_model:
         return JsonResponse({"error": "Unsupported task type"}, status=400)
 
@@ -96,11 +81,10 @@ def get_section_answers(request):
         return JsonResponse({"error": "Access denied"}, status=403)
 
     tasks = Task.objects.filter(section=section)
-
     answers = []
 
     for task in tasks:
-        answer_model = ANSWER_MODEL_MAP.get(task.task_type)
+        answer_model = get_answer_model_by_task_type(task.task_type)
         if not answer_model:
             continue
 
@@ -155,7 +139,7 @@ def save_answer(request, classroom_id):
     if not check_user_access(request.user, classroom, target_user):
         return JsonResponse({"error": "Access denied"}, status=403)
 
-    answer_model = ANSWER_MODEL_MAP.get(task.task_type)
+    answer_model = get_answer_model_by_task_type(task.task_type)
     if not answer_model:
         return JsonResponse({"success": False, "errors": "Unsupported task type"}, status=400)
 
@@ -207,7 +191,7 @@ def mark_answer_as_checked(request, classroom_id):
     if not check_user_access(request.user, classroom, target_user):
         return JsonResponse({"error": "Access denied"}, status=403)
 
-    answer_model = ANSWER_MODEL_MAP.get(task.task_type)
+    answer_model = get_answer_model_by_task_type(task.task_type)
     if not answer_model or not hasattr(answer_model, "mark_as_checked"):
         return JsonResponse(
             {"success": False, "errors": "Task type does not support checking"},
