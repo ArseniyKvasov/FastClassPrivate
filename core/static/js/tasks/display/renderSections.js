@@ -92,10 +92,9 @@ export async function selectSection(sectionId) {
 
     const sectionList = document.querySelectorAll('#section-list li[data-section-id]');
     const sectionExists = Array.from(sectionList).some(
-        li => li.dataset.sectionId === sectionId
+        li => li.dataset.sectionId === String(sectionId)
     );
     if (!sectionExists) return;
-
 
     highlightSelectedSection(sectionId);
     await loadSectionTasks(sectionId);
