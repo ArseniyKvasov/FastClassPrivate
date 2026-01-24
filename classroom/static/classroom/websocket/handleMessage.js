@@ -2,6 +2,7 @@
 
 import { showNotification, getIsTeacher, getLessonId, getSectionId, fetchSingleTask } from "/static/js/tasks/utils.js";
 import { loadSectionTasks } from "/static/js/tasks/display/showTasks.js"
+import { selectSection } from "/static/js/tasks/display/renderSections.js"
 import { getViewedUserId, scrollToTask, refreshSections } from '/static/classroom/utils.js'
 import { fetchTaskAnswer } from "/static/classroom/answers/api.js";
 import { handleAnswer } from "/static/classroom/answers/handleAnswer.js";

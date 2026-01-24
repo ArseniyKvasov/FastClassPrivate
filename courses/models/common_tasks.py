@@ -1,5 +1,7 @@
 import random
 import re
+from django.conf import settings
+import os
 from courses.utils import task_image_upload_to
 from django.db import models
 from django.contrib.auth import get_user_model
@@ -42,24 +44,39 @@ class NoteTask(models.Model):
 
 
 class ImageTask(models.Model):
-    file = models.ImageField(
-        upload_to=task_image_upload_to,
-        max_length=255
-    )
+    file_path = models.CharField(max_length=255)
     caption = models.CharField(max_length=120, blank=True, null=True)
 
     def save(self, *args, **kwargs):
+        """
+        При обновлении изображения удаляет старый файл,
+        если file_path был изменён.
+        """
         if self.pk:
-            old = ImageTask.objects.filter(pk=self.pk).first()
-            if old and old.file and old.file != self.file:
-                old.file.delete(save=False)
+            try:
+                old = ImageTask.objects.get(pk=self.pk)
+            except ImageTask.DoesNotExist:
+                old = None
+
+            if old and old.file_path and old.file_path != self.file_path:
+                old_local_path = os.path.join(
+                    settings.MEDIA_ROOT,
+                    old.file_path.replace(settings.MEDIA_URL, "").lstrip("/")
+                )
+                if os.path.exists(old_local_path):
+                    os.remove(old_local_path)
 
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
-        if self.file:
-            self.file.delete(save=False)
+        if self.file_path:
+            local_path = os.path.join(settings.MEDIA_ROOT, self.file_path.replace(settings.MEDIA_URL, '').lstrip("/"))
+            if os.path.exists(local_path):
+                os.remove(local_path)
         super().delete(*args, **kwargs)
+
+    def __str__(self):
+        return f"ImageTask: {self.caption or 'Без подписи'}"
 
 
 class FillGapsTask(models.Model):

@@ -16,6 +16,7 @@ class BaseAnswer(models.Model):
     total_answers = models.PositiveIntegerField(default=0)
 
     class Meta:
+        app_label = "classroom"
         abstract = True
 
     def save_answer_data(self, data):
@@ -77,6 +78,7 @@ class ChatMessage(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        app_label = "classroom"
         ordering = ["-created_at"]
         indexes = [
             models.Index(fields=["classroom", "created_at"]),

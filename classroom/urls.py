@@ -2,8 +2,11 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    path("api/<int:classroom_id>/edit/", views.classroom_edit_title_view, name="classroom_edit_title_view"),
+
     path("page/<int:classroom_id>/", views.classroom_view, name="classroom_view"),
-    path("api/create-classroom/", views.create_classroom_view, name="create_classroom_view"),
+    path("api/create/", views.create_classroom_view, name="create_classroom_view"),
+    path("api/<int:classroom_id>/delete/", views.delete_classroom_view, name="delete_classroom_view"),
     path("api/<int:classroom_id>/attach-lesson/<int:lesson_id>/", views.attach_lesson_view, name="attach_lesson_view"),
     path("api/<int:classroom_id>/set-copying-enabled/", views.set_copying_enabled, name="set_copying_enabled"),
     path("api/<int:classroom_id>/change-classroom-password/", views.change_classroom_password, name="change_classroom_password"),

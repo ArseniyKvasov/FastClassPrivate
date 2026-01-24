@@ -93,7 +93,7 @@ export async function refreshClassroom() {
         infoEl.dataset.sectionId = "";
 
         const lessonId = await fetchCurrentLesson(classroomId);
-        if (currentLessonId) {
+        if (lessonId) {
             infoEl.dataset.lessonId = lessonId;
         }
 

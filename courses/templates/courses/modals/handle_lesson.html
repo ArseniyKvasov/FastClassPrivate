@@ -1,0 +1,20 @@
+<!-- Универсальная модалка для создания / редактирования урока -->
+<div class="modal fade" id="lessonModal" tabindex="-1" aria-labelledby="lessonModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <form id="lessonModalForm" class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-0 pb-0 d-flex align-items-center">
+                <h5 class="modal-title fw-bold mb-0" id="lessonModalLabel">Создать урок</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+            </div>
+            <div class="modal-body pt-3 pb-4 d-flex flex-column gap-3">
+                <input id="lessonTitleInput" type="text" class="form-control rounded-3 shadow-sm" name="title" maxlength="100" placeholder="Название урока" required>
+                <textarea id="lessonDescriptionInput" name="description" class="form-control rounded-3 shadow-sm" rows="4" placeholder="Описание (необязательно)"></textarea>
+                <input id="lessonModeInput" type="hidden" name="mode" value="create">
+                <input id="lessonIdInput" type="hidden" name="lesson_id" value="">
+                <div class="d-grid">
+                    <button id="lessonModalSubmit" type="submit" class="btn btn-primary fw-semibold">Создать</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>

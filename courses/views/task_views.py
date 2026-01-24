@@ -2,58 +2,65 @@ from django.contrib.auth import get_user_model
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 
+from courses.models import Section, Task
 from courses.services import serialize_task_data
-from courses.models import Section, Task, SectionCopy, TaskCopy
 
 User = get_user_model()
 
 
-def get_single_task_view(request, task_id, copy=False):
+def get_single_task_view(request, task_id):
     """
-    Получение одной задачи.
-    Если copy=True — ищем TaskCopy, иначе Task.
+    Получение одной задачи Task.
     """
     try:
-        if copy:
-            task = get_object_or_404(TaskCopy, pk=task_id)
-        else:
-            task = get_object_or_404(Task, pk=task_id)
+        try:
+            task = Task.objects.get(id=task_id)
+        except Task.DoesNotExist:
+            return JsonResponse(
+                {"success": False, "errors": "Задание не найдено"},
+                status=404
+            )
 
         serialized_task = {
             "task_id": task.id,
-            "task_type": getattr(task, "task_type", None),
-            "data": serialize_task_data(task)
+            "task_type": task.task_type,
+            "data": serialize_task_data(task),
         }
 
         return JsonResponse({"success": True, "task": serialized_task})
 
     except Exception as e:
-        return JsonResponse({"success": False, "errors": str(e)}, status=500)
+        return JsonResponse(
+            {"success": False, "errors": str(e)},
+            status=500
+        )
 
 
-def get_section_tasks_view(request, section_id, copy=False):
+def get_section_tasks_view(request, section_id):
     """
-    Получение всех задач раздела.
-    Если copy=True — ищем SectionCopy и TaskCopy.
-    Иначе — обычный Section и Task.
+    Получение всех задач раздела (Task) с корректным order.
     """
     try:
-        if copy:
-            section = get_object_or_404(SectionCopy, pk=section_id)
-            tasks = section.tasks.all().order_by("order")
-        else:
-            section = get_object_or_404(Section, pk=section_id)
-            tasks = section.tasks.all().order_by("order")
+        section = get_object_or_404(
+            Section.objects.select_related("lesson__course"),
+            pk=section_id
+        )
 
-        serialized_tasks = []
-        for t in tasks:
-            serialized_tasks.append({
+        tasks = list(Task.objects.filter(section=section).order_by("order"))
+
+        serialized_tasks = [
+            {
                 "task_id": t.id,
-                "task_type": getattr(t, "task_type", None),
-                "data": serialize_task_data(t)
-            })
+                "task_type": t.task_type,
+                "data": serialize_task_data(t),
+            }
+            for t in tasks
+        ]
 
         return JsonResponse({"success": True, "tasks": serialized_tasks})
 
     except Exception as e:
-        return JsonResponse({"success": False, "errors": str(e)}, status=500)
+        return JsonResponse(
+            {"success": False, "errors": str(e)},
+            status=500
+        )

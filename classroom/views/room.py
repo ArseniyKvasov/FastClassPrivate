@@ -1,18 +1,110 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse, HttpResponseForbidden
+from django.http import JsonResponse, HttpResponseForbidden, Http404
 from django.views.decorators.http import require_POST
 from django.db import transaction
 import json
+from django.urls import reverse
+
 from django.contrib.auth import get_user_model
 
 from core.services import get_display_name_from_username
 from courses.models import Lesson
 from classroom.models import Classroom
-from classroom.services import set_copying
+from classroom.services import set_copying, attach_lesson_to_classroom
 from .session_utils import clear_verified_in_session
 
 User = get_user_model()
+
+
+@login_required
+@require_POST
+@transaction.atomic
+def create_classroom_view(request):
+    """
+    Создаёт новый класс и при необходимости прикрепляет урок.
+    Если у пользователя нет курса с нужным уроком — копирует курс.
+    Возвращает JSON с данными класса и ссылкой на него.
+    """
+    title = request.POST.get("title")
+    lesson_id = request.POST.get("lesson_id")
+
+    if not title:
+        return JsonResponse({"detail": "Не указано название класса"}, status=400)
+
+    classroom = Classroom.objects.create(
+        title=title,
+        teacher=request.user
+    )
+
+    if lesson_id:
+        lesson = get_object_or_404(Lesson, pk=lesson_id)
+        attach_lesson_to_classroom(classroom, lesson, request.user)
+
+    classroom_url = reverse("classroom_view", args=[classroom.id])
+
+    return JsonResponse({
+        "status": "ok",
+        "url": classroom_url
+    })
+
+
+@login_required
+@require_POST
+def delete_classroom_view(request, classroom_id):
+    """
+    Удаляет класс. Доступ разрешён только учителю (создателю класса).
+    Возвращает JSON с результатом.
+    """
+    try:
+        classroom = Classroom.objects.get(id=classroom_id)
+    except Classroom.DoesNotExist:
+        raise Http404("Класс не найден")
+
+    if classroom.teacher != request.user:
+        return JsonResponse({"error": "Недостаточно прав"}, status=403)
+
+    classroom.delete()
+    return JsonResponse({"success": True})
+
+
+@login_required
+@require_POST
+def classroom_edit_title_view(request, classroom_id):
+    """
+    Обновляет название класса.
+
+    Доступ разрешён только пользователю с ролью teacher в данном классе.
+    Ожидает POST-параметр `title`.
+    Возвращает JSON с новым названием или ошибкой.
+    """
+    try:
+        classroom = Classroom.objects.get(id=classroom_id)
+    except Classroom.DoesNotExist:
+        raise Http404("Класс не найден")
+
+    if classroom.teacher != request.user:
+        return JsonResponse(
+            {"error": "Недостаточно прав"},
+            status=403
+        )
+
+    title = request.POST.get("title", "").strip()
+    if not title:
+        return JsonResponse(
+            {"error": "Название не может быть пустым"},
+            status=400
+        )
+
+    classroom.title = title
+    classroom.save(update_fields=["title"])
+
+    return JsonResponse({
+        "success": True,
+        "updated": {
+            "title": classroom.title
+        }
+    })
 
 
 def classroom_view(request, classroom_id):
@@ -20,7 +112,6 @@ def classroom_view(request, classroom_id):
         return redirect("join_classroom_view", classroom_id=classroom_id)
 
     classroom = get_object_or_404(Classroom, pk=classroom_id)
-    lesson_info = classroom.get_attached_lesson()
 
     is_teacher = request.user == classroom.teacher
 
@@ -35,13 +126,13 @@ def classroom_view(request, classroom_id):
             for s in students_qs
         ]
         if not students_list:
-            students_list = [{"id": request.user.id, "name": request.user.username}]
+            students_list = [{"id": request.user.id, "name": get_display_name_from_username(request.user.username)}]
         viewed_user_id = students_list[0]["id"]
     else:
         students_list = []
         viewed_user_id = request.user.id
 
-    lesson_id = lesson_info["id"] if lesson_info else None
+    lesson_id = classroom.lesson.id if classroom.lesson else None
 
     return render(
         request,
@@ -66,9 +157,8 @@ def get_current_lesson_id(request, classroom_id):
     if request.user != classroom.teacher and request.user not in classroom.students.all():
         return JsonResponse({"error": "Доступ запрещен."}, status=403)
 
-    lesson_info = classroom.get_attached_lesson()
     return JsonResponse({
-        "lesson_id": lesson_info["id"] if lesson_info else None,
+        "lesson_id": classroom.lesson.id,
     })
 
 
@@ -157,59 +247,18 @@ def delete_student(request, classroom_id):
 @login_required
 @require_POST
 def attach_lesson_view(request, classroom_id, lesson_id):
+    """
+    Прикрепляет урок к существующему классу.
+    Если у пользователя нет курса с таким уроком, копирует курс.
+    """
     classroom = get_object_or_404(Classroom, pk=classroom_id, teacher=request.user)
     lesson = get_object_or_404(Lesson, pk=lesson_id)
 
     try:
-        classroom.attach_lesson(lesson, request.user)
-        lesson_info = classroom.get_attached_lesson()
+        attach_lesson_to_classroom(classroom, lesson, request.user)
     except (ValueError, TypeError) as e:
         return JsonResponse({"detail": str(e)}, status=400)
 
-    attached = {
-        "id": lesson_info["id"] if lesson_info else None,
-        "is_copy": lesson_info["is_copy"] if lesson_info else False
-    }
-
     return JsonResponse({
         "status": "ok",
-        "attached": attached,
-    })
-
-
-@login_required
-@require_POST
-@transaction.atomic
-def create_classroom_view(request):
-    title = request.POST.get("title")
-    lesson_id = request.POST.get("lesson_id")
-
-    if not title:
-        return JsonResponse({"detail": "Не указано название класса"}, status=400)
-
-    classroom = Classroom.objects.create(
-        title=title,
-        teacher=request.user
-    )
-
-    attached_result = None
-    if lesson_id:
-        lesson = get_object_or_404(Lesson, pk=lesson_id)
-        try:
-            classroom.attach_lesson(lesson, request.user)
-            lesson_info = classroom.get_attached_lesson()
-            attached_result = {
-                "id": lesson_info["id"] if lesson_info else None,
-                "is_copy": lesson_info["is_copy"] if lesson_info else False
-            }
-        except (ValueError, TypeError):
-            attached_result = None
-
-    return JsonResponse({
-        "status": "ok",
-        "classroom": {
-            "id": classroom.id,
-            "title": classroom.title,
-        },
-        "attached_lesson": attached_result
     })

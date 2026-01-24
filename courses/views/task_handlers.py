@@ -4,7 +4,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.shortcuts import get_object_or_404
 from django.db import transaction
-from courses.models import Section, Task, SectionCopy, TaskCopy
+from courses.models import Section, Task
 from courses.task_serializers import TASK_SERIALIZER_MAP
 from courses.services import _process_task_data
 
@@ -43,12 +43,14 @@ def _handle_json_request(request):
         payload = json.loads(request.body)
     except json.JSONDecodeError:
         return JsonResponse({"success": False, "errors": "Invalid JSON"}, status=400)
+
     section_id = payload.get("section_id")
     task_type = payload.get("task_type")
     task_id = payload.get("task_id")
     data = payload.get("data", [])
     if not isinstance(data, list):
         data = [data]
+
     return _process_task_data(request.user, section_id, task_type, task_id, data)
 
 
@@ -59,19 +61,23 @@ def delete_task(request):
             payload = json.loads(request.body)
         except json.JSONDecodeError:
             return JsonResponse({"success": False, "errors": "Invalid JSON"}, status=400)
+
         task_id = payload.get("task_id")
         if not task_id:
             return JsonResponse({"success": False, "errors": "Не указан task_id"}, status=400)
-        task = Task.objects.filter(pk=task_id).first()
-        if not task:
+
+        try:
+            task = Task.objects.get(id=task_id)
+        except Task.DoesNotExist:
             return JsonResponse({"success": False, "errors": "Задание не найдено"}, status=404)
-        if task.section.lesson.course.creator != request.user:
-            return JsonResponse({"success": False, "errors": "Вы не являетесь создателем курса"}, status=403)
-        specific_obj = getattr(task, "specific", None)
-        if specific_obj:
-            specific_obj.delete()
+
+        course = task.section.lesson.course
+        if course.creator != request.user:
+            return JsonResponse({"success": False, "errors": "Нет прав на удаление"}, status=403)
+
         task.delete()
-        return JsonResponse({"success": True, "message": "Задание удалено"})
+        return JsonResponse({"success": True})
+
     except Exception as e:
         return JsonResponse({"success": False, "errors": str(e)}, status=500)
 
@@ -79,20 +85,39 @@ def delete_task(request):
 @require_POST
 def reorder_tasks(request):
     try:
-        data = json.loads(request.body)
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"status": "error", "message": "Некорректный JSON"}, status=400)
+
         section_id = data.get("section_id")
         task_ids = data.get("task_ids", [])
-        section = get_object_or_404(Section, id=section_id)
+
+        if not section_id or not isinstance(task_ids, list):
+            return JsonResponse({"status": "error", "message": "Некорректные данные"}, status=400)
+
+        section = get_object_or_404(
+            Section.objects.select_related("lesson__course"),
+            id=section_id
+        )
+
+        if section.lesson.course.creator != request.user:
+            return JsonResponse({"status": "error", "message": "Нет прав"}, status=403)
+
         with transaction.atomic():
             for index, task_id in enumerate(task_ids):
-                task = Task.objects.filter(id=task_id, section=section).first()
-                if task:
-                    task.order = index + 1
-                    task.save(update_fields=["order"])
+                try:
+                    task = Task.objects.get(id=task_id)
+                except Task.DoesNotExist:
+                    continue
+
+                if task.section_id != section.id:
+                    continue
+
+                task.order = index + 1
+                task.save(update_fields=["order"])
+
         return JsonResponse({"status": "ok"})
-    except json.JSONDecodeError:
-        return JsonResponse({"status": "error", "message": "Некорректный JSON"}, status=400)
-    except Section.DoesNotExist:
-        return JsonResponse({"status": "error", "message": "Раздел не найден"}, status=404)
+
     except Exception as e:
         return JsonResponse({"status": "error", "message": str(e)}, status=500)

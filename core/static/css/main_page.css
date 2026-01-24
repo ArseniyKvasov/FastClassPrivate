@@ -1,0 +1,58 @@
+.hero-image {
+    height: 320px;
+    background-image: url("https://cdn-icons-png.flaticon.com/512/2920/2920320.png");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}
+#materials-container .material-item {
+    display: flex;
+}
+#materials-container .material-item .card {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+#materials-container .material-item .card .card-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+}
+#materials-container .material-item .card .card-body p {
+    overflow: hidden;
+}
+.dragging {
+    opacity: 0.5;
+}
+.drop-zone {
+    position: relative;
+    min-height: 70px;
+}
+.drop-zone.over {
+    background-color: rgba(13, 110, 253, 0.05);
+    border-color: #0d6efd !important;
+}
+.drop-indicator {
+    position: absolute;
+    top: -2px;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background-color: #0d6efd;
+    border-radius: 2px;
+    z-index: 1;
+    display: none;
+}
+.drop-zone.over-top .drop-indicator {
+    top: -2px;
+    display: block;
+}
+.drop-zone.over-bottom .drop-indicator {
+    top: auto;
+    bottom: -2px;
+    display: block;
+}
+.preview-icon-btn {
+    padding: 0.25rem;
+    line-height: 1;
+}

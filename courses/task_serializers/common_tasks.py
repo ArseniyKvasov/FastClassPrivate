@@ -161,7 +161,7 @@ class NoteTaskSerializer(serializers.ModelSerializer):
 class ImageTaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = ImageTask
-        fields = ["file", "caption"]
+        fields = ["file_path", "caption"]
 
     def validate_image(self, value):
         if not value:

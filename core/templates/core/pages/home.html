@@ -1,15 +1,231 @@
 {% extends 'core/base.html' %}
+{% load static %}
 
-{% block title %}Главная - FastLesson{% endblock %}
+{% block title %}Главная - FastClass{% endblock %}
 
 {% block content %}
-{% include 'core/pages/home/_hero.html' %}
-{% include 'core/pages/home/_courses.html' %}
+<link rel="stylesheet" href="{% static 'css/main_page.css' %}">
 
-{% if user.is_authenticated %}
-{% include 'core/pages/home/_classes.html' %}
-{% include 'core/pages/home/_tariff.html' %}
-{% include 'core/pages/home/_support.html' %}
-{% endif %}
+{% include 'core/pages/modals/create_element.html' %}
 
+<section class="py-5 bg-light rounded-3 mb-5">
+    <div class="container py-4">
+        <div class="row align-items-center">
+            <div class="col-lg-7">
+                <h1 class="fw-bold mb-3">Библиотека интерактивных курсов FastClass</h1>
+                <p class="lead text-muted mb-4">
+                    Готовые материалы для занятий, интерактивная доска и виртуальный класс -
+                    всё в одном месте для учителей и учеников.
+                </p>
+            </div>
+            <div class="col-lg-5 mt-4 mt-lg-0">
+                <div class="hero-image"></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="py-4">
+    <div class="container">
+
+        <div class="d-flex gap-2 mb-4 overflow-auto flex-nowrap" style="scrollbar-width: none;">
+            <button class="btn btn-outline-primary border-0 btn-sm rounded-pill text-nowrap" data-target="classrooms">Мои классы</button>
+            <button class="btn btn-outline-primary border-0 btn-sm rounded-pill text-nowrap" data-target="my_courses">Мои курсы</button>
+            {% if math_courses %}
+            <button class="btn btn-outline-primary border-0 btn-sm rounded-pill text-nowrap" data-target="math">Математика</button>
+            {% endif %}
+            {% if english_courses %}
+            <button class="btn btn-outline-primary border-0 btn-sm rounded-pill text-nowrap" data-target="english">Английский</button>
+            {% endif %}
+            {% if other_courses %}
+            <button class="btn btn-outline-primary border-0 btn-sm rounded-pill text-nowrap" data-target="other">Другое</button>
+            {% endif %}
+        </div>
+
+        <div id="materials-container" class="row g-3"
+             data-create-course-url="{% url 'create_course' %}"
+             data-edit-meta-url-template="{% url 'course_edit_meta_view' 0 %}"
+             data-course-detail-url-template="{% url 'course_detail' 0 %}"
+             data-classroom-view-url-template="{% url 'classroom_view' 0 %}">
+
+            {% for classroom in user_classrooms %}
+            <div class="col-12 col-md-6 col-lg-4 material-item" data-category="classrooms">
+                <div class="card h-100 rounded-4 shadow-sm d-flex flex-column">
+                    <div class="card-body d-flex flex-column flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="mb-0">{{ classroom.title }}</h5>
+                        </div>
+                        <div class="mb-2">
+                            <span class="badge {% if classroom.role == 'Учитель' %}bg-primary{% else %}bg-success{% endif %} small">
+                                {{ classroom.role }}
+                            </span>
+                        </div>
+                        {% if classroom.lesson_title %}
+                        <p class="text-muted small mb-2">{{ classroom.lesson_title }}</p>
+                        {% endif %}
+                    </div>
+
+                    <div class="card-footer bg-transparent border-0 pt-0">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <a href="{% url 'classroom_view' classroom.id %}" class="btn btn-sm btn-outline-white border-0 fw-bold text-primary">Перейти</a>
+
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-link text-muted p-0" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-three-dots"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li>
+                                        <a class="dropdown-item"
+                                           href="#"
+                                           data-action="edit"
+                                           data-entity="classroom"
+                                           data-id="{{ classroom.id }}"
+                                           data-title="{{ classroom.title|escape }}">
+                                            Редактировать
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item text-danger"
+                                           href="#"
+                                           data-action="delete"
+                                           data-entity="classroom"
+                                           data-id="{{ classroom.id }}">
+                                            Удалить
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+
+            {% if user_classrooms %}
+            <div class="col-12 text-end mt-3 material-item" data-category="classrooms">
+                <a href="#" class="fw-bold text-primary text-decoration-none" data-create="classroom">+ Создать класс</a>
+            </div>
+            {% endif %}
+
+            {% for course in user_courses %}
+            <div class="col-12 col-md-6 col-lg-4 material-item" data-category="my_courses">
+                <div class="card h-100 rounded-4 shadow-sm d-flex flex-column">
+                    <div class="card-body d-flex flex-column flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="mb-0">{{ course.title }}</h5>
+                        </div>
+                        <div class="mb-2">
+                            {% if course.subject_display %}
+                            <span class="badge bg-primary small">{{ course.subject_display }}</span>
+                            {% endif %}
+                        </div>
+                        {% if course.short_info %}
+                        <p class="text-muted small mb-0">{{ course.short_info }}</p>
+                        {% endif %}
+                    </div>
+
+                    <div class="card-footer bg-transparent border-0 pt-0">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <a href="{% url 'course_detail' course.id %}" class="btn btn-sm btn-outline-white border-0 fw-bold text-primary">Перейти</a>
+
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-link text-muted p-0" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-three-dots"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li>
+                                       <a class="dropdown-item"
+                                           href="#"
+                                           data-action="edit"
+                                           data-entity="course"
+                                           data-id="{{ course.id }}"
+                                           data-title="{{ course.title|escape }}"
+                                           data-description="{{ course.description|escape }}"
+                                           data-subject="{{ course.subject }}">
+                                            Редактировать
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item text-danger"
+                                           href="#"
+                                           data-action="delete"
+                                           data-entity="course"
+                                           data-id="{{ course.id }}">
+                                            Удалить
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+
+            {% if user_courses %}
+            <div class="col-12 text-end mt-3 material-item" data-category="my_courses">
+                <a href="#" class="fw-bold text-primary text-decoration-none" data-create="course">+ Создать курс</a>
+            </div>
+            {% endif %}
+
+            {% for course in math_courses %}
+            <div class="col-12 col-md-6 col-lg-4 material-item" data-category="math">
+                <div class="card h-100 rounded-4 shadow-sm d-flex flex-column">
+                    <div class="card-body d-flex flex-column flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="mb-0">{{ course.title }}</h5>
+                        </div>
+                        <div class="mb-2">
+                            <span class="badge bg-primary small">{{ course.subject_display }}</span>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-transparent border-0 pt-0">
+                        <a href="{% url 'course_detail' course.id %}" class="btn btn-sm btn-outline-white border-0 fw-bold text-primary">Перейти</a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+
+            {% for course in english_courses %}
+            <div class="col-12 col-md-6 col-lg-4 material-item" data-category="english">
+                <div class="card h-100 rounded-4 shadow-sm d-flex flex-column">
+                    <div class="card-body d-flex flex-column flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="mb-0">{{ course.title }}</h5>
+                        </div>
+                        <div class="mb-2">
+                            <span class="badge bg-primary small">{{ course.subject_display }}</span>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-transparent border-0 pt-0">
+                        <a href="{% url 'course_detail' course.id %}" class="btn btn-sm btn-outline-white border-0 fw-bold text-primary">Перейти</a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+
+            {% for course in other_courses %}
+            <div class="col-12 col-md-6 col-lg-4 material-item" data-category="other">
+                <div class="card h-100 rounded-4 shadow-sm d-flex flex-column">
+                    <div class="card-body d-flex flex-column flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="mb-0">{{ course.title }}</h5>
+                        </div>
+                        <div class="mb-2">
+                            <span class="badge bg-primary small">{{ course.subject_display }}</span>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-transparent border-0 pt-0">
+                        <a href="{% url 'course_detail' course.id %}" class="btn btn-sm btn-outline-white border-0 fw-bold text-primary">Перейти</a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+
+        </div>
+
+    </div>
+</section>
+
+<script type="module" src="{% static 'js/pages/main.js' %}"></script>
 {% endblock %}

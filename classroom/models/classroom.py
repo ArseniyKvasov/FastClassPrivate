@@ -1,13 +1,13 @@
 from django.db import models, transaction
 from django.conf import settings
 from django.core.exceptions import ValidationError
-
-from courses.models import Lesson, LessonCopy
+import random
+from courses.models import Lesson
 
 
 def generate_join_password():
-    import random, string
-    return "".join(random.choices(string.ascii_letters + string.digits, k=12))
+    """Генерирует случайный пароль из 4 цифр"""
+    return "".join(random.choices("0123456789", k=4))
 
 
 class Classroom(models.Model):
@@ -26,14 +26,6 @@ class Classroom(models.Model):
         null=True,
         blank=True,
         related_name="classrooms",
-    )
-
-    lesson_copy = models.ForeignKey(
-        LessonCopy,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="classrooms_copy",
     )
 
     students = models.ManyToManyField(
@@ -115,40 +107,3 @@ class Classroom(models.Model):
         else:
             available_users = []
         return available_users
-
-    def get_attached_lesson(self):
-        """
-        Возвращает словарь с привязанным уроком:
-        {"id": int, "is_copy": bool} или None, если урок не привязан.
-        """
-        if self.lesson_copy:
-            return {"id": self.lesson_copy.id, "is_copy": True}
-        elif self.lesson:
-            return {"id": self.lesson.id, "is_copy": False}
-        return None
-
-    def attach_lesson(self, lesson_obj, user):
-        """
-        Привязывает Lesson или LessonCopy к классу.
-        Проверяет, является ли пользователь создателем оригинального курса.
-        """
-        from courses.services import create_course_copy_for_user
-
-        if isinstance(lesson_obj, Lesson):
-            if lesson_obj.course.creator == user:
-                self.lesson = lesson_obj
-                self.lesson_copy = None
-            else:
-                course_copy = create_course_copy_for_user(lesson_obj.course, user, keep_user_content=True)
-                lesson_copy = course_copy.lessons.filter(original_lesson=lesson_obj).first()
-                if not lesson_copy:
-                    raise ValueError("LessonCopy not found")
-                self.lesson = None
-                self.lesson_copy = lesson_copy
-        elif isinstance(lesson_obj, LessonCopy):
-            self.lesson_copy = lesson_obj
-            self.lesson = None
-        else:
-            raise TypeError("Можно привязать только Lesson или LessonCopy")
-
-        self.save(update_fields=["lesson", "lesson_copy"])

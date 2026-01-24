@@ -1,4 +1,4 @@
-from courses.models import Lesson, Section, Task, LessonCopy, SectionCopy
+from courses.models import Lesson, Section, Task
 import json
 from django.db import transaction
 from django.views.decorators.http import require_POST
@@ -57,6 +57,9 @@ def create_section(request):
             return JsonResponse({"error": "Название раздела не может быть пустым"}, status=400)
 
         lesson = get_object_or_404(Lesson, id=lesson_id)
+
+        if request.user != lesson.course.creator:
+            return JsonResponse({"error": "Доступ запрещен."}, status=403)
 
         order = lesson.sections.count()
 

@@ -389,8 +389,10 @@ export function attachControlsToTaskCard(taskCard) {
             if (!confirmed) return;
 
             try {
-                await deleteTask(taskId);
-                taskCard.remove();
+                const result = await deleteTask(taskId);
+                if (result?.success) {
+                    taskCard.remove();
+                }
             } catch {
                 showNotification("Ошибка удаления");
             }

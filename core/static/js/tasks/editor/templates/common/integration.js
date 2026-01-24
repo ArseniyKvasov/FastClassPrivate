@@ -32,7 +32,6 @@ export function renderIntegrationTaskEditor(taskData = null) {
 
         <div class="mb-3">
             <small class="text-muted">
-                Поддерживаются:
                 <span class="badge bg-light text-dark me-1">YouTube</span>
                 <span class="badge bg-light text-dark me-1">Wordwall</span>
                 <span class="badge bg-light text-dark me-1">Miro</span>

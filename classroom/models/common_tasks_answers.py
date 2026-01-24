@@ -4,7 +4,7 @@ from django.db import models
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 from .base import BaseAnswer
-from courses.models import TestTask, TrueFalseTask, FillGapsTask, MatchCardsTask, TextInputTask
+from courses.services import get_task_effective_data
 from classroom.utils import normalize_str
 
 
@@ -21,10 +21,10 @@ class TestTaskAnswer(BaseAnswer):
         if self.is_checked:
             raise ValidationError("Ответ уже проверен и не может быть изменен")
 
-        input_answers = data.get("answers", [])
-        test_task = self.task.specific
-        questions = getattr(test_task, "questions", [])
+        task_data = get_task_effective_data(self.task)
+        questions = task_data.get("questions", [])
 
+        input_answers = data.get("answers", [])
         if not self.answers or len(self.answers) != len(questions):
             self.answers = [
                 {"question_index": i, "selected_option": None, "is_correct": False}
@@ -48,8 +48,8 @@ class TestTaskAnswer(BaseAnswer):
         self.correct_answers = 0
         self.wrong_answers = 0
 
-        test_task = self.task.specific
-        questions = getattr(test_task, "questions", [])
+        task_data = get_task_effective_data(self.task)
+        questions = task_data.get("questions", [])
 
         for i, answer_data in enumerate(self.answers):
             selected_idx = answer_data.get("selected_option")
@@ -90,10 +90,10 @@ class TrueFalseTaskAnswer(BaseAnswer):
         if self.is_checked:
             raise ValidationError("Ответ уже проверен и не может быть изменен")
 
-        input_answers = data.get("answers", [])
-        truefalse_task = self.task.specific
-        statements = getattr(truefalse_task, "statements", [])
+        task_data = get_task_effective_data(self.task)
+        statements = task_data.get("statements", [])
 
+        input_answers = data.get("answers", [])
         if not self.answers or len(self.answers) != len(statements):
             self.answers = [
                 {"statement_index": i, "selected_value": None, "is_correct": False}
@@ -117,8 +117,8 @@ class TrueFalseTaskAnswer(BaseAnswer):
         self.correct_answers = 0
         self.wrong_answers = 0
 
-        truefalse_task = self.task.specific
-        statements = getattr(truefalse_task, "statements", [])
+        task_data = get_task_effective_data(self.task)
+        statements = task_data.get("statements", [])
 
         for i, answer_data in enumerate(self.answers):
             selected_value = answer_data.get("selected_value")
@@ -155,6 +155,9 @@ class FillGapsTaskAnswer(BaseAnswer):
         ]
 
     def save_answer_data(self, data):
+        task_data = get_task_effective_data(self.task)
+        correct_answers = task_data.get("answers", [])
+
         current_answers = dict(self.answers or {})
 
         for key, value in data.items():
@@ -165,46 +168,30 @@ class FillGapsTaskAnswer(BaseAnswer):
 
                 old_answer = current_answers.get(gap_id, {}).get("value")
                 if old_answer != user_value:
-                    current_answers[gap_id] = {
-                        "value": user_value,
-                        "is_correct": None
-                    }
-                    self._check_and_update_single_gap(gap_id, current_answers)
+                    current_answers[gap_id] = {"value": user_value, "is_correct": None}
+                    self._check_and_update_single_gap(gap_id, current_answers, correct_answers)
 
         self.total_answers = self.get_task_total_answers()
         self.answers = current_answers
         self.answered_at = timezone.now()
         self.save()
 
-    def _check_and_update_single_gap(self, gap_id, answers_dict):
+    def _check_and_update_single_gap(self, gap_id, answers_dict, correct_answers):
         try:
-            fill_task = self.task.specific
-            if not isinstance(fill_task, FillGapsTask):
-                return
-
-            correct_answers = fill_task.answers or []
             gap_index = int(gap_id)
-
             if 0 <= gap_index < len(correct_answers):
                 user_value = answers_dict[gap_id].get("value", "")
-                correct_value = correct_answers[gap_index]
-                is_correct = normalize_str(correct_value) == normalize_str(user_value)
-
-                old_correct_status = answers_dict[gap_id].get("is_correct")
-                if old_correct_status != is_correct:
-                    answers_dict[gap_id]["is_correct"] = is_correct
-                    if is_correct:
-                        self.increment_correct_answers()
-                    else:
-                        self.increment_wrong_answers()
-
+                is_correct = normalize_str(correct_answers[gap_index]) == normalize_str(user_value)
+                answers_dict[gap_id]["is_correct"] = is_correct
+                if is_correct:
+                    self.increment_correct_answers()
+                else:
+                    self.increment_wrong_answers()
         except Exception:
             answers_dict[gap_id]["is_correct"] = None
 
     def get_answer_data(self):
-        return {
-            "answers": self.answers
-        }
+        return {"answers": self.answers}
 
     def get_correct_count(self):
         return self.correct_answers
@@ -213,10 +200,7 @@ class FillGapsTaskAnswer(BaseAnswer):
         return self.get_task_total_answers()
 
     def is_completed(self):
-        total_gaps = self.get_total_gaps()
-        if total_gaps == 0:
-            return False
-        return len(self.answers) >= total_gaps
+        return bool(self.answers) and len(self.answers) >= self.get_total_gaps()
 
     def delete_answers(self):
         self.answers = {}
@@ -236,88 +220,63 @@ class MatchCardsTaskAnswer(BaseAnswer):
         ]
 
     def save_answer_data(self, data):
+        task_data = get_task_effective_data(self.task)
+        cards = task_data.get("cards", [])
+
         selected_pair = data.get("selected_pair")
         if not isinstance(selected_pair, dict):
             raise ValidationError("selected_pair должен быть объектом")
 
         left = selected_pair.get("card_left")
         right = selected_pair.get("card_right")
-
         if left is None or right is None:
             raise ValidationError("В selected_pair нужны поля card_left и card_right")
 
         current_answers = dict(self.answers or {})
-
         old_right = current_answers.get(left, {}).get("card_right")
         if old_right != right:
-            self.last_pair = {
-                "card_left": left,
-                "card_right": right
-            }
+            self.last_pair = {"card_left": left, "card_right": right}
             self.last_pair_timestamp = time.time()
-
-            current_answers[left] = {
-                "card_right": right,
-                "is_correct": None
-            }
-
-            self._check_and_update_single_pair(left, current_answers)
+            current_answers[left] = {"card_right": right, "is_correct": None}
+            self._check_and_update_single_pair(left, current_answers, cards)
 
         self.total_answers = self.get_task_total_answers()
         self.answers = current_answers
         self.answered_at = timezone.now()
         self.save()
 
-    def _check_and_update_single_pair(self, left_card, answers_dict):
+    def _check_and_update_single_pair(self, left_card, answers_dict, correct_pairs):
         try:
-            match_task = self.task.specific
-            if not isinstance(match_task, MatchCardsTask):
-                return
-
             answer_data = answers_dict[left_card]
             right_card = answer_data.get("card_right", "")
-            is_correct = self._is_pair_correct(match_task, left_card, right_card)
-
-            old_correct_status = answer_data.get("is_correct")
-            if old_correct_status != is_correct:
-                answer_data["is_correct"] = is_correct
-                if is_correct:
-                    self.increment_correct_answers()
-                else:
-                    self.increment_wrong_answers()
-
+            left_selected = normalize_str(left_card)
+            right_selected = normalize_str(right_card)
+            is_correct = False
+            for correct_pair in correct_pairs or []:
+                left_expected = normalize_str(correct_pair.get("card_left", ""))
+                right_expected = normalize_str(correct_pair.get("card_right", ""))
+                if left_expected == left_selected:
+                    is_correct = right_expected == right_selected
+                    break
+            answers_dict[left_card]["is_correct"] = is_correct
+            if is_correct:
+                self.increment_correct_answers()
+            else:
+                self.increment_wrong_answers()
         except Exception:
             answers_dict[left_card]["is_correct"] = None
 
     def get_answer_data(self):
-        response_data = {
-            "answers": self.answers
-        }
-
+        response_data = {"answers": self.answers}
         current_time = time.time()
         if (self.last_pair and self.last_pair_timestamp and
                 current_time - self.last_pair_timestamp <= 1.2):
-
             last_left = self.last_pair.get("card_left")
             if last_left and last_left in self.answers:
                 answer_data = self.answers[last_left]
                 if answer_data.get("is_correct") is False:
                     response_data["last_pair"] = self.last_pair
-
         return response_data
-
-    def _is_pair_correct(self, match_task, left_card, right_card):
-        left_selected = normalize_str(left_card)
-        right_selected = normalize_str(right_card)
-
-        for correct_pair in match_task.cards or []:
-            left_expected = normalize_str(correct_pair.get("card_left", ""))
-            right_expected = normalize_str(correct_pair.get("card_right", ""))
-
-            if left_expected == left_selected:
-                return right_expected == right_selected
-
-        return False
 
     def delete_answers(self):
         self.answers = {}
@@ -337,15 +296,12 @@ class TextInputTaskAnswer(BaseAnswer):
         ]
 
     def save_answer_data(self, data):
-        current_text = data.get("current_text", "")
-        self.current_text = current_text
+        self.current_text = data.get("current_text", "")
         self.answered_at = timezone.now()
         self.save()
 
     def get_answer_data(self):
-        return {
-            "current_text": self.current_text,
-        }
+        return {"current_text": self.current_text}
 
     def delete_answers(self):
         self.current_text = ""
