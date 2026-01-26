@@ -73,7 +73,7 @@ class CloneCourseTests(TestCase):
         Проверяем:
         1) Оригинальный курс увеличивает версию на 1
         2) Клон создаёт новый файл с другим именем и той же версией
-        3) Оба курса остаются активными (оригинал активен, клон неактивен по умолчанию)
+        3) Оба курса остаются активными
         4) Файлы правильно клонируются
         """
         original_version = self.course.version
@@ -85,7 +85,8 @@ class CloneCourseTests(TestCase):
         self.assertTrue(self.course.is_active)
 
         self.assertNotEqual(clone_course.id, self.course.id)
-        self.assertFalse(clone_course.is_active)
+        self.assertTrue(clone_course.is_active)
+        self.assertFalse(clone_course.is_public)
         self.assertEqual(clone_course.version, self.course.version)
 
         self.assertEqual(clone_course.lessons.count(), 1)

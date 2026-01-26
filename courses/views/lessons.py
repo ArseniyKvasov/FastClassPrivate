@@ -30,6 +30,9 @@ def create_lesson(request, course_id):
     except Course.DoesNotExist:
         return JsonResponse({"error": "Курс не найден"}, status=404)
 
+    if course.creator != request.user:
+        return JsonResponse({"error": "Доступ запрещен"}, status=403)
+
     last_order = course.lessons.aggregate(max_order=Max('order'))['max_order'] or 0
     new_order = last_order + 1
 
@@ -62,6 +65,9 @@ def edit_lesson(request, lesson_id):
         lesson = Lesson.objects.get(id=lesson_id)
     except Lesson.DoesNotExist:
         return JsonResponse({"error": "Урок не найден"}, status=404)
+
+    if lesson.course.creator != request.user:
+        return JsonResponse({"error": "Доступ запрещен"}, status=403)
 
     lesson.title = title
     lesson.description = description
@@ -105,6 +111,9 @@ def reorder_lessons(request, course_id):
             course = Course.objects.get(id=course_id)
         except Course.DoesNotExist:
             return JsonResponse({"error": "Курс не найден"}, status=404)
+
+        if course.creator != request.user:
+            return JsonResponse({"error": "Доступ запрещен"}, status=403)
 
         with transaction.atomic():
             lessons = list(course.lessons.filter(id__in=order))

@@ -31,6 +31,7 @@ class CourseCopyUserTests(TestCase):
         self.course = Course.objects.create(
             creator=self.owner,
             title="Course",
+            is_public=True,
         )
 
         lesson = Lesson.objects.create(

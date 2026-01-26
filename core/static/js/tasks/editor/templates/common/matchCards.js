@@ -132,12 +132,18 @@ function escapeHtmlAttr(v) {
         .replace(/>/g, "&gt;");
 }
 
+/**
+ * Обрабатывает вставку карточек из буфера обмена.
+ *
+ * @param {ClipboardEvent} e
+ * @param {HTMLElement} container
+ */
 export function handleAutoPasteCards(e, container) {
     const clipboardData = e.clipboardData || window.clipboardData;
     const text = clipboardData?.getData("text/plain");
     if (!text) return;
 
-    if (!/[\t]|[-–—]|[|]|\s{2,}/.test(text)) return;
+    if (!/[\t]|[|]|\s[-–—]\s/.test(text)) return;
 
     const targetInput = e.target.closest("input");
     if (!targetInput) return;
@@ -147,7 +153,6 @@ export function handleAutoPasteCards(e, container) {
     const rawLines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
     if (!rawLines.length) return;
 
-    // Удаляем текущие пустые строки (кроме той, где targetInput)
     const allRows = [...container.querySelectorAll(".match-card-row")];
     allRows.forEach(row => {
         const left = row.querySelector(".card-left").value.trim();
@@ -158,29 +163,54 @@ export function handleAutoPasteCards(e, container) {
     let inserted = 0;
 
     rawLines.forEach(line => {
-        const parts = line.split(/\t+|\s{2,}|[|]|[-–—]/).map(p => p.trim()).filter(Boolean);
+        const dashWithSpacesRegex = /\s[-–—]\s/;
 
-        let left = "";
-        let right = "";
+        if (dashWithSpacesRegex.test(line)) {
+            const parts = line.split(dashWithSpacesRegex);
+            let left = parts[0] || "";
+            let right = parts.slice(1).join(" ").trim();
 
-        if (parts.length >= 2) {
-            left = parts.slice(0, parts.length - 1).join(" ").trim();
-            right = parts[parts.length - 1].trim();
-        } else if (parts.length === 1) {
-            left = parts[0] || "";
-            right = "";
+            left = cleanCardText(left);
+            right = cleanCardText(right);
+
+            if (left || right) {
+                addMatchCard(container, left, right);
+                inserted++;
+            }
         }
+        else if (/\t+|[|]/.test(line)) {
+            const parts = line.split(/\t+|[|]/).map(p => p.trim()).filter(Boolean);
 
-        left = cleanCardText(left);
-        right = cleanCardText(right);
+            let left = "";
+            let right = "";
 
-        if (left || right) {
-            addMatchCard(container, left, right);
-            inserted++;
+            if (parts.length >= 2) {
+                left = parts.slice(0, parts.length - 1).join(" ").trim();
+                right = parts[parts.length - 1].trim();
+            } else if (parts.length === 1) {
+                left = parts[0] || "";
+                right = "";
+            }
+
+            left = cleanCardText(left);
+            right = cleanCardText(right);
+
+            if (left || right) {
+                addMatchCard(container, left, right);
+                inserted++;
+            }
+        }
+        else if (/[-–—]/.test(line) && !dashWithSpacesRegex.test(line)) {
+            const left = cleanCardText(line);
+            const right = "";
+
+            if (left) {
+                addMatchCard(container, left, right);
+                inserted++;
+            }
         }
     });
 
-    // Удаляем все пустые строки после вставки
     [...container.querySelectorAll(".match-card-row")].forEach(row => {
         const left = row.querySelector(".card-left").value.trim();
         const right = row.querySelector(".card-right").value.trim();
@@ -197,13 +227,6 @@ export function handleAutoPasteCards(e, container) {
 /**
  * Чистит текст карточки от лишних ведущих маркеров.
  *
- * Удаляет только ведущие маркеры:
- *  - обёрнутые в скобки в начале: "(A)", "(1)"
- *  - ведущие номера: "1.", "2)"
- *  - ведущие буквы/марки вариантов: "A)", "a.", "Б)", "b)"
- *
- * НИЧЕГО не удаляет из середины/конца строки (чтобы не обрезать содержимое).
- *
  * @param {string} s
  * @returns {string}
  */
@@ -211,17 +234,9 @@ function cleanCardText(s) {
     if (!s) return "";
 
     s = s.trim();
-
-    // Удаляем оборачивающие кавычки в начале/конце
     s = s.replace(/^[`"'«»]\s*/, "").replace(/\s*[`"'«»]$/, "");
-
-    // Удаляем ведущие скобочные маркеры в начале: "(A) ", "(1) "
     s = s.replace(/^(?:\(\s*[A-Za-zА-Яа-я0-9]{1,5}\s*\))\s*/u, "");
-
-    // Удаляем ведущие номера или буквенные маркеры в начале: "1. ", "2) ", "A) ", "a. ", "Б) "
     s = s.replace(/^(?:\d+\s*[\.\)]\s*|[A-Za-zА-Яа-я]\s*[\.\)]\s*)+/u, "");
-
-    // Сокращаем множественные пробелы и трим
     s = s.replace(/\s{2,}/g, " ").trim();
 
     return s;

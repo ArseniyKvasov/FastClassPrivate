@@ -136,6 +136,9 @@ def create_lesson(request, course_id):
     """
     course = get_object_or_404(Course, id=course_id)
 
+    if course.creator != request.user:
+        return JsonResponse({"error": "Доступ запрещен"}, status=403)
+
     title = request.POST.get("title")
     description = request.POST.get("description", "")
     order = request.POST.get("order", 0)
@@ -162,34 +165,32 @@ def create_lesson(request, course_id):
 @login_required
 def course_detail(request, course_id):
     """
-    Возвращает данные курса и список уроков.
-    Проверяет, есть ли обновление курса.
+    Детальная страница курса.
+
+    Для пользовательских курсов (копий) проверяет наличие новой версии оригинального курса.
+    Если есть новая версия - передает ее ID для отображения кнопки "Обновить курс".
+    Для публичных курсов проверка версий не выполняется.
     """
+
     course = get_object_or_404(Course, id=course_id)
+
+    if course.creator != request.user and course.is_public == False:
+        return JsonResponse({"error": "Доступ запрещен"}, status=403)
+
     lessons = course.lessons.all().order_by("order")
 
-    new_course = None
-    update_available = False
+    latest_version_id = None
 
-    if course.new_version_course:
-        new_course = course.new_version_course
-        update_available = True
+    if course.original_course:
+        latest_version = course.original_course.get_latest_version()
+        if latest_version and latest_version.id != course.original_course.id:
+            latest_version_id = latest_version.id
 
-    elif course.original_course:
-        original = course.original_course
-
-        latest_version = original.get_latest_version()
-
-        if latest_version != original:
-            new_course = latest_version
-            update_available = True
-
-        elif not original.is_active:
-            update_available = True
-
-    return render(request, "courses/details.html", {
+    context = {
         "lessons": lessons,
         "course": course,
-        "update_available": update_available,
-        "new_course_id": new_course.id if new_course else None,
-    })
+        "is_public": course.is_public,
+        "latest_version_id": latest_version_id,
+    }
+
+    return render(request, "courses/details.html", context)

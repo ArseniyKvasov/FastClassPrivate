@@ -98,13 +98,11 @@ function findMaterialItem(entity, id) {
 function updateCourseCard(itemEl, updatedData) {
     if (!itemEl) return;
 
-    // Обновляем заголовок
     const titleEl = itemEl.querySelector('.card-body h5');
     if (titleEl && updatedData.title) {
         titleEl.textContent = updatedData.title;
     }
 
-    // Обновляем бейдж предмета
     const subjectBadge = itemEl.querySelector('.card-body .badge');
     const subjectDisplay = updatedData.subject_display || updatedData.subject;
 
@@ -112,7 +110,6 @@ function updateCourseCard(itemEl, updatedData) {
         subjectBadge.textContent = subjectDisplay;
     }
 
-    // Обновляем данные в кнопке редактирования
     const editButton = itemEl.querySelector('[data-action="edit"]');
     if (editButton) {
         if (updatedData.title) editButton.dataset.title = updatedData.title;
@@ -218,7 +215,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Обработка создания нового элемента
         if (mode === 'create') {
             if (data.url) {
                 window.location.href = data.url;
@@ -233,12 +229,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 newCard.dataset.category = listCategory;
                 const itemId = String(data.id || Date.now());
 
-                // Для курса добавляем бейдж предмета
                 const subjectBadge = entity === 'course' && data.subject_display
                     ? `<span class="badge bg-primary small">${data.subject_display}</span>`
                     : '';
 
-                // Для класса добавляем бейдж роли
                 const roleBadge = entity === 'classroom'
                     ? `<span class="badge bg-success small">Ученик</span>`
                     : '';
@@ -290,25 +284,20 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Обработка редактирования существующего элемента
         const entityType = entity;
         const entityId = idInput.value;
 
-        // Находим элемент карточки
         const itemEl = findMaterialItem(entityType, entityId);
 
         if (itemEl) {
             if (entityType === 'course') {
-                // Обновляем карточку курса
                 updateCourseCard(itemEl, data.updated || data);
             } else {
-                // Обновляем карточку класса
                 const titleEl = itemEl.querySelector('.card-body h5');
                 if (titleEl && data.updated?.title) {
                     titleEl.textContent = data.updated.title;
                 }
 
-                // Обновляем данные в кнопке редактирования
                 const editButton = itemEl.querySelector('[data-action="edit"]');
                 if (editButton && data.updated?.title) {
                     editButton.dataset.title = data.updated.title;
@@ -319,7 +308,6 @@ document.addEventListener('DOMContentLoaded', () => {
         bootstrap.Modal.getInstance(modalEl).hide();
     });
 
-    // Обработчик для кнопок создания
     document.querySelectorAll('[data-create]').forEach(el => {
         el.addEventListener('click', (ev) => {
             ev.preventDefault();
@@ -332,7 +320,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Обработчик для кнопок редактирования и удаления
     document.addEventListener('click', async (e) => {
         const target = e.target;
         const actionEl = target.closest('[data-action]');
@@ -342,14 +329,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const entity = actionEl.dataset.entity;
         const id = actionEl.dataset.id;
 
-        // Обработка редактирования
         if (action === 'edit') {
             e.preventDefault();
             const title = actionEl.dataset.title || '';
             const description = actionEl.dataset.description || '';
             const subject = actionEl.dataset.subject || 'other';
 
-            // Устанавливаем правильные значения в модальном окне
             openEntityModal({
                 mode: 'edit',
                 entity: entity,
@@ -359,7 +344,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 description
             });
 
-            // Убедимся, что скрываем/показываем нужные поля
             const descWrapper = document.getElementById('universalModalDescriptionWrapper');
             if (entity === 'course') {
                 descWrapper.classList.remove('d-none');
@@ -368,7 +352,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Обработка удаления
         if (action === 'delete') {
             e.preventDefault();
             const ok = await confirmAction('Удалить без возможности восстановления?');

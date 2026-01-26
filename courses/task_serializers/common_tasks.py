@@ -233,4 +233,5 @@ class IntegrationTaskSerializer(serializers.ModelSerializer):
 
         clean_attrs['style'] = clean_attrs.get('style', 'border: none; max-width: 100%;')
 
-        return f'<iframe {" ".join(f"{k}=\"{v}\"" for k, v in clean_attrs.items())}></iframe>'
+        attrs_string = " ".join(f'{k}="{v}"' for k, v in clean_attrs.items())
+        return f'<iframe {attrs_string}></iframe>'

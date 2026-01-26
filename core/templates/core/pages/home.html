@@ -101,11 +101,9 @@
             </div>
             {% endfor %}
 
-            {% if user_classrooms %}
             <div class="col-12 text-end mt-3 material-item" data-category="classrooms">
                 <a href="#" class="fw-bold text-primary text-decoration-none" data-create="classroom">+ Создать класс</a>
             </div>
-            {% endif %}
 
             {% for course in user_courses %}
             <div class="col-12 col-md-6 col-lg-4 material-item" data-category="my_courses">
@@ -162,11 +160,9 @@
             </div>
             {% endfor %}
 
-            {% if user_courses %}
             <div class="col-12 text-end mt-3 material-item" data-category="my_courses">
                 <a href="#" class="fw-bold text-primary text-decoration-none" data-create="course">+ Создать курс</a>
             </div>
-            {% endif %}
 
             {% for course in math_courses %}
             <div class="col-12 col-md-6 col-lg-4 material-item" data-category="math">

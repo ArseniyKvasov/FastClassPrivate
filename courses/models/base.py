@@ -4,6 +4,7 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 from django.db import models, transaction
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.dispatch import receiver
@@ -28,16 +29,9 @@ TYPE_CHOICES = [
 
 
 class Course(models.Model):
-    """
-    Course может быть оригиналом или копией.
-    Поле original_course указывает на исходный курс (может быть null для оригинала).
-    Поле new_version_course указывает на новую версию этого курса.
-    Если new_version_course указан, текущий курс считается неактивным.
-    """
     id = models.BigAutoField(primary_key=True)
     creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name="courses")
 
-    # Ссылка на оригинальный курс (для копий)
     original_course = models.ForeignKey(
         "self",
         null=True,
@@ -47,17 +41,16 @@ class Course(models.Model):
         help_text="Оригинальный курс, если это копия"
     )
 
-    new_version_course = models.ForeignKey(
+    new_version = models.ForeignKey(
         "self",
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
-        related_name="previous_versions",
-        help_text="Новая версия этого курса, если есть"
+        related_name="previous_version",
+        help_text="Новая версия этого курса"
     )
 
     version = models.IntegerField(default=1)
-
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     subject = models.CharField(max_length=20, choices=SUBJECT_CHOICES, default="other")
@@ -70,15 +63,7 @@ class Course(models.Model):
 
     @property
     def is_active(self):
-        """
-        Вычисляемое свойство - активен ли курс.
-        Курс неактивен если:
-        1. Указано поле deactivated_at
-        2. ИЛИ есть новая версия курса (new_version_course)
-        """
         if self.deactivated_at is not None:
-            return False
-        if self.new_version_course is not None:
             return False
         return True
 
@@ -88,142 +73,161 @@ class Course(models.Model):
             self.save(update_fields=['deactivated_at'])
 
     def activate(self):
-        """
-        Активировать курс.
-        """
         if self.deactivated_at is not None:
             self.deactivated_at = None
             self.save(update_fields=['deactivated_at'])
 
-    def set_as_new_version_for(self, previous_course):
-        """
-        Установить этот курс как новую версию для предыдущего курса
-        и для всей его цепочки предыдущих версий.
-
-        Args:
-            previous_course: Курс, для которого этот курс становится новой версией
-        """
-        with transaction.atomic():
-            chain = previous_course.get_version_chain_with_previous()
-
-            for course_in_chain in chain:
-                if not course_in_chain.new_version_course:
-                    course_in_chain.new_version_course = self
-                    if course_in_chain.deactivated_at is None:
-                        course_in_chain.deactivated_at = timezone.now()
-                    course_in_chain.save(
-                        update_fields=['new_version_course', 'deactivated_at']
-                    )
-
-            if not self.original_course:
-                original = chain[0].original_course if chain[0].original_course else chain[0]
-                self.original_course = original
-                self.save(update_fields=['original_course'])
-
     def get_latest_version(self):
-        """
-        Получить самую последнюю версию курса.
-
-        Returns:
-            Course: Самая последняя версия курса в цепочке обновлений
-        """
         current = self
-
-        while current.new_version_course is not None:
-            current = current.new_version_course
-
+        while current.new_version is not None and current.new_version.is_public:
+            current = current.new_version
         return current
 
-    def get_version_chain(self):
+    def clean(self):
+        """Валидация данных перед сохранением"""
+        super().clean()
+
+        if self.new_version:
+            self._validate_no_cycle()
+
+        if self.new_version == self:
+            raise ValidationError({
+                'new_version': 'Курс не может быть новой версией самого себя'
+            })
+
+        if self.original_course and self.new_version and self.original_course == self.new_version:
+            raise ValidationError(
+                'Оригинальный курс и новая версия не могут ссылаться на один и тот же объект'
+            )
+
+    def _validate_no_cycle(self):
         """
-        Получить цепочку всех версий курса от текущей до последней.
-
-        Returns:
-            list: Список курсов в порядке от текущего к последнему
+        Проверка на циклические зависимости в цепочке версий.
+        Использует алгоритм обнаружения цикла в связном списке.
         """
-        chain = [self]
-        current = self
+        slow = self.new_version
+        fast = self.new_version.new_version if self.new_version else None
 
-        while current.new_version_course is not None:
-            current = current.new_version_course
-            chain.append(current)
+        visited_ids = {self.id}
 
-        return chain
+        while fast and fast.new_version:
+            if slow.id == self.id or fast.id == self.id:
+                raise ValidationError({
+                    'new_version': 'Обнаружена циклическая зависимость в цепочке версий'
+                })
 
-    def get_version_chain_with_previous(self):
-        """
-        Получить всю цепочку версий курса, включая предыдущие версии.
+            if slow.id == fast.id:
+                raise ValidationError({
+                    'new_version': 'Обнаружена циклическая зависимость в цепочке версий'
+                })
 
-        Returns:
-            list: Список всех курсов в цепочке от самой старой до самой новой
-        """
-        oldest = self
-        while True:
-            previous_versions = Course.objects.filter(new_version_course=oldest)
-            if previous_versions.exists():
-                oldest = previous_versions.first()
-            else:
+            if slow.id in visited_ids or fast.id in visited_ids:
+                raise ValidationError({
+                    'new_version': 'Обнаружена циклическая зависимость в цепочке версий'
+                })
+
+            visited_ids.add(slow.id)
+            visited_ids.add(fast.id)
+
+            slow = slow.new_version
+            fast = fast.new_version.new_version if fast.new_version else None
+
+            if not slow or not fast:
                 break
 
-        chain = []
-        current = oldest
+    def _check_version_chain_cycle(self):
+        """
+        Альтернативный метод проверки циклов - обход всей цепочки.
+        """
+        visited = set()
+        current = self.new_version
 
         while current:
-            chain.append(current)
-            current = current.new_version_course
+            if current.id == self.id:
+                raise ValidationError({
+                    'new_version': 'Обнаружена циклическая зависимость: курс ссылается на себя через цепочку версий'
+                })
 
-        return chain
+            if current.id in visited:
+                raise ValidationError({
+                    'new_version': 'Обнаружена циклическая зависимость в цепочке версий'
+                })
 
-    def get_previous_version(self):
-        """
-        Получить предыдущую версию курса.
+            visited.add(current.id)
+            current = current.new_version
 
-        Returns:
-            Course or None: Предыдущая версия курса, если существует
+    def save(self, *args, **kwargs):
         """
-        try:
-            return self.previous_versions.first()
-        except AttributeError:
-            return None
+        Переопределенный save с валидацией перед сохранением.
+        """
+        self.full_clean()
 
-    def has_newer_version(self):
-        """
-        Проверка, есть ли у курса более новая версия.
-        """
-        return self.new_version_course is not None
+        if self.new_version:
+            self._validate_no_cycle()
+            self._check_version_chain_cycle()
+
+        if self.new_version and not self.pk:
+            latest = self.get_latest_version_in_chain()
+            self.version = latest.version + 1 if latest else 1
+
+        super().save(*args, **kwargs)
+
+    def get_latest_version_in_chain(self):
+        """Получить последнюю версию в цепочке, начиная с текущего курса"""
+        current = self
+        while current.new_version is not None:
+            current = current.new_version
+        return current
 
     def delete(self, using=None, keep_parents=False):
         """
-        Безопасное удаление курса со всеми уроками, разделами и заданиями.
+        Безопасное удаление курса с обработкой связей версий.
         """
         with transaction.atomic():
-            Course.objects.filter(new_version_course=self).update(
-                new_version_course=None,
-                deactivated_at=None
-            )
+            Course.objects.filter(new_version=self).update(new_version=None)
 
             for lesson in self.lessons.all():
                 lesson.delete()
 
             super().delete(using=using, keep_parents=keep_parents)
 
-    def save(self, *args, **kwargs):
+    @classmethod
+    def get_version_chain(cls, course_id):
         """
-        Переопределяем save для автоматической деактивации при указании новой версии.
+        Получить всю цепочку версий для курса.
+        Возвращает список курсов в порядке от старого к новому.
         """
-        if self.new_version_course and not self.deactivated_at:
-            self.deactivated_at = timezone.now()
+        try:
+            course = cls.objects.get(id=course_id)
+        except cls.DoesNotExist:
+            return []
 
-        super().save(*args, **kwargs)
+        chain = []
+        current = course
+
+        while current.previous_version.exists():
+            current = current.previous_version.first()
+
+        while current:
+            chain.append(current)
+            current = current.new_version
+
+        return chain
 
     class Meta:
         app_label = "courses"
         indexes = [
             models.Index(fields=['deactivated_at']),
             models.Index(fields=['original_course']),
-            models.Index(fields=['new_version_course']),
+            models.Index(fields=['new_version']),
         ]
         ordering = ['-created_at']
+        constraints = [
+            models.CheckConstraint(
+                condition=~models.Q(new_version=models.F('id')),
+                name='course_not_reference_itself'
+            ),
+        ]
 
 
 class Lesson(models.Model):

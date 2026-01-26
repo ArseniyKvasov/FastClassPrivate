@@ -1,9 +1,46 @@
 from collections import defaultdict
-from typing import List, Optional, Dict, Any
-
+from typing import List, Dict, Any, Optional
 from django.db import transaction
-
+from django.core.exceptions import ValidationError
 from courses.models import Course, Lesson, Section, Task
+
+
+def _get_active_course_version(course: Course) -> Course:
+    """
+    Возвращает активную публичную версию курса, следуя по цепочке new_version.
+
+    Условия для возвращаемого курса:
+    1. is_active=True (не деактивирован)
+    2. is_public=True (публичный)
+
+    Если текущий курс не удовлетворяет условиям, ищет новую версию по цепочке.
+    """
+    current = course
+    visited = set()
+
+    while not (current.is_active and current.is_public):
+        if not current.new_version:
+            raise ValidationError(
+                f"Курс {course.id} не имеет активной публичной версии. "
+                f"Текущий статус: is_active={current.is_active}, is_public={current.is_public}"
+            )
+
+        if current.new_version_id in visited:
+            raise ValidationError(
+                f"Обнаружена циклическая зависимость в версиях курса {course.id}. "
+                f"Посещенные курсы: {visited}"
+            )
+
+        visited.add(current.id)
+        current = current.new_version
+
+        if len(visited) > 100:
+            raise ValidationError(
+                f"Слишком длинная цепочка версий для курса {course.id}. "
+                f"Возможно, есть циклическая зависимость."
+            )
+
+    return current
 
 
 @transaction.atomic
@@ -12,33 +49,36 @@ def create_course_copy_for_user(course: Course, user, keep_user_content: bool = 
     Создаёт или обновляет копию курса для пользователя.
 
     При первом создании:
-    - копируются Lesson и Section как обычные объекты с ссылкой на original_*;
+    - копируются Lesson и Section как обычные объекты с ссылкой на original_*
     - для каждой Task оригинального курса создаётся новая Task в копии курса с
-      original_task = <оригинальная Task> и пустым edited_content.
+      original_task = <оригинальная Task> и пустым edited_content
 
     При обновлении:
-    - синхронизируется структура по алгоритму predecessor (см. sync_course_copy_with_user),
-      учитывается флаг keep_user_content:
+    - синхронизируется структура по алгоритму predecessor
+    - учитывается флаг keep_user_content:
         * если False — пользовательские объекты удаляются и сбрасываются edited_content,
-          заголовки Lesson/Section приводятся к оригинальным;
+          заголовки Lesson/Section приводятся к оригинальным
         * если True — пользовательские объекты сохраняются и располагаются относительно
-          своих предшественников.
+          своих предшественников
     """
+    active_course = _get_active_course_version(course)
+
     course_copy, created = Course.objects.get_or_create(
         creator=user,
-        original_course=course,
+        original_course=active_course,
         defaults={
-            "title": course.title,
-            "description": course.description,
-            "version": getattr(course, "version", 1),
+            "title": active_course.title,
+            "description": active_course.description,
+            "version": active_course.version,
+            "subject": active_course.subject,
             "is_public": False,
         }
     )
 
     if created:
-        _populate_course_copy(course, course_copy)
+        _populate_course_copy(active_course, course_copy)
     else:
-        sync_course_copy_with_user(course_copy, course, keep_user_content=keep_user_content)
+        sync_course_copy_with_user(course_copy, active_course, keep_user_content=keep_user_content)
 
     normalize_order(course_copy)
     return course_copy
@@ -87,30 +127,28 @@ def _populate_course_copy(original_course: Course, course_copy: Course) -> None:
 def sync_course_copy_with_user(course_copy: Course, original_course: Course, keep_user_content: bool = True) -> None:
     """
     Синхронизирует копию курса с оригиналом по алгоритму:
-      1) удаляет объекты, привязанные к оригиналу, которых больше нет в оригинале;
-      2) сохраняет predecessor для пользовательских объектов;
+      1) удаляет объекты, привязанные к оригиналу, которых больше нет в оригинале
+      2) сохраняет predecessor для пользовательских объектов
       3) вставляет оригинальные объекты в порядке оригинала и располагает пользовательские
-         объекты после их предшественников;
+         объекты после их предшественников
       4) если keep_user_content=False — удаляет пользовательские объекты и сбрасывает edited_content,
-         а также сбрасывает заголовки Lessons/Sections до оригинальных.
-      5) в конце проставляет корректные order для всех уровней.
+         а также сбрасывает заголовки Lessons/Sections до оригинальных
+      5) в конце проставляет корректные order для всех уровней
     """
     course_copy.title = original_course.title
     course_copy.description = original_course.description
-    course_copy.version = getattr(original_course, "version", course_copy.version)
-    course_copy.save(update_fields=["title", "description", "version"])
+    course_copy.version = original_course.version
+    course_copy.subject = original_course.subject
+    course_copy.save(update_fields=["title", "description", "version", "subject"])
 
-    # 1) Уроки: удалить копии оригиналов, которых больше нет
     orig_lesson_ids = {l.id for l in original_course.lessons.all()}
     for lesson in list(course_copy.lessons.all()):
         if lesson.original_lesson_id and lesson.original_lesson_id not in orig_lesson_ids:
             lesson.delete()
 
     if not keep_user_content:
-        # удалить уроки, созданные пользователем (без original_lesson)
         course_copy.lessons.filter(original_lesson__isnull=True).delete()
 
-    # перестроение уроков с запоминанием predecessor для пользовательских уроков
     existing_lessons = list(course_copy.lessons.all().order_by("order", "id"))
     user_lesson_predecessor: Dict[Any, Optional[Any]] = {}
     prev = None
@@ -126,7 +164,7 @@ def sync_course_copy_with_user(course_copy: Course, original_course: Course, kee
         if lesson_copy:
             if not keep_user_content:
                 lesson_copy.title = orig.title
-            lesson_copy.save(update_fields=["title"])
+                lesson_copy.save(update_fields=["title"])
         else:
             lesson_copy = Lesson.objects.create(
                 course=course_copy,
@@ -148,7 +186,6 @@ def sync_course_copy_with_user(course_copy: Course, original_course: Course, kee
             else:
                 new_lessons.insert(idx + 1, user_lesson)
 
-    # Синхронизация секций и заданий внутри каждого урока
     for lesson_copy in new_lessons:
         orig_lesson = lesson_copy.original_lesson
 
@@ -176,7 +213,7 @@ def sync_course_copy_with_user(course_copy: Course, original_course: Course, kee
                 if section_copy:
                     if not keep_user_content:
                         section_copy.title = orig_section.title
-                    section_copy.save(update_fields=["title"])
+                        section_copy.save(update_fields=["title"])
                 else:
                     section_copy = Section.objects.create(
                         lesson=lesson_copy,
@@ -198,11 +235,9 @@ def sync_course_copy_with_user(course_copy: Course, original_course: Course, kee
                 else:
                     new_sections.insert(idx + 1, user_section)
 
-        # Синхронизация заданий внутри секции
         for section_copy in new_sections:
             orig_section = section_copy.original_section
 
-            # удалить задачи-копии оригиналов, которых больше нет в оригинале
             if orig_section:
                 orig_task_ids = {t.id for t in orig_section.tasks.all()}
                 for t in list(section_copy.tasks.filter(original_task__isnull=False)):
@@ -210,15 +245,12 @@ def sync_course_copy_with_user(course_copy: Course, original_course: Course, kee
                         t.delete()
 
             if not keep_user_content:
-                # удалить пользовательские задачи (original_task is null)
                 section_copy.tasks.filter(original_task__isnull=True).delete()
-                # сбросить edited_content у оставшихся копий (original_task != null)
                 for t in section_copy.tasks.filter(original_task__isnull=False):
                     if t.edited_content != {}:
                         t.edited_content = {}
                         t.save(update_fields=["edited_content"])
 
-            # собираем текущие задачи: сначала пользовательские (original_task is null), затем копии
             user_tasks = list(section_copy.tasks.filter(original_task__isnull=True))
             copy_tasks = list(section_copy.tasks.filter(original_task__isnull=False))
 
@@ -228,7 +260,6 @@ def sync_course_copy_with_user(course_copy: Course, original_course: Course, kee
             user_tasks.sort(key=_sort_key)
             copy_tasks.sort(key=_sort_key)
 
-            # группируем пользовательские элементы по предшественнику оригинала
             tasks_objs = user_tasks + copy_tasks
             groups: Dict[Optional[Any], List[Any]] = defaultdict(list)
             last_orig_id: Optional[Any] = None

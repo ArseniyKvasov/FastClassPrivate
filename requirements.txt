@@ -2,25 +2,28 @@
 Django>=5.2,<6.1
 djangorestframework>=3.16
 
-# Database
+# БД
 psycopg2-binary>=2.9,<3.0
 
-# Images & safe HTML
+# Окружение
+python-decouple>=3.8
+
+# Очистка HTML
 Pillow>=11.3.0
 bleach>=6.0.0
 tinycss2
 
-# Channels & redis
+# Websocket
 channels>=4.3.2,<5.0
 channels-redis>=4.3.0
 websockets>=11.0.3
 
-# ASGI server
+# ASGI
 uvicorn[standard]>=0.30.6
 
-# Static files
+# Статика
 whitenoise>=6.11.0
 
-# Tests
+# Тестирование
 pytest
 pytest-django

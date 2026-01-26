@@ -1,234 +1,150 @@
 import { getCsrfToken, escapeHtml, confirmAction } from '/static/js/tasks/utils.js';
 
-let lessonsContainer = null;
-let createUrl = null;
-let reorderUrl = null;
-let courseId = null;
-let scrollBtn = null;
-let reorderTrigger = null;
+let lessonsContainer;
+let lessonsScrollContainer;
+let createUrl;
+let reorderUrl;
+let scrollBtn;
+let reorderTrigger;
+let addTrigger;
+let lessonForm;
+let previewModal;
 let isReorderMode = false;
 let dragSrcElement = null;
-let currentPreviewLessonId = null;
-let previewModal = null;
-let viewUpdateBtn = null;
-let downloadUpdateBtn = null;
-let lessonForm = null;
-let addTrigger = null;
+let dropbarOverlay = null;
 
 function initPreviewModal() {
-    const modalElement = document.getElementById('lessonPreviewModal');
-    if (modalElement && !previewModal) {
-        previewModal = new bootstrap.Modal(modalElement);
-    }
+    if (previewModal) return;
+    const el = document.getElementById('lessonPreviewModal');
+    if (el) previewModal = new bootstrap.Modal(el);
 }
 
 function openLessonPreview(lessonId) {
     initPreviewModal();
-    if (!previewModal) {
-        console.error('Модальное окно предпросмотра не найдено');
-        return;
-    }
-
-    currentPreviewLessonId = lessonId;
+    if (!previewModal) return;
     const frame = document.getElementById('lessonPreviewFrame');
     const loading = document.getElementById('lessonPreviewLoading');
     const errorDiv = document.getElementById('lessonPreviewError');
-    const selectBtn = document.getElementById('selectClassroomBtn');
-
-    loading.classList.remove('d-none');
-    frame.style.display = 'none';
-    errorDiv.classList.add('d-none');
-
-    const previewUrl = `/courses/lesson/${lessonId}/preview/`;
-
-    const selectHandler = () => {
-        console.log('Выбрать урок:', lessonId);
-        previewModal.hide();
-    };
-
-    selectBtn.removeEventListener('click', selectHandler);
-    selectBtn.addEventListener('click', selectHandler);
-
-    frame.src = '';
+    if (loading) loading.classList.remove('d-none');
+    if (errorDiv) errorDiv.classList.add('d-none');
+    if (frame) {
+        frame.style.display = 'none';
+        frame.src = '';
+    }
     setTimeout(() => {
-        frame.src = previewUrl;
+        if (frame) frame.src = `/courses/lesson/${lessonId}/preview/`;
     }, 100);
-
-    frame.onload = () => {
-        loading.classList.add('d-none');
-        frame.style.display = 'block';
-    };
-
-    frame.onerror = () => {
-        loading.classList.add('d-none');
-        errorDiv.classList.remove('d-none');
-    };
-
+    if (frame) {
+        frame.onload = () => {
+            if (loading) loading.classList.add('d-none');
+            frame.style.display = 'block';
+        };
+        frame.onerror = () => {
+            if (loading) loading.classList.add('d-none');
+            if (errorDiv) errorDiv.classList.remove('d-none');
+        };
+    }
     previewModal.show();
-}
-
-function setupUpdateButtons() {
-    if (viewUpdateBtn) {
-        viewUpdateBtn.addEventListener('click', () => {
-            console.log('Кнопка "Посмотреть" нажата для курса:', courseId);
-        });
-    }
-
-    if (downloadUpdateBtn) {
-        downloadUpdateBtn.addEventListener('click', () => {
-            console.log('Кнопка "Загрузить" нажата для курса:', courseId);
-        });
-    }
-}
-
-function setupLessonButtons() {
-    lessonsContainer.addEventListener('click', (e) => {
-        const selectBtn = e.target.closest('.select-lesson-btn');
-        const previewBtn = e.target.closest('[title="Предпросмотр"]');
-
-        if (selectBtn) {
-            const lessonId = selectBtn.dataset.lessonId;
-            console.log('Кнопка "Выбрать" нажата для урока:', lessonId);
-            return;
-        }
-
-        if (previewBtn) {
-            const lessonId = previewBtn.dataset.lessonId;
-            openLessonPreview(lessonId);
-            return;
-        }
-    });
 }
 
 function openLessonModal({ mode = 'create', id = '', title = '', description = '' } = {}) {
     const modalEl = document.getElementById('lessonModal');
-    const titleEl = document.getElementById('lessonModalLabel');
-    const titleInput = document.getElementById('lessonTitleInput');
-    const descInput = document.getElementById('lessonDescriptionInput');
-    const modeInput = document.getElementById('lessonModeInput');
-    const idInput = document.getElementById('lessonIdInput');
-    const submitBtn = document.getElementById('lessonModalSubmit');
-
-    if (!modalEl) {
-        console.error('Модальное окно редактирования урока не найдено');
-        return;
-    }
-
-    modeInput.value = mode;
-    idInput.value = id || '';
-    titleInput.value = title || '';
-    descInput.value = description || '';
-
-    if (mode === 'create') {
-        titleEl.textContent = 'Создать урок';
-        submitBtn.textContent = 'Создать';
-        descInput.classList.add('d-none');
-    } else {
-        titleEl.textContent = 'Редактировать урок';
-        submitBtn.textContent = 'Сохранить';
-        descInput.classList.remove('d-none');
-    }
-
+    if (!modalEl) return;
     const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    document.getElementById('lessonModeInput').value = mode;
+    document.getElementById('lessonIdInput').value = id;
+    document.getElementById('lessonTitleInput').value = title;
+    const lessonDescriptionInput = document.getElementById('lessonDescriptionInput');
+    if (lessonDescriptionInput) {
+        if (mode === 'create') {
+            lessonDescriptionInput.style.display = 'none';
+            lessonDescriptionInput.value = '';
+        } else {
+            lessonDescriptionInput.style.display = 'block';
+            lessonDescriptionInput.value = description || '';
+        }
+    }
+    const label = document.getElementById('lessonModalLabel');
+    if (label) label.textContent = mode === 'create' ? 'Создать урок' : 'Редактировать урок';
     modal.show();
+    setTimeout(() => {
+        const titleInput = document.getElementById('lessonTitleInput');
+        if (titleInput) titleInput.focus();
+    }, 550);
+}
+
+function setFormSubmitting(state) {
+    if (!lessonForm) return;
+    const submitButtons = Array.from(lessonForm.querySelectorAll('[type="submit"]'));
+    submitButtons.forEach(b => {
+        b.disabled = state;
+        if (state) b.classList.add('disabled'); else b.classList.remove('disabled');
+        if (state) b.setAttribute('aria-disabled', 'true'); else b.removeAttribute('aria-disabled');
+    });
 }
 
 function addLessonToDOM(created) {
+    const isPublic = lessonsContainer.dataset.isPublic === 'true';
     const lessonDiv = document.createElement('div');
-    lessonDiv.className = 'list-group-item d-flex flex-column flex-md-row justify-content-between align-items-start p-2 shadow-sm mb-1 rounded-2 drop-zone';
+    lessonDiv.className = 'list-group-item p-2 mb-1 rounded-2 shadow-sm d-flex flex-column flex-md-row align-items-start';
     lessonDiv.dataset.lessonId = String(created.id);
-    lessonDiv.draggable = false;
-
+    const dropIndicator = isPublic ? '' : `<div class="me-2"></div>`;
+    const dragHandle = isPublic ? '' : `<div class="me-2 d-none drag-handle"><i class="bi bi-grip-vertical text-muted"></i></div>`;
     const descHtml = created.description ? `
-        <div class="text-muted mt-1 small lesson-description">
-            <span class="description-short">${escapeHtml(String(created.description).slice(0, 50))}...</span>
-            <span class="description-full d-none">${escapeHtml(created.description)}</span>
-            <button type="button" class="btn btn-link p-0 tiny toggle-desc">Подробнее</button>
-        </div>` : '<div class="text-muted mt-1 small lesson-description"></div>';
-
+        <span class="description-short">${escapeHtml(String(created.description).slice(0, 50))}...</span>
+        <span class="description-full d-none">${escapeHtml(created.description)}</span>
+        <button type="button" class="btn btn-link p-0 small toggle-desc">Подробнее</button>
+    ` : '';
+    const dropdownHtml = isPublic ? '' : `
+        <div class="dropdown">
+            <button class="btn btn-sm btn-link text-muted p-0" data-bs-toggle="dropdown">
+                <i class="bi bi-three-dots"></i>
+            </button>
+            <ul class="dropdown-menu">
+                <li>
+                    <a class="dropdown-item" href="#" data-action="edit" data-lesson-id="${created.id}"
+                       data-title="${escapeHtml(created.title)}"
+                       data-description="${escapeHtml(created.description || '')}">
+                        Редактировать
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item text-danger" href="#" data-action="delete" data-lesson-id="${created.id}">
+                        Удалить
+                    </a>
+                </li>
+            </ul>
+        </div>
+    `;
+    const selectBtnHtml = isPublic ? '' : `<button class="btn btn-primary btn-sm fw-bold select-lesson-btn" data-lesson-id="${created.id}">Выбрать</button>`;
     lessonDiv.innerHTML = `
-        <div class="drop-indicator"></div>
-        <div class="d-flex align-items-center flex-grow-1 me-2">
-            <div class="drag-handle me-2 d-none">
-                <i class="bi bi-grip-vertical text-muted"></i>
+        ${dropIndicator}
+        <div class="flex-grow-1 me-2">
+            <div class="d-flex align-items-center">
+                ${dragHandle}
+                <div class="fw-semibold text-truncate fs-6 w-100">${escapeHtml(created.title)}</div>
             </div>
-            <div>
-                <div class="fw-semibold text-truncate fs-6" style="max-width: 100%;">${escapeHtml(created.title)}</div>
+            <div class="text-muted mt-1 small lesson-description">
                 ${descHtml}
             </div>
         </div>
 
-        <div class="mt-2 mt-md-0 d-flex align-items-center justify-content-start justify-content-md-end flex-md-column ms-auto ms-md-0">
-            <div class="d-flex align-items-center gap-2">
-                <div class="dropdown dropstart">
-                    <button class="btn btn-sm btn-link text-muted p-0" data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="bi bi-three-dots"></i>
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        <li>
-                            <a class="dropdown-item"
-                               href="#"
-                               data-action="edit"
-                               data-lesson-id="${created.id}"
-                               data-title="${escapeHtml(created.title)}"
-                               data-description="${escapeHtml(created.description || '')}">
-                                Редактировать
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item text-danger"
-                               href="#"
-                               data-action="delete"
-                               data-lesson-id="${created.id}">
-                                Удалить
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-                <button class="btn btn-outline-success btn-sm preview-icon-btn"
-                        data-lesson-id="${created.id}"
-                        title="Предпросмотр">
-                    Посмотреть
-                </button>
-                <button class="btn btn-primary btn-sm fw-bold select-lesson-btn"
-                        data-lesson-id="${created.id}">
-                    Выбрать
-                </button>
-            </div>
+        <div class="d-flex align-items-center ms-auto gap-2">
+            ${dropdownHtml}
+            <button class="btn btn-outline-success btn-sm preview-icon-btn" data-lesson-id="${created.id}">Посмотреть</button>
+            ${selectBtnHtml}
         </div>
     `;
-
     lessonsContainer.appendChild(lessonDiv);
-
-    const toggleBtn = lessonDiv.querySelector('.toggle-desc');
-    if (toggleBtn) {
-        toggleBtn.addEventListener('click', handleToggleDescription);
-    }
-
-    const previewBtn = lessonDiv.querySelector('.preview-icon-btn');
-    if (previewBtn) {
-        previewBtn.addEventListener('click', () => {
-            openLessonPreview(created.id);
-        });
-    }
-
-    const selectBtn = lessonDiv.querySelector('.select-lesson-btn');
-    if (selectBtn) {
-        selectBtn.addEventListener('click', () => {
-            console.log('Выбран урок:', created.id);
-        });
-    }
-
-    checkScroll();
+    updateControlsVisibility();
+    initDragAndDrop();
 }
 
 function updateLessonInDOM(id, updated) {
     const item = lessonsContainer.querySelector(`[data-lesson-id="${id}"]`);
     if (!item) return;
-
     const titleEl = item.querySelector('.fw-semibold');
     if (titleEl && updated.title) titleEl.textContent = updated.title;
-
     const descContainer = item.querySelector('.lesson-description');
     if (descContainer) {
         if (updated.description && updated.description.trim()) {
@@ -237,12 +153,8 @@ function updateLessonInDOM(id, updated) {
                 descContainer.innerHTML = `
                     <span class="description-short">${escapeHtml(short)}...</span>
                     <span class="description-full d-none">${escapeHtml(updated.description)}</span>
-                    <button type="button" class="btn btn-link p-0 tiny toggle-desc">Подробнее</button>
+                    <button type="button" class="btn btn-link p-0 small toggle-desc">Подробнее</button>
                 `;
-                const toggleBtn = descContainer.querySelector('.toggle-desc');
-                if (toggleBtn) {
-                    toggleBtn.addEventListener('click', handleToggleDescription);
-                }
             } else {
                 descContainer.textContent = updated.description;
             }
@@ -250,7 +162,6 @@ function updateLessonInDOM(id, updated) {
             descContainer.innerHTML = '';
         }
     }
-
     const editLink = item.querySelector('[data-action="edit"]');
     if (editLink) {
         if (updated.title) editLink.dataset.title = updated.title;
@@ -261,23 +172,22 @@ function updateLessonInDOM(id, updated) {
 function removeLessonFromDOM(id) {
     const item = lessonsContainer.querySelector(`[data-lesson-id="${id}"]`);
     if (item) item.remove();
-    checkScroll();
+    updateControlsVisibility();
 }
 
 function handleToggleDescription(e) {
     const btn = e.target.closest('.toggle-desc');
     if (!btn) return;
-
-    const shortDesc = btn.previousElementSibling.previousElementSibling;
-    const fullDesc = btn.previousElementSibling;
-
-    if (fullDesc.classList.contains('d-none')) {
+    const container = btn.parentElement;
+    const shortDesc = container.querySelector('.description-short');
+    const fullDesc = container.querySelector('.description-full');
+    if (fullDesc && fullDesc.classList.contains('d-none')) {
         fullDesc.classList.remove('d-none');
-        shortDesc.classList.add('d-none');
+        if (shortDesc) shortDesc.classList.add('d-none');
         btn.textContent = 'Свернуть';
     } else {
-        fullDesc.classList.add('d-none');
-        shortDesc.classList.remove('d-none');
+        if (fullDesc) fullDesc.classList.add('d-none');
+        if (shortDesc) shortDesc.classList.remove('d-none');
         btn.textContent = 'Подробнее';
     }
 }
@@ -285,149 +195,85 @@ function handleToggleDescription(e) {
 function toggleReorderMode() {
     isReorderMode = !isReorderMode;
     const handles = lessonsContainer.querySelectorAll('.drag-handle');
-    const items = lessonsContainer.querySelectorAll('.list-group-item');
-
+    const items = lessonsContainer.querySelectorAll('.list-group-item[data-lesson-id]');
+    if (reorderTrigger) {
+        reorderTrigger.classList.toggle('text-primary', isReorderMode);
+        reorderTrigger.classList.toggle('text-muted', !isReorderMode);
+    }
+    handles.forEach(h => h.classList.toggle('d-none', !isReorderMode));
+    items.forEach(item => {
+        item.draggable = isReorderMode;
+        item.style.cursor = isReorderMode ? 'move' : '';
+    });
     if (isReorderMode) {
-        reorderTrigger.classList.remove('text-muted');
-        reorderTrigger.classList.add('text-primary');
-        reorderTrigger.title = 'Завершить перестановку';
-
-        handles.forEach(handle => handle.classList.remove('d-none'));
-        items.forEach(item => {
-            item.draggable = true;
-            item.style.cursor = 'move';
-        });
+        showDropbar();
     } else {
-        reorderTrigger.classList.remove('text-primary');
-        reorderTrigger.classList.add('text-muted');
-        reorderTrigger.title = 'Поменять порядок';
-
-        handles.forEach(handle => handle.classList.add('d-none'));
-        items.forEach(item => {
-            item.draggable = false;
-            item.style.cursor = '';
-        });
-
+        hideDropbar();
         saveNewOrder();
     }
 }
 
 function saveNewOrder() {
-    const lessonIds = Array.from(lessonsContainer.querySelectorAll('.list-group-item'))
-        .map(item => item.dataset.lessonId)
-        .filter(id => id);
-
-    const csrf = getCsrfToken();
+    const lessonIds = Array.from(lessonsContainer.querySelectorAll('.list-group-item[data-lesson-id]'))
+        .map(i => i.dataset.lessonId);
+    if (!reorderUrl) return;
     fetch(reorderUrl, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRFToken': csrf
+            'X-CSRFToken': getCsrfToken()
         },
         body: JSON.stringify({ order: lessonIds })
-    }).then(response => {
-        if (!response.ok) {
-            throw new Error('Ошибка сохранения порядка уроков');
-        }
-    }).catch(error => {
-        alert(error.message);
     });
 }
 
 function handleDragStart(e) {
     dragSrcElement = this;
     e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/html', this.innerHTML);
     this.classList.add('dragging');
+    showDropbar();
 }
 
 function handleDragOver(e) {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-
-    const dropZone = e.currentTarget;
-    const rect = dropZone.getBoundingClientRect();
-    const dropZoneHeight = rect.height;
-    const mouseY = e.clientY - rect.top;
-
-    dropZone.classList.remove('over-top', 'over-bottom');
-
-    if (dropZone === dragSrcElement) {
-        return false;
-    }
-
-    const threshold = dropZoneHeight * 0.3;
-    const isTopHalf = mouseY < threshold;
-
-    if (isTopHalf) {
-        dropZone.classList.add('over-top');
-    } else {
-        dropZone.classList.add('over-bottom');
-    }
-
-    return false;
-}
-
-function handleDragEnter(e) {
-    if (this !== dragSrcElement) {
-        this.classList.add('over');
-    }
-}
-
-function handleDragLeave(e) {
-    if (!this.contains(e.relatedTarget)) {
-        this.classList.remove('over', 'over-top', 'over-bottom');
-    }
-}
-
-function handleDrop(e) {
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (dragSrcElement === this) {
-        this.classList.remove('over', 'over-top', 'over-bottom', 'dragging');
-        return false;
-    }
-
-    const isTopHalf = this.classList.contains('over-top');
-
-    if (isTopHalf) {
+    if (this === dragSrcElement) return false;
+    const rect = this.getBoundingClientRect();
+    const offset = e.clientY - rect.top;
+    const middle = rect.height / 2;
+    if (offset < middle) {
         this.parentNode.insertBefore(dragSrcElement, this);
     } else {
         this.parentNode.insertBefore(dragSrcElement, this.nextSibling);
     }
-
-    this.classList.remove('over', 'over-top', 'over-bottom');
-    dragSrcElement.classList.remove('dragging');
-
     return false;
 }
 
-function handleDragEnd(e) {
+function handleDragEnd() {
     const items = lessonsContainer.querySelectorAll('.list-group-item');
-    items.forEach(item => {
-        item.classList.remove('over', 'over-top', 'over-bottom', 'dragging');
-    });
+    items.forEach(item => item.classList.remove('dragging'));
+    dragSrcElement = null;
+    if (!isReorderMode) hideDropbar();
+    checkScroll();
 }
 
 function initDragAndDrop() {
-    const items = lessonsContainer.querySelectorAll('.list-group-item');
+    const items = Array.from(lessonsContainer.querySelectorAll('.list-group-item[data-lesson-id]'));
     items.forEach(item => {
+        item.removeEventListener('dragstart', handleDragStart);
+        item.removeEventListener('dragover', handleDragOver);
+        item.removeEventListener('dragend', handleDragEnd);
         item.addEventListener('dragstart', handleDragStart);
-        item.addEventListener('dragenter', handleDragEnter);
         item.addEventListener('dragover', handleDragOver);
-        item.addEventListener('dragleave', handleDragLeave);
-        item.addEventListener('drop', handleDrop);
         item.addEventListener('dragend', handleDragEnd);
     });
 }
 
 async function createLesson(formData) {
-    const csrf = getCsrfToken();
+    setFormSubmitting(true);
     try {
         const resp = await fetch(createUrl, {
             method: 'POST',
-            headers: { 'X-CSRFToken': csrf },
+            headers: { 'X-CSRFToken': getCsrfToken() },
             body: formData
         });
         const data = await resp.json().catch(() => ({}));
@@ -440,15 +286,17 @@ async function createLesson(formData) {
         if (modal) modal.hide();
     } catch (err) {
         alert(err.message);
+    } finally {
+        setFormSubmitting(false);
     }
 }
 
 async function editLesson(lessonId, formData) {
-    const csrf = getCsrfToken();
+    setFormSubmitting(true);
     try {
         const resp = await fetch(`/courses/lesson/${lessonId}/edit/`, {
             method: 'POST',
-            headers: { 'X-CSRFToken': csrf },
+            headers: { 'X-CSRFToken': getCsrfToken() },
             body: formData
         });
         const data = await resp.json().catch(() => ({}));
@@ -461,17 +309,18 @@ async function editLesson(lessonId, formData) {
         if (modal) modal.hide();
     } catch (err) {
         alert(err.message);
+    } finally {
+        setFormSubmitting(false);
     }
 }
 
 async function deleteLesson(lessonId) {
     const ok = await confirmAction('Удалить урок без возможности восстановления?');
     if (!ok) return;
-    const csrf = getCsrfToken();
     try {
         const resp = await fetch(`/courses/lesson/${lessonId}/delete/`, {
             method: 'POST',
-            headers: { 'X-CSRFToken': csrf }
+            headers: { 'X-CSRFToken': getCsrfToken() }
         });
         const data = await resp.json().catch(() => ({}));
         if (!resp.ok || data.error) {
@@ -484,31 +333,56 @@ async function deleteLesson(lessonId) {
     }
 }
 
-function checkScroll() {
-    if (!scrollBtn) return;
-    const needsScroll = lessonsContainer.scrollHeight > lessonsContainer.clientHeight;
-    if (needsScroll) scrollBtn.classList.remove('d-none'); else scrollBtn.classList.add('d-none');
+function showDropbar() {
+    if (!dropbarOverlay) dropbarOverlay = document.getElementById('dropbar-overlay');
+    if (!dropbarOverlay) return;
+    dropbarOverlay.classList.remove('d-none');
 }
 
-function handleScroll() {
-    lessonsContainer.scrollBy({ top: 150, behavior: 'smooth' });
+function hideDropbar() {
+    if (!dropbarOverlay) dropbarOverlay = document.getElementById('dropbar-overlay');
+    if (!dropbarOverlay) return;
+    dropbarOverlay.classList.add('d-none');
+}
+
+function checkScroll() {
+    if (!scrollBtn || !lessonsScrollContainer || !lessonsContainer) return;
+    const visibleHeight = lessonsScrollContainer.clientHeight;
+    const needsOverflow = lessonsContainer.scrollHeight > lessonsScrollContainer.clientHeight;
+    const show = visibleHeight > 1000 && needsOverflow;
+    if (show) scrollBtn.classList.remove('d-none'); else scrollBtn.classList.add('d-none');
 }
 
 function handleLessonsContainerClick(e) {
     const actionEl = e.target.closest('[data-action]');
-    if (!actionEl) return;
-    e.preventDefault();
-
-    const action = actionEl.dataset.action;
-    const lessonId = actionEl.dataset.lessonId;
-
-    if (action === 'edit') {
-        const title = actionEl.dataset.title || '';
-        const description = actionEl.dataset.description || '';
-        openLessonModal({ mode: 'edit', id: lessonId, title, description });
+    const previewBtn = e.target.closest('.preview-icon-btn');
+    const toggleBtn = e.target.closest('.toggle-desc');
+    const selectBtn = e.target.closest('.select-lesson-btn');
+    if (toggleBtn) {
+        handleToggleDescription(e);
         return;
     }
-
+    if (previewBtn) {
+        openLessonPreview(previewBtn.dataset.lessonId);
+        return;
+    }
+    if (selectBtn) {
+        console.log('Выбран урок:', selectBtn.dataset.lessonId);
+        return;
+    }
+    if (!actionEl) return;
+    e.preventDefault();
+    const action = actionEl.dataset.action;
+    const lessonId = actionEl.dataset.lessonId;
+    if (action === 'edit') {
+        openLessonModal({
+            mode: 'edit',
+            id: lessonId,
+            title: actionEl.dataset.title || '',
+            description: actionEl.dataset.description || ''
+        });
+        return;
+    }
     if (action === 'delete') {
         deleteLesson(lessonId);
     }
@@ -519,7 +393,6 @@ function handleLessonFormSubmit(e) {
     const mode = document.getElementById('lessonModeInput').value;
     const lessonId = document.getElementById('lessonIdInput').value;
     const formData = new FormData(lessonForm);
-
     if (mode === 'create') {
         createLesson(formData);
     } else {
@@ -528,54 +401,60 @@ function handleLessonFormSubmit(e) {
     }
 }
 
+function updateControlsVisibility() {
+    const items = Array.from(lessonsContainer.querySelectorAll('.list-group-item[data-lesson-id]'));
+    const emptyText = document.getElementById('empty-lessons-text');
+    if (items.length === 0) {
+        if (!emptyText) {
+            const p = document.createElement('p');
+            p.id = 'empty-lessons-text';
+            p.className = 'small ms-2 mt-2';
+            p.textContent = 'Уроков пока нет.';
+            lessonsContainer.appendChild(p);
+        }
+    } else {
+        if (emptyText) emptyText.remove();
+    }
+    if (reorderTrigger) {
+        if (items.length >= 2) {
+            reorderTrigger.classList.remove('d-none');
+        } else {
+            reorderTrigger.classList.add('d-none');
+            if (isReorderMode) toggleReorderMode();
+        }
+    }
+    checkScroll();
+}
+
 function initCourseDetails() {
     lessonsContainer = document.getElementById('lessons-container');
-    if (!lessonsContainer) return;
-
-    createUrl = lessonsContainer.dataset.createUrl;
-    reorderUrl = lessonsContainer.dataset.reorderUrl;
-    courseId = lessonsContainer.dataset.courseId;
+    lessonsScrollContainer = document.getElementById('lessons-scroll-container');
+    if (!lessonsContainer || !lessonsScrollContainer) return;
+    createUrl = lessonsContainer.dataset.createUrl || null;
+    reorderUrl = lessonsContainer.dataset.reorderUrl || null;
     scrollBtn = document.getElementById('scroll-down-btn');
     reorderTrigger = document.getElementById('reorder-trigger');
-    viewUpdateBtn = document.getElementById('view-update-btn');
-    downloadUpdateBtn = document.getElementById('download-update-btn');
-    lessonForm = document.getElementById('lessonModalForm');
     addTrigger = document.getElementById('add-lesson-trigger');
-
-    setupUpdateButtons();
-    setupLessonButtons();
-
-    document.querySelectorAll('.toggle-desc').forEach(btn => {
-        btn.addEventListener('click', handleToggleDescription);
-    });
-
-    if (lessonsContainer) {
-        lessonsContainer.addEventListener('click', handleLessonsContainerClick);
-    }
-
-    if (lessonForm) {
-        lessonForm.addEventListener('submit', handleLessonFormSubmit);
-    }
-
+    lessonForm = document.getElementById('lessonModalForm');
+    dropbarOverlay = document.getElementById('dropbar-overlay');
+    lessonsContainer.addEventListener('click', handleLessonsContainerClick);
+    if (lessonForm) lessonForm.addEventListener('submit', handleLessonFormSubmit);
     if (addTrigger) {
         addTrigger.addEventListener('click', (e) => {
             e.preventDefault();
             openLessonModal({ mode: 'create' });
         });
     }
-
-    if (reorderTrigger) {
-        reorderTrigger.addEventListener('click', toggleReorderMode);
-    }
-
-    if (scrollBtn) {
-        scrollBtn.addEventListener('click', handleScroll);
-    }
-
+    if (reorderTrigger) reorderTrigger.addEventListener('click', toggleReorderMode);
+    if (scrollBtn) scrollBtn.addEventListener('click', () => {
+        lessonsScrollContainer.scrollBy({ top: 150, behavior: 'smooth' });
+    });
+    updateControlsVisibility();
     initDragAndDrop();
-
     window.addEventListener('resize', checkScroll);
-    checkScroll();
+    document.addEventListener('dragend', () => {
+        if (!isReorderMode) hideDropbar();
+    });
 }
 
 document.addEventListener('DOMContentLoaded', initCourseDetails);

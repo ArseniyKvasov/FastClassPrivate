@@ -1,6 +1,7 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.db.models import Q
 from django.http import JsonResponse
+from django.contrib.auth import authenticate, login
 from django.contrib.auth import get_user_model
 from django.views.decorators.http import require_GET, require_POST
 from django.contrib.auth.decorators import login_required
@@ -12,12 +13,61 @@ User = get_user_model()
 
 
 def home(request):
+    """
+    Главная страница с курсами и классами пользователя.
+
+    Возвращает:
+    - Раздел "Мои курсы": только курсы, созданные текущим пользователем
+    - Разделы по предметам (Математика/Английский/Другое): только публичные курсы,
+      исключая те, на которые ссылаются пользовательские курсы через original_course,
+      а также исключая курсы, созданные самим пользователем
+    - Список классов пользователя: где он является учителем или учеником
+
+    На время разработки: автоматичесая авторизация под тестового пользователя
+    """
+
+    if not request.user.is_authenticated:
+        User = get_user_model()
+
+        test_user = User.objects.filter(email='testuser@gmail.com').first()
+
+        if test_user:
+            login(request, test_user)
+        else:
+            try:
+                test_user = User.objects.create_user(
+                    username='testuser',
+                    email='testuser@gmail.com',
+                    password='1234'
+                )
+                login(request, test_user)
+            except:
+                return redirect('/admin/')
+
     courses = Course.objects.filter(deactivated_at__isnull=True, original_course__isnull=True)
 
+    user_courses = Course.objects.none()
+    public_courses = Course.objects.none()
+
     if request.user.is_authenticated:
-        courses = courses.filter(Q(creator=request.user) | Q(is_public=True)).distinct()
+        user_courses = courses.filter(creator=request.user)
+
+        referenced_course_ids = user_courses.values_list('original_course_id', flat=True)
+        referenced_course_ids = [id for id in referenced_course_ids if id is not None]
+
+        public_courses = courses.filter(
+            is_public=True
+        ).exclude(
+            id__in=referenced_course_ids
+        ).exclude(
+            creator=request.user
+        )
     else:
-        courses = courses.filter(is_public=True)
+        public_courses = courses.filter(is_public=True)
+
+    math_courses = public_courses.filter(subject='math')
+    english_courses = public_courses.filter(subject='english')
+    other_courses = public_courses.filter(subject='other')
 
     user_classrooms = []
     if request.user.is_authenticated:
@@ -40,24 +90,19 @@ def home(request):
                 'lesson_title': classroom.lesson.title if classroom.lesson else None,
             })
 
-    user_courses = courses.filter(creator=request.user) if request.user.is_authenticated else Course.objects.none()
-
-    math_courses = courses.filter(subject='math')
-    english_courses = courses.filter(subject='english')
-    other_courses = courses.filter(subject='other')
-
     SUBJECT_DISPLAY = dict(Course._meta.get_field('subject').choices)
 
     def serialize_courses(qs):
+        """Сериализация queryset курсов для шаблона."""
         serialized = []
-        for c in qs:
+        for course in qs:
             serialized.append({
-                'id': c.id,
-                'title': c.title,
-                'description': c.description,
-                'subject': c.subject,
-                'subject_display': SUBJECT_DISPLAY.get(c.subject, c.subject),
-                'is_public': c.is_public
+                'id': course.id,
+                'title': course.title,
+                'description': course.description,
+                'subject': course.subject,
+                'subject_display': SUBJECT_DISPLAY.get(course.subject, course.subject),
+                'is_public': course.is_public
             })
         return serialized
 
