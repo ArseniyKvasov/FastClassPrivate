@@ -8,16 +8,6 @@ services:
       - .:/app
       - static_volume:/app/staticfiles
       - media_volume:/app/media
-    environment:
-      - DEBUG=True
-      - DB_HOST=db
-      - DB_NAME=fastclass_db
-      - DB_USER=fastclass_user
-      - DB_PASSWORD=fastclass_password
-      - DEFAULT_USER_EMAIL=testuser@gmail.com
-      - DEFAULT_USER_PASSWORD=1234
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
     depends_on:
       db:
         condition: service_healthy
@@ -26,16 +16,11 @@ services:
     command: >
       sh -c "python manage.py migrate &&
              python manage.py collectstatic --noinput &&
-             python manage.py create_default_user &&
              python manage.py runserver 0.0.0.0:8000"
 
   db:
     container_name: fastclass-db
     image: postgres:15-alpine
-    environment:
-      - POSTGRES_DB=fastclass_db
-      - POSTGRES_USER=fastclass_user
-      - POSTGRES_PASSWORD=fastclass_password
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:

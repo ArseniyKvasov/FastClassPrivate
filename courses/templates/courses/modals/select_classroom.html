@@ -1,0 +1,50 @@
+<div class="modal fade" id="selectClassroomModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content rounded-4 shadow-sm border-0">
+
+            <div class="modal-header border-0 pb-2">
+                <h5 class="modal-title fw-semibold">Выбор класса</h5>
+                <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal"
+                        aria-label="Закрыть"></button>
+            </div>
+
+            <div class="modal-body pt-1">
+
+                {% if classrooms_list %}
+                    <div class="d-flex flex-column gap-2 mb-3"
+                         style="max-height: 40vh; overflow-y: auto;">
+                        {% for classroom in classrooms_list %}
+                            <a href="{% url 'classroom_view' classroom.id %}"
+                               class="text-decoration-none">
+                                <div class="border rounded-3 px-3 py-2 small text-dark hover-bg-light">
+                                    {{ classroom.title }}
+                                </div>
+                            </a>
+                        {% endfor %}
+                    </div>
+
+                    <hr class="text-secondary my-3">
+                {% endif %}
+
+                <input type="text"
+                       id="newClassroomTitle"
+                       class="form-control form-control-sm"
+                       placeholder="Название нового класса"
+                       maxlength="30">
+
+                <button class="btn btn-primary btn-sm w-100 mt-2"
+                        id="createClassroomBtn"
+                        type="button">
+                    Создать и перейти
+                </button>
+
+                <div id="classroomError"
+                     class="small text-danger mt-2 d-none"></div>
+
+            </div>
+
+        </div>
+    </div>
+</div>

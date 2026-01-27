@@ -12,11 +12,145 @@ let previewModal;
 let isReorderMode = false;
 let dragSrcElement = null;
 let dropbarOverlay = null;
+let selectClassroomModal;
+let selectedLessonId = null;
+let isAttaching = false;
 
 function initPreviewModal() {
     if (previewModal) return;
     const el = document.getElementById('lessonPreviewModal');
     if (el) previewModal = new bootstrap.Modal(el);
+}
+
+function initSelectClassroomModal() {
+    if (selectClassroomModal) return;
+    const el = document.getElementById('selectClassroomModal');
+    if (!el) return;
+    selectClassroomModal = new bootstrap.Modal(el);
+
+    el.addEventListener('click', async (e) => {
+        const link = e.target.closest('a[href]');
+        if (!link) return;
+        const href = link.getAttribute('href') || '';
+        const match = href.match(/(\d+)(?:\/)?$/);
+        if (!match) return;
+        e.preventDefault();
+        const classroomId = match[1];
+        if (!selectedLessonId) {
+            alert('Урок не выбран');
+            return;
+        }
+        await attachLessonAndGo(classroomId, href);
+    });
+
+    el.addEventListener('hide.bs.modal', (ev) => {
+        if (isAttaching) ev.preventDefault();
+    });
+
+    const createBtn = el.querySelector('#createClassroomBtn');
+    if (createBtn) {
+        createBtn.addEventListener('click', () => {
+            if (!selectedLessonId) {
+                const errEl = document.getElementById('classroomError');
+                if (errEl) {
+                    errEl.textContent = 'Урок не выбран';
+                    errEl.classList.remove('d-none');
+                }
+                return;
+            }
+            createClassroomAndRedirect();
+        });
+    }
+}
+
+/**
+ * Выполняет запрос привязки урока к классу и при успехе перенаправляет пользователя.
+ *
+ * Поведение:
+ * - делает модалку неинтерактивной и показывает спиннер
+ * - ждёт ответа сервера или 5-секундного таймаута
+ * - при status="ok" редиректит в класс (href если был передан, иначе /classrooms/:id/)
+ * - при status="update_required" показывает alert и оставляет модалку открытой
+ * - в случае ошибки показывает alert и восстанавливает модалку
+ *
+ * @param {string|number} classroomId
+ * @param {string|null} href
+ */
+async function attachLessonAndGo(classroomId, href = null) {
+    if (isAttaching) return;
+    const modalEl = document.getElementById('selectClassroomModal');
+    if (!modalEl) return;
+
+    const modalContent = modalEl.querySelector('.modal-content') || modalEl;
+    const spinnerOverlay = document.createElement('div');
+    spinnerOverlay.className = 'position-absolute top-0 start-0 end-0 bottom-0 d-flex align-items-center justify-content-center';
+    spinnerOverlay.style.background = 'rgba(255,255,255,0.85)';
+    spinnerOverlay.style.zIndex = '1055';
+    spinnerOverlay.innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border" role="status" aria-hidden="true"></div>
+            <div class="mt-2 small">Подождите, прикрепляем урок...</div>
+        </div>
+    `;
+
+    const interactive = Array.from(modalEl.querySelectorAll('button, a, input, textarea, select'));
+    try {
+        isAttaching = true;
+        modalContent.appendChild(spinnerOverlay);
+        interactive.forEach(el => el.setAttribute('disabled', 'disabled'));
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+        const url = `/classroom/api/${encodeURIComponent(classroomId)}/attach-lesson/${encodeURIComponent(selectedLessonId)}/`;
+        const resp = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({}),
+            signal: controller.signal
+        }).catch((err) => {
+            if (err.name === 'AbortError') throw new Error('Превышено время ожидания (5 секунд)');
+            throw err;
+        }).finally(() => {
+            clearTimeout(timeoutId);
+        });
+
+        const data = await resp.json().catch(() => ({}));
+
+        if (!resp.ok) {
+            const msg = (data && (data.detail || data.error)) || 'Ошибка при прикреплении урока';
+            throw new Error(msg);
+        }
+
+        if (data.status === 'update_required') {
+            const courseId = data.course_id;
+            alert('У вас есть копия курса, но доступна новая версия. Обновите курс перед прикреплением.');
+            return;
+        }
+
+        if (data.status === 'ok') {
+            try {
+                selectClassroomModal.hide();
+            } catch (e) {}
+            if (href) {
+                window.location.href = href;
+            } else {
+                window.location.href = `/classrooms/${encodeURIComponent(classroomId)}/`;
+            }
+            return;
+        }
+
+        throw new Error('Неизвестный ответ сервера');
+    } catch (err) {
+        alert(err.message);
+    } finally {
+        isAttaching = false;
+        try { spinnerOverlay.remove(); } catch (e) {}
+        interactive.forEach(el => el.removeAttribute('disabled'));
+    }
 }
 
 function openLessonPreview(lessonId) {
@@ -333,6 +467,51 @@ async function deleteLesson(lessonId) {
     }
 }
 
+async function createClassroomAndRedirect() {
+    const input = document.getElementById('newClassroomTitle');
+    const errorEl = document.getElementById('classroomError');
+    const btn = document.getElementById('createClassroomBtn');
+
+    if (!input || !selectedLessonId || !btn) return;
+
+    errorEl.classList.add('d-none');
+    errorEl.textContent = '';
+
+    btn.disabled = true;
+    btn.classList.add('disabled');
+
+    try {
+        const resp = await fetch('/classrooms/create/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({
+                title: input.value.trim(),
+                lesson_id: selectedLessonId
+            })
+        });
+
+        const data = await resp.json().catch(() => ({}));
+
+        if (!resp.ok || data.error) {
+            throw new Error(data.error || 'Ошибка создания класса');
+        }
+
+        if (data.redirect_url) {
+            window.location.href = data.redirect_url;
+        }
+
+    } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.classList.remove('d-none');
+
+        btn.disabled = false;
+        btn.classList.remove('disabled');
+    }
+}
+
 function showDropbar() {
     if (!dropbarOverlay) dropbarOverlay = document.getElementById('dropbar-overlay');
     if (!dropbarOverlay) return;
@@ -367,7 +546,11 @@ function handleLessonsContainerClick(e) {
         return;
     }
     if (selectBtn) {
-        console.log('Выбран урок:', selectBtn.dataset.lessonId);
+        initSelectClassroomModal();
+        if (!selectClassroomModal) return;
+
+        selectedLessonId = selectBtn.dataset.lessonId;
+        selectClassroomModal.show();
         return;
     }
     if (!actionEl) return;
@@ -455,6 +638,11 @@ function initCourseDetails() {
     document.addEventListener('dragend', () => {
         if (!isReorderMode) hideDropbar();
     });
+    const createClassroomBtn = document.getElementById('createClassroomBtn');
+    if (createClassroomBtn) {
+        createClassroomBtn.addEventListener('click', createClassroomAndRedirect);
+    }
+    initSelectClassroomModal();
 }
 
 document.addEventListener('DOMContentLoaded', initCourseDetails);

@@ -10,6 +10,7 @@ from django.contrib.auth import get_user_model
 
 from core.services import get_display_name_from_username
 from courses.models import Lesson
+from courses.services import CourseNeedsUpdate, CourseUnavailableError
 from classroom.models import Classroom
 from classroom.services import set_copying, attach_lesson_to_classroom
 from .session_utils import clear_verified_in_session
@@ -24,13 +25,30 @@ def create_classroom_view(request):
     """
     Создаёт новый класс и при необходимости прикрепляет урок.
     Если у пользователя нет курса с нужным уроком — копирует курс.
-    Возвращает JSON с данными класса и ссылкой на него.
+    Возвращает JSON с redirect_url или error.
     """
-    title = request.POST.get("title")
-    lesson_id = request.POST.get("lesson_id")
+    try:
+        payload = json.loads(request.body.decode("utf-8"))
+    except json.JSONDecodeError:
+        return JsonResponse(
+            {"error": "Некорректный формат данных"},
+            status=400
+        )
+
+    title = (payload.get("title") or "").strip()
+    lesson_id = payload.get("lesson_id")
 
     if not title:
-        return JsonResponse({"detail": "Не указано название класса"}, status=400)
+        return JsonResponse(
+            {"error": "Введите название класса"},
+            status=400
+        )
+
+    if len(title) > 30:
+        return JsonResponse(
+            {"error": "Название класса не должно превышать 30 символов"},
+            status=400
+        )
 
     classroom = Classroom.objects.create(
         title=title,
@@ -41,11 +59,8 @@ def create_classroom_view(request):
         lesson = get_object_or_404(Lesson, pk=lesson_id)
         attach_lesson_to_classroom(classroom, lesson, request.user)
 
-    classroom_url = reverse("classroom_view", args=[classroom.id])
-
     return JsonResponse({
-        "status": "ok",
-        "url": classroom_url
+        "redirect_url": reverse("classroom_view", args=[classroom.id])
     })
 
 
@@ -248,17 +263,35 @@ def delete_student(request, classroom_id):
 @require_POST
 def attach_lesson_view(request, classroom_id, lesson_id):
     """
-    Прикрепляет урок к существующему классу.
-    Если у пользователя нет курса с таким уроком, копирует курс.
+    Прикрепляет урок к классу.
+
+    Возможные ответы:
+    - status=ok
+    - status=update_required
+    - 400 — логическая ошибка
     """
-    classroom = get_object_or_404(Classroom, pk=classroom_id, teacher=request.user)
+    classroom = get_object_or_404(
+        Classroom,
+        pk=classroom_id,
+        teacher=request.user
+    )
     lesson = get_object_or_404(Lesson, pk=lesson_id)
 
     try:
-        attach_lesson_to_classroom(classroom, lesson, request.user)
-    except (ValueError, TypeError) as e:
-        return JsonResponse({"detail": str(e)}, status=400)
+        attach_lesson_to_classroom(
+            classroom,
+            lesson,
+            request.user
+        )
+    except CourseNeedsUpdate as e:
+        return JsonResponse({
+            "status": "update_required",
+            "course_id": e.user_course_id,
+        })
+    except (CourseUnavailableError, ValueError) as e:
+        return JsonResponse(
+            {"status": "error", "detail": str(e)},
+            status=400
+        )
 
-    return JsonResponse({
-        "status": "ok",
-    })
+    return JsonResponse({"status": "ok"})

@@ -22,29 +22,8 @@ def home(request):
       исключая те, на которые ссылаются пользовательские курсы через original_course,
       а также исключая курсы, созданные самим пользователем
     - Список классов пользователя: где он является учителем или учеником
-
-    На время разработки: автоматичесая авторизация под тестового пользователя
     """
-
-    if not request.user.is_authenticated:
-        User = get_user_model()
-
-        test_user = User.objects.filter(email='testuser@gmail.com').first()
-
-        if test_user:
-            login(request, test_user)
-        else:
-            try:
-                test_user = User.objects.create_user(
-                    username='testuser',
-                    email='testuser@gmail.com',
-                    password='1234'
-                )
-                login(request, test_user)
-            except:
-                return redirect('/admin/')
-
-    courses = Course.objects.filter(deactivated_at__isnull=True, original_course__isnull=True)
+    courses = Course.objects.filter(deactivated_at__isnull=True)
 
     user_courses = Course.objects.none()
     public_courses = Course.objects.none()

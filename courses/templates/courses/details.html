@@ -6,6 +6,7 @@
 
 {% include 'courses/modals/handle_lesson.html' %}
 {% include 'courses/modals/lesson_preview.html' %}
+{% include 'courses/modals/select_classroom.html' %}
 
 <div class="d-flex align-items-center mb-3">
     <h1 class="fw-bold mb-0 fs-4">{{ course.title }}</h1>
@@ -15,13 +16,14 @@
 
 {% if latest_version_id and not course.is_public %}
 <div class="alert alert-primary border border-primary border-2 mb-4">
-    <div class="d-flex justify-content-between align-items-center">
-        <div>
-            <strong class="d-block mb-1">Доступна новая версия курса</strong>
-            <small class="text-primary-emphasis d-none d-md-block">
-                Обновите материалы для получения последних изменений
-            </small>
-        </div>
+    <div>
+        <strong class="d-block mb-1">Доступна новая версия курса</strong>
+        <small class="text-primary-emphasis d-none d-md-block">
+            Обновите материалы для получения последних изменений
+        </small>
+    </div>
+
+    <div class="d-flex justify-content-end mt-3">
         <a href="{% url 'course_detail' latest_version_id %}"
            class="btn btn-primary btn-sm"
            target="_blank">
@@ -33,17 +35,15 @@
 
 {% if course.is_public %}
 <div class="alert alert-primary border border-primary border-2 mb-4">
-    <div class="d-flex justify-content-between align-items-center">
-        <div>
-            <strong class="d-block mb-1">Публичный курс</strong>
-            <small class="text-primary-emphasis">
-                Этот курс доступен всем пользователям
-            </small>
-        </div>
-        <button class="btn btn-primary btn-sm" disabled>Использовать</button>
+    <div>
+        <strong class="d-block mb-1">Публичный курс</strong>
+        <small class="text-primary-emphasis">
+            Этот курс доступен всем пользователям
+        </small>
     </div>
 </div>
 {% endif %}
+
 
 <div class="position-relative">
 
@@ -132,12 +132,10 @@
                             Посмотреть
                         </button>
 
-                        {% if not course.is_public %}
                         <button class="btn btn-primary btn-sm fw-bold select-lesson-btn"
                                 data-lesson-id="{{ lesson.id }}">
                             Выбрать
                         </button>
-                        {% endif %}
                     </div>
                 </div>
                 {% empty %}

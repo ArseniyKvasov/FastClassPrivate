@@ -5,6 +5,7 @@ from django.http import JsonResponse, Http404
 from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
 from courses.models import Course, Lesson
+from classroom.models import Classroom
 
 
 @login_required
@@ -35,6 +36,12 @@ def course_edit_meta_view(request, course_id):
     if not title:
         return JsonResponse(
             {"error": "Название не может быть пустым"},
+            status=400
+        )
+
+    if len(title) > 30:
+        return JsonResponse(
+            {"error": "Название класса не должно превышать 30 символов"},
             status=400
         )
 
@@ -174,23 +181,27 @@ def course_detail(request, course_id):
 
     course = get_object_or_404(Course, id=course_id)
 
-    if course.creator != request.user and course.is_public == False:
+    if course.creator != request.user and not course.is_public:
         return JsonResponse({"error": "Доступ запрещен"}, status=403)
 
     lessons = course.lessons.all().order_by("order")
 
     latest_version_id = None
-
     if course.original_course:
         latest_version = course.original_course.get_latest_version()
         if latest_version and latest_version.id != course.original_course.id:
             latest_version_id = latest_version.id
+
+    classrooms_list = Classroom.objects.filter(
+        teacher=request.user
+    ).order_by("title")
 
     context = {
         "lessons": lessons,
         "course": course,
         "is_public": course.is_public,
         "latest_version_id": latest_version_id,
+        "classrooms_list": classrooms_list,
     }
 
     return render(request, "courses/details.html", context)

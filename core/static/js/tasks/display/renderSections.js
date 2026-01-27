@@ -65,7 +65,7 @@ export async function renderSectionsList(sections) {
 
 export async function fetchSections() {
     const lessonId = getLessonId();
-    if (!lessonId) return [];
+    if (!lessonId || lessonId === "None") return [];
 
     try {
         const res = await fetch(`/courses/lesson/${lessonId}/sections/`);

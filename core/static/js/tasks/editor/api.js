@@ -267,7 +267,7 @@ export async function saveTask(taskType, taskCard, taskId = null) {
         }
 
         if (!result?.success) {
-            showNotification("Ошибка сохранения: см. консоль");
+            showNotification(`Ошибка сохранения: ${result?.errors || result}`);
             console.error(result?.errors || result);
             return null;
         }
