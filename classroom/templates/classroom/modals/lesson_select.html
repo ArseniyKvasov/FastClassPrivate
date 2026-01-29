@@ -1,0 +1,24 @@
+<div class="modal fade" id="lessonSelectModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-fullscreen-sm-down">
+        <div class="modal-content rounded-4 shadow-sm border-0">
+            <div class="modal-body p-3 d-flex flex-column">
+                <div class="d-flex justify-content-end mb-2 w-100">
+                    <div class="input-group input-group-sm" style="max-width: 200px;">
+                        <input id="lessonSearchInput" type="search" class="form-control form-control-sm rounded-pill" placeholder="Поиск урока…" aria-label="Поиск урока">
+                    </div>
+                </div>
+
+                <div class="js-loading d-flex align-items-center justify-content-center py-4 w-100">
+                    <div class="text-center">
+                        <div class="spinner-border" role="status" aria-hidden="true"></div>
+                        <div class="small text-muted mt-2">Загрузка курсов…</div>
+                    </div>
+                </div>
+
+                <div class="js-content d-none w-100">
+                    <div id="coursesAccordion" class="accordion"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,3 +1,14 @@
+"""
+Модели для системы курсов с поддержкой оригиналов, клонов и копий.
+Алгоритм flow создания и распространения курсов:
+1. Создание: Пользователь создает оригинальный курс (root_type="original")
+2. Публикация: Администратор создает клон (root_type="clone") на основе оригинального курса
+3. Копирование: Пользователь создает копию (root_type="copy") на основе клона
+4. Обновление оригинала -> Синхронизация клона -> Синхронизация копий
+
+Каждый пользователь может иметь только одну копию каждого курса-клона.
+"""
+
 import os
 from django.conf import settings
 from django.contrib.auth.models import User
@@ -6,8 +17,8 @@ from django.db import models, transaction
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.contrib.contenttypes.models import ContentType
+from django.db.models import Subquery, Q
 from django.contrib.contenttypes.fields import GenericForeignKey
-from django.dispatch import receiver
 
 User = get_user_model()
 
@@ -27,223 +38,177 @@ TYPE_CHOICES = [
     ("text_input", "Ввод текста"),
 ]
 
+ROOT_TYPE_CHOICES = [
+    ("original", "Оригинал"),
+    ("clone", "Клон"),
+    ("copy", "Копия"),
+]
+
+
+class CourseQuerySet(models.QuerySet):
+    def active(self):
+        return self.filter(deactivated_at__isnull=True)
+
+    def for_selection(self, user):
+        """
+        Возвращает queryset курсов для выбора урока:
+        - оригиналы пользователя
+        - копии пользователя
+        - публичные клоны, не связанные с копиями пользователя
+        """
+        linked_clone_ids = self.model.objects.filter(
+            creator=user,
+            root_type="copy",
+            linked_to__isnull=False,
+        ).values("linked_to_id")
+
+        return (
+            self.active()
+            .filter(
+                Q(root_type="original", creator=user)
+                | Q(root_type="copy", creator=user)
+                | Q(root_type="clone", is_public=True)
+            )
+            .exclude(Q(root_type="clone", id__in=Subquery(linked_clone_ids)))
+        )
+
 
 class Course(models.Model):
+    """Модель курса с поддержкой оригиналов, клонов и копий."""
+
     id = models.BigAutoField(primary_key=True)
     creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name="courses")
-
-    original_course = models.ForeignKey(
+    linked_to = models.ForeignKey(
         "self",
         null=True,
         blank=True,
-        on_delete=models.CASCADE,
-        related_name="copies",
-        help_text="Оригинальный курс, если это копия"
+        on_delete=models.PROTECT,
+        related_name="linked_copies",
+        help_text="Оригинальный курс, если это копия или клон"
     )
-
-    new_version = models.ForeignKey(
-        "self",
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="previous_version",
-        help_text="Новая версия этого курса"
+    root_type = models.CharField(
+        max_length=20,
+        choices=ROOT_TYPE_CHOICES,
+        default="original",
+        help_text="Тип курса: оригинал, клон или копия"
     )
-
-    version = models.IntegerField(default=1)
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     subject = models.CharField(max_length=20, choices=SUBJECT_CHOICES, default="other")
     is_public = models.BooleanField(default=False)
     deactivated_at = models.DateTimeField(null=True, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    objects = CourseQuerySet.as_manager()
 
     def __str__(self):
-        return f"{self.title} (v{self.version})"
+        return self.title
 
     @property
     def is_active(self):
-        if self.deactivated_at is not None:
-            return False
-        return True
+        """Проверка, активен ли курс."""
+        return self.deactivated_at is None
 
     def deactivate(self):
+        """Деактивация курса."""
         if self.is_active:
             self.deactivated_at = timezone.now()
             self.save(update_fields=['deactivated_at'])
 
     def activate(self):
-        if self.deactivated_at is not None:
+        """Активация курса."""
+        if not self.is_active:
             self.deactivated_at = None
             self.save(update_fields=['deactivated_at'])
 
-    def get_latest_version(self):
-        current = self
-        while current.new_version is not None and current.new_version.is_public:
-            current = current.new_version
-        return current
-
-    def clean(self):
-        """Валидация данных перед сохранением"""
-        super().clean()
-
-        if self.new_version:
-            self._validate_no_cycle()
-
-        if self.new_version == self:
-            raise ValidationError({
-                'new_version': 'Курс не может быть новой версией самого себя'
-            })
-
-        if self.original_course and self.new_version and self.original_course == self.new_version:
-            raise ValidationError(
-                'Оригинальный курс и новая версия не могут ссылаться на один и тот же объект'
-            )
-
-    def _validate_no_cycle(self):
+    def get_user_copy(self, user):
         """
-        Проверка на циклические зависимости в цепочке версий.
-        Использует алгоритм обнаружения цикла в связном списке.
+        Получение копии курса пользователя.
+
+        Args:
+            user: Пользователь для поиска копии
+
+        Returns:
+            Course or None: Копия курса пользователя или None
         """
-        slow = self.new_version
-        fast = self.new_version.new_version if self.new_version else None
+        if self.root_type == "clone":
+            return Course.objects.filter(
+                creator=user,
+                root_type="copy",
+                linked_to=self
+            ).first()
+        elif self.root_type == "original":
+            clone = Course.objects.filter(
+                linked_to=self,
+                root_type="clone"
+            ).first()
+            if clone:
+                return clone.get_user_copy(user)
+        return None
 
-        visited_ids = {self.id}
+    def create_copy_for_user(self, user):
+        from courses.services import CopyService
+        return CopyService.create_copy_for_user(self, user)
 
-        while fast and fast.new_version:
-            if slow.id == self.id or fast.id == self.id:
-                raise ValidationError({
-                    'new_version': 'Обнаружена циклическая зависимость в цепочке версий'
-                })
+    def create_clone(self, user):
+        from courses.services import CloneService
+        return CloneService.create_clone(self, user)
 
-            if slow.id == fast.id:
-                raise ValidationError({
-                    'new_version': 'Обнаружена циклическая зависимость в цепочке версий'
-                })
+    def synchronize_with_original(self):
+        from courses.services import CloneService
+        return CloneService.sync_clone_with_original(self)
 
-            if slow.id in visited_ids or fast.id in visited_ids:
-                raise ValidationError({
-                    'new_version': 'Обнаружена циклическая зависимость в цепочке версий'
-                })
-
-            visited_ids.add(slow.id)
-            visited_ids.add(fast.id)
-
-            slow = slow.new_version
-            fast = fast.new_version.new_version if fast.new_version else None
-
-            if not slow or not fast:
-                break
-
-    def _check_version_chain_cycle(self):
-        """
-        Альтернативный метод проверки циклов - обход всей цепочки.
-        """
-        visited = set()
-        current = self.new_version
-
-        while current:
-            if current.id == self.id:
-                raise ValidationError({
-                    'new_version': 'Обнаружена циклическая зависимость: курс ссылается на себя через цепочку версий'
-                })
-
-            if current.id in visited:
-                raise ValidationError({
-                    'new_version': 'Обнаружена циклическая зависимость в цепочке версий'
-                })
-
-            visited.add(current.id)
-            current = current.new_version
-
-    def save(self, *args, **kwargs):
-        """
-        Переопределенный save с валидацией перед сохранением.
-        """
-        self.full_clean()
-
-        if self.new_version:
-            self._validate_no_cycle()
-            self._check_version_chain_cycle()
-
-        if self.new_version and not self.pk:
-            latest = self.get_latest_version_in_chain()
-            self.version = latest.version + 1 if latest else 1
-
-        super().save(*args, **kwargs)
-
-    def get_latest_version_in_chain(self):
-        """Получить последнюю версию в цепочке, начиная с текущего курса"""
-        current = self
-        while current.new_version is not None:
-            current = current.new_version
-        return current
+    def synchronize_with_clone(self):
+        from courses.services import CopyService
+        return CopyService.sync_copy_with_clone(self)
 
     def delete(self, using=None, keep_parents=False):
         """
-        Безопасное удаление курса с обработкой связей версий.
+        Удаление курса с учетом связанных копий.
         """
-        with transaction.atomic():
-            Course.objects.filter(new_version=self).update(new_version=None)
+        if self.linked_to:
+            with transaction.atomic():
+                for lesson in self.lessons.all():
+                    lesson.delete()
+                super().delete(using=using, keep_parents=keep_parents)
+            return
 
+        if Course.objects.filter(linked_to=self).exists():
+            raise ValidationError("Нельзя удалить оригинальный курс, пока есть связанные копии")
+        with transaction.atomic():
+            for linked_copy in Course.objects.filter(linked_to=self):
+                for lesson in linked_copy.lessons.all():
+                    lesson.delete()
+                linked_copy.delete()
             for lesson in self.lessons.all():
                 lesson.delete()
-
             super().delete(using=using, keep_parents=keep_parents)
-
-    @classmethod
-    def get_version_chain(cls, course_id):
-        """
-        Получить всю цепочку версий для курса.
-        Возвращает список курсов в порядке от старого к новому.
-        """
-        try:
-            course = cls.objects.get(id=course_id)
-        except cls.DoesNotExist:
-            return []
-
-        chain = []
-        current = course
-
-        while current.previous_version.exists():
-            current = current.previous_version.first()
-
-        while current:
-            chain.append(current)
-            current = current.new_version
-
-        return chain
 
     class Meta:
         app_label = "courses"
         indexes = [
             models.Index(fields=['deactivated_at']),
-            models.Index(fields=['original_course']),
-            models.Index(fields=['new_version']),
+            models.Index(fields=['linked_to']),
+            models.Index(fields=['creator', 'root_type']),
+            models.Index(fields=['root_type', 'is_public']),
         ]
         ordering = ['-created_at']
-        constraints = [
-            models.CheckConstraint(
-                condition=~models.Q(new_version=models.F('id')),
-                name='course_not_reference_itself'
-            ),
-        ]
 
 
 class Lesson(models.Model):
-    """
-    Lesson может быть оригиналом или копией.
-    Поле original_lesson указывает на исходный урок (может быть null).
-    """
+    """Модель урока курса."""
+
     id = models.BigAutoField(primary_key=True)
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="lessons")
-    original_lesson = models.ForeignKey(
+    linked_to = models.ForeignKey(
         "self",
         null=True,
         blank=True,
-        on_delete=models.CASCADE,
-        related_name="copies",
+        on_delete=models.SET_NULL,
+        related_name="linked_copies",
     )
+    root_type = models.CharField(max_length=20, choices=ROOT_TYPE_CHOICES, default="original")
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     order = models.PositiveIntegerField(default=0)
@@ -255,7 +220,25 @@ class Lesson(models.Model):
     def __str__(self):
         return f"{self.title} ({self.course.title})"
 
+    def save(self, *args, **kwargs):
+        """Сохранение урока с автоматическим определением порядка."""
+        if not self.order or self.order == 0:
+            max_order = Lesson.objects.filter(course=self.course).aggregate(models.Max('order'))['order__max'] or 0
+            self.order = max_order + 1
+        super().save(*args, **kwargs)
+
+    def synchronize_with_original(self):
+        """Синхронизация клона урока с оригиналом."""
+        from courses.services import CloneService
+        CloneService._sync_lesson_with_original(self)
+
+    def synchronize_with_clone(self):
+        """Синхронизация копии урока с клоном."""
+        from courses.services import CopyService
+        CopyService._sync_lesson_with_clone(self)
+
     def delete(self, using=None, keep_parents=False):
+        """Удаление урока с удалением связанных секций."""
         with transaction.atomic():
             for section in self.sections.all():
                 section.delete()
@@ -263,19 +246,18 @@ class Lesson(models.Model):
 
 
 class Section(models.Model):
-    """
-    Section может быть оригиналом или копией.
-    Поле original_section указывает на исходный раздел (может быть null).
-    """
+    """Модель секции урока."""
+
     id = models.BigAutoField(primary_key=True)
     lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name="sections")
-    original_section = models.ForeignKey(
+    linked_to = models.ForeignKey(
         "self",
         null=True,
         blank=True,
-        on_delete=models.CASCADE,
-        related_name="copies",
+        on_delete=models.SET_NULL,
+        related_name="linked_copies",
     )
+    root_type = models.CharField(max_length=20, choices=ROOT_TYPE_CHOICES, default="original")
     title = models.CharField(max_length=255)
     order = models.PositiveIntegerField(default=0)
 
@@ -286,7 +268,25 @@ class Section(models.Model):
     def __str__(self):
         return f"{self.title} ({self.lesson.title})"
 
+    def save(self, *args, **kwargs):
+        """Сохранение секции с автоматическим определением порядка."""
+        if not self.order or self.order == 0:
+            max_order = Section.objects.filter(lesson=self.lesson).aggregate(models.Max('order'))['order__max'] or 0
+            self.order = max_order + 1
+        super().save(*args, **kwargs)
+
+    def synchronize_with_original(self):
+        """Синхронизация клона секции с оригиналом."""
+        from courses.services import CloneService
+        CloneService._sync_section_with_original(self)
+
+    def synchronize_with_clone(self):
+        """Синхронизация копии секции с клоном."""
+        from courses.services import CopyService
+        CopyService._sync_section_with_clone(self)
+
     def delete(self, using=None, keep_parents=False):
+        """Удаление секции с удалением связанных задач."""
         with transaction.atomic():
             for task in self.tasks.all():
                 task.delete()
@@ -294,26 +294,22 @@ class Section(models.Model):
 
 
 class Task(models.Model):
-    """
-    Базовая модель задания. specific хранит payload через GenericForeignKey.
-    edited_content хранит пользовательские изменения поверх оригинального specific.
-    """
+    """Модель задачи в секции с поддержкой различных типов контента."""
+
     id = models.BigAutoField(primary_key=True)
     section = models.ForeignKey(Section, on_delete=models.CASCADE, related_name="tasks")
-
+    linked_to = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="linked_copies"
+    )
+    root_type = models.CharField(max_length=20, choices=ROOT_TYPE_CHOICES, default="original")
     task_type = models.CharField(max_length=50, choices=TYPE_CHOICES, db_index=True)
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
     object_id = models.UUIDField(db_index=True)
     specific = GenericForeignKey("content_type", "object_id")
-
-    original_task = models.ForeignKey(
-        "self",
-        null=True,
-        blank=True,
-        on_delete=models.PROTECT,
-        related_name="copies"
-    )
-
     edited_content = models.JSONField(default=dict, blank=True)
     order = models.PositiveIntegerField(default=0, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -327,30 +323,33 @@ class Task(models.Model):
         return f"{self.get_task_type_display()}: {specific_title or 'Без названия'}"
 
     def get_specific(self):
+        """
+        Получение связанного специфического объекта.
+
+        Returns:
+            object or None: Связанный объект или None
+        """
         try:
             return self.specific
         except Exception:
             return None
 
-    def delete(self, using=None, keep_parents=False):
-        """
-        Удаление задания с учетом edited_content и specific.
+    def save(self, *args, **kwargs):
+        """Сохранение задачи с автоматическим определением порядка."""
+        if not self.order or self.order == 0:
+            max_order = Task.objects.filter(section=self.section).aggregate(models.Max('order'))['order__max'] or 0
+            self.order = max_order + 1
+        super().save(*args, **kwargs)
 
-        1) Если задание оригинальное (original_task is None):
-           - удаляем specific
-           - specific сам удаляет свой файл (например, ImageTask)
-        2) Если задание копия (original_task != None):
-           - удаляем файл из edited_content, если он существует
-           - original specific не трогаем
-        """
-        if not self.original_task:
+    def delete(self, using=None, keep_parents=False):
+        """Удаление задачи с учетом типа контента."""
+        if self.root_type in ["original", "clone"]:
             spec = self.get_specific()
             if spec is not None:
                 try:
                     spec.delete()
                 except Exception:
                     pass
-
         else:
             file_path = self.edited_content.get("file_path")
             if file_path:
@@ -363,5 +362,4 @@ class Task(models.Model):
                         os.remove(local_path)
                     except Exception:
                         pass
-
         super().delete(using=using, keep_parents=keep_parents)

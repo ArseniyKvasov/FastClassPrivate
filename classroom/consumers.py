@@ -322,6 +322,18 @@ class VirtualClassConsumer(AsyncWebsocketConsumer):
             except:
                 pass
 
+    async def lesson_attached(self, event):
+        try:
+            await self.send(text_data=json.dumps({
+                "type": "lesson:attached",
+                "data": {
+                    "lesson_id": event.get("lesson_id"),
+                    "payload": event.get("payload", {}),
+                }
+            }))
+        except:
+            pass
+
     async def _send_event(self, event):
         sender_id = event.get("sender_id")
         if event.get("action") in ["answer:sent", "answer:reset"]:

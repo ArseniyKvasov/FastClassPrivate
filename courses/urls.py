@@ -8,6 +8,7 @@ urlpatterns = [
     path("api/<int:course_id>/delete/", views.delete_course, name="delete_course"),
     path("api/course/<int:course_id>/lesson/create/", views.create_lesson, name="create_lesson"),
     path("course/<int:course_id>/", views.course_detail, name="course_detail"),
+    path("api/get/all/", views.get_all_courses_for_selection, name="get_all_courses_for_selection"),
 
     path("course/<int:course_id>/lesson/create/", views.create_lesson, name="create_lesson"),
     path("course/<int:course_id>/lessons/reorder/", views.reorder_lessons, name="reorder_lessons"),

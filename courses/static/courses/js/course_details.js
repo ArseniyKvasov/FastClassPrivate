@@ -49,7 +49,8 @@ function initSelectClassroomModal() {
 
     const createBtn = el.querySelector('#createClassroomBtn');
     if (createBtn) {
-        createBtn.addEventListener('click', () => {
+        createBtn.addEventListener('click', (e) => {
+            e.preventDefault();
             if (!selectedLessonId) {
                 const errEl = document.getElementById('classroomError');
                 if (errEl) {
@@ -61,21 +62,18 @@ function initSelectClassroomModal() {
             createClassroomAndRedirect();
         });
     }
+
+    const input = document.getElementById('newClassroomTitle');
+    if (input) {
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                createClassroomAndRedirect();
+            }
+        });
+    }
 }
 
-/**
- * Выполняет запрос привязки урока к классу и при успехе перенаправляет пользователя.
- *
- * Поведение:
- * - делает модалку неинтерактивной и показывает спиннер
- * - ждёт ответа сервера или 5-секундного таймаута
- * - при status="ok" редиректит в класс (href если был передан, иначе /classrooms/:id/)
- * - при status="update_required" показывает alert и оставляет модалку открытой
- * - в случае ошибки показывает alert и восстанавливает модалку
- *
- * @param {string|number} classroomId
- * @param {string|null} href
- */
 async function attachLessonAndGo(classroomId, href = null) {
     if (isAttaching) return;
     const modalEl = document.getElementById('selectClassroomModal');
@@ -83,7 +81,7 @@ async function attachLessonAndGo(classroomId, href = null) {
 
     const modalContent = modalEl.querySelector('.modal-content') || modalEl;
     const spinnerOverlay = document.createElement('div');
-    spinnerOverlay.className = 'position-absolute top-0 start-0 end-0 bottom-0 d-flex align-items-center justify-content-center';
+    spinnerOverlay.className = 'position-absolute top-0 start-0 end-0 bottom-0 d-flex align-items-center justify-content-center rounded-4';
     spinnerOverlay.style.background = 'rgba(255,255,255,0.85)';
     spinnerOverlay.style.zIndex = '1055';
     spinnerOverlay.innerHTML = `
@@ -156,15 +154,24 @@ async function attachLessonAndGo(classroomId, href = null) {
 function openLessonPreview(lessonId) {
     initPreviewModal();
     if (!previewModal) return;
+    selectedLessonId = lessonId;
+
     const frame = document.getElementById('lessonPreviewFrame');
     const loading = document.getElementById('lessonPreviewLoading');
     const errorDiv = document.getElementById('lessonPreviewError');
+    const selectBtnPreview = document.querySelector('.select-lesson-btn-preview');
     if (loading) loading.classList.remove('d-none');
     if (errorDiv) errorDiv.classList.add('d-none');
+
+    if (selectBtnPreview) {
+        selectBtnPreview.dataset.lessonId = lessonId;
+    }
+
     if (frame) {
         frame.style.display = 'none';
         frame.src = '';
     }
+
     setTimeout(() => {
         if (frame) frame.src = `/courses/lesson/${lessonId}/preview/`;
     }, 100);
@@ -206,6 +213,24 @@ function openLessonModal({ mode = 'create', id = '', title = '', description = '
         if (titleInput) titleInput.focus();
     }, 550);
 }
+
+document.addEventListener('click', (e) => {
+    const selectBtnPreview = e.target.closest('.select-lesson-btn-preview');
+    if (selectBtnPreview) {
+        e.preventDefault();
+        const lessonId = selectBtnPreview.dataset.lessonId;
+
+        if (previewModal) {
+            previewModal.hide();
+        }
+
+        initSelectClassroomModal();
+        if (!selectClassroomModal) return;
+
+        selectedLessonId = lessonId;
+        selectClassroomModal.show();
+    }
+});
 
 function setFormSubmitting(state) {
     if (!lessonForm) return;
@@ -250,7 +275,7 @@ function addLessonToDOM(created) {
             </ul>
         </div>
     `;
-    const selectBtnHtml = isPublic ? '' : `<button class="btn btn-primary btn-sm fw-bold select-lesson-btn" data-lesson-id="${created.id}">Выбрать</button>`;
+
     lessonDiv.innerHTML = `
         ${dropIndicator}
         <div class="flex-grow-1 me-2">
@@ -265,8 +290,16 @@ function addLessonToDOM(created) {
 
         <div class="d-flex align-items-center ms-auto gap-2">
             ${dropdownHtml}
-            <button class="btn btn-outline-success btn-sm preview-icon-btn" data-lesson-id="${created.id}">Посмотреть</button>
-            ${selectBtnHtml}
+
+            <button class="btn btn-outline-primary btn-sm select-lesson-btn"
+                    data-lesson-id="${ created.id }">
+                Выбрать
+            </button>
+
+            <button class="btn btn-success btn-sm preview-icon-btn"
+                    data-lesson-id="${ created.id }">
+                Посмотреть
+            </button>
         </div>
     `;
     lessonsContainer.appendChild(lessonDiv);
@@ -471,26 +504,62 @@ async function createClassroomAndRedirect() {
     const input = document.getElementById('newClassroomTitle');
     const errorEl = document.getElementById('classroomError');
     const btn = document.getElementById('createClassroomBtn');
+    const modalEl = document.getElementById('selectClassroomModal');
 
-    if (!input || !selectedLessonId || !btn) return;
+    if (!input || !selectedLessonId || !btn || !modalEl) return;
 
-    errorEl.classList.add('d-none');
-    errorEl.textContent = '';
+    const title = input.value.trim();
+    if (!title) {
+        errorEl.textContent = 'Введите название класса';
+        errorEl.classList.remove('d-none');
+        return;
+    }
+
+    if (title.length > 30) {
+        errorEl.textContent = 'Название класса не должно превышать 30 символов';
+        errorEl.classList.remove('d-none');
+        return;
+    }
+
+    const modalContent = modalEl.querySelector('.modal-content') || modalEl;
+    const spinnerOverlay = document.createElement('div');
+    spinnerOverlay.className = 'position-absolute top-0 start-0 end-0 bottom-0 d-flex align-items-center justify-content-center rounded-3';
+    spinnerOverlay.style.background = 'rgba(255,255,255,0.85)';
+    spinnerOverlay.style.zIndex = '1055';
+    spinnerOverlay.innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border" role="status" aria-hidden="true"></div>
+            <div class="mt-2 small">Создаём класс...</div>
+        </div>
+    `;
+
+    const interactive = Array.from(modalEl.querySelectorAll('button, a, input, textarea, select'));
 
     btn.disabled = true;
     btn.classList.add('disabled');
+    interactive.forEach(el => el.setAttribute('disabled', 'disabled'));
+    modalContent.appendChild(spinnerOverlay);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
 
     try {
-        const resp = await fetch('/classrooms/create/', {
+        const resp = await fetch('/classroom/api/create/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': getCsrfToken()
             },
             body: JSON.stringify({
-                title: input.value.trim(),
+                title: title,
                 lesson_id: selectedLessonId
-            })
+            }),
+            signal: controller.signal
+        }).catch((err) => {
+            if (err.name === 'AbortError') throw new Error('Превышено время ожидания (5 секунд)');
+            throw err;
+        }).finally(() => {
+            clearTimeout(timeoutId);
         });
 
         const data = await resp.json().catch(() => ({}));
@@ -506,9 +575,12 @@ async function createClassroomAndRedirect() {
     } catch (err) {
         errorEl.textContent = err.message;
         errorEl.classList.remove('d-none');
-
+    } finally {
+        clearTimeout(timeoutId);
         btn.disabled = false;
         btn.classList.remove('disabled');
+        interactive.forEach(el => el.removeAttribute('disabled'));
+        try { spinnerOverlay.remove(); } catch (e) {}
     }
 }
 
@@ -537,26 +609,39 @@ function handleLessonsContainerClick(e) {
     const previewBtn = e.target.closest('.preview-icon-btn');
     const toggleBtn = e.target.closest('.toggle-desc');
     const selectBtn = e.target.closest('.select-lesson-btn');
+
     if (toggleBtn) {
         handleToggleDescription(e);
         return;
     }
+
     if (previewBtn) {
         openLessonPreview(previewBtn.dataset.lessonId);
         return;
     }
+
     if (selectBtn) {
+        if (previewModal) {
+            previewModal.hide();
+        }
+
         initSelectClassroomModal();
         if (!selectClassroomModal) return;
 
         selectedLessonId = selectBtn.dataset.lessonId;
-        selectClassroomModal.show();
+
+        setTimeout(() => {
+            selectClassroomModal.show();
+        }, 300);
+
         return;
     }
+
     if (!actionEl) return;
     e.preventDefault();
     const action = actionEl.dataset.action;
     const lessonId = actionEl.dataset.lessonId;
+
     if (action === 'edit') {
         openLessonModal({
             mode: 'edit',
@@ -566,6 +651,7 @@ function handleLessonsContainerClick(e) {
         });
         return;
     }
+
     if (action === 'delete') {
         deleteLesson(lessonId);
     }
@@ -638,10 +724,7 @@ function initCourseDetails() {
     document.addEventListener('dragend', () => {
         if (!isReorderMode) hideDropbar();
     });
-    const createClassroomBtn = document.getElementById('createClassroomBtn');
-    if (createClassroomBtn) {
-        createClassroomBtn.addEventListener('click', createClassroomAndRedirect);
-    }
+
     initSelectClassroomModal();
 }
 

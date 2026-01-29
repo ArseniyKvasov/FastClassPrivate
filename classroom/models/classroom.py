@@ -2,7 +2,7 @@ from django.db import models, transaction
 from django.conf import settings
 from django.core.exceptions import ValidationError
 import random
-from courses.models import Lesson
+from courses.models import Lesson, Course
 
 
 def generate_join_password():
@@ -107,3 +107,36 @@ class Classroom(models.Model):
         else:
             available_users = []
         return available_users
+
+    def attach_lesson(self, lesson):
+        """Прикрепляет урок к классу"""
+        if self.teacher != lesson.course.creator:
+            if lesson.course.root_type == "clone":
+                try:
+                    with transaction.atomic():
+                        copy_course = Course.objects.create(
+                            creator=self.teacher,
+                            linked_to=lesson.course,
+                            root_type="copy",
+                            title=lesson.course.title,
+                            description=lesson.course.description,
+                            subject=lesson.course.subject,
+                            is_public=False
+                        )
+                        copy_course.synchronize_with_clone()
+
+                        copy_lesson = copy_course.lessons.filter(linked_to=lesson).first()
+                        if not copy_lesson:
+                            raise ValidationError("Не удалось найти скопированный урок")
+
+                        self.lesson = copy_lesson
+                        self.save(update_fields=['lesson'])
+                        return True
+                except Exception as e:
+                    raise ValidationError(f"Ошибка при копировании курса: {str(e)}")
+            else:
+                raise ValidationError("Вы не являетесь создателем этого курса")
+        else:
+            self.lesson = lesson
+            self.save(update_fields=['lesson'])
+            return True

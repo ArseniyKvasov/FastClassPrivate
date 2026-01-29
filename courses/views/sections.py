@@ -61,12 +61,9 @@ def create_section(request):
         if request.user != lesson.course.creator:
             return JsonResponse({"error": "Доступ запрещен."}, status=403)
 
-        order = lesson.sections.count()
-
         section = Section.objects.create(
             lesson=lesson,
             title=title,
-            order=order
         )
 
         return JsonResponse({

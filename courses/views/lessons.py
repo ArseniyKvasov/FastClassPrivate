@@ -6,6 +6,8 @@ from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import F
 from django.db.models import Max
+from django.core.exceptions import PermissionDenied
+from django.http import Http404
 from django.http import HttpResponseForbidden
 from django.shortcuts import render, get_object_or_404
 from django.views.decorators.clickjacking import xframe_options_exempt
@@ -39,14 +41,10 @@ def create_lesson(request, course_id):
     if course.creator != request.user:
         return JsonResponse({"error": "Доступ запрещен"}, status=403)
 
-    last_order = course.lessons.aggregate(max_order=Max('order'))['max_order'] or 0
-    new_order = last_order + 1
-
     lesson = Lesson.objects.create(
         course=course,
         title=title,
         description=description,
-        order=new_order
     )
 
     return JsonResponse({
@@ -147,8 +145,31 @@ def reorder_lessons(request, course_id):
 @xframe_options_exempt
 def lesson_preview(request, lesson_id):
     """Предпросмотр урока в упрощенном виде (для iframe)"""
-    context = {
-        'lesson_id': lesson_id,
-        'current_user_id': request.user.id,
-    }
-    return render(request, 'courses/lesson_preview.html', context)
+
+    try:
+        lesson = Lesson.objects.get(id=lesson_id)
+        course = lesson.course
+
+        has_access = False
+
+        if course.creator == request.user:
+            has_access = True
+
+        elif course.root_type == 'clone':
+            has_access = True
+
+        if not has_access:
+            raise PermissionDenied("У вас нет доступа к этому уроку")
+
+        context = {
+            'lesson': lesson,
+            'course': course,
+            'lesson_id': lesson_id,
+            'current_user_id': request.user.id,
+        }
+        return render(request, 'courses/lesson_preview.html', context)
+
+    except Lesson.DoesNotExist:
+        raise Http404("Урок не найден")
+    except PermissionDenied as e:
+        return render(request, 'courses/access_denied.html', status=403)

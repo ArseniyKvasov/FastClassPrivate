@@ -3,7 +3,7 @@
 import { showNotification, getIsTeacher, getLessonId, getSectionId, fetchSingleTask } from "/static/js/tasks/utils.js";
 import { loadSectionTasks } from "/static/js/tasks/display/showTasks.js"
 import { selectSection } from "/static/js/tasks/display/renderSections.js"
-import { getViewedUserId, scrollToTask, refreshSections } from '/static/classroom/utils.js'
+import { getViewedUserId, scrollToTask, refreshSections, refreshClassroom } from '/static/classroom/utils.js'
 import { fetchTaskAnswer } from "/static/classroom/answers/api.js";
 import { handleAnswer } from "/static/classroom/answers/handleAnswer.js";
 import { clearTask } from "/static/classroom/answers/handlers/clearAnswers.js"
@@ -29,7 +29,7 @@ export async function handleWSMessage(ev) {
 
     const { type, data } = msg;
     if (!type) return;
-    if (!shouldProcessMessage(data) && !["users:online", "user:online:event", "user:offline:event", "chat:send_message", "chat:update"].includes(type)) return;
+    if (!shouldProcessMessage(data) && !["users:online", "user:online:event", "user:offline:event", "chat:send_message", "chat:update", "lesson:attached"].includes(type)) return;
 
     switch(type) {
         case "answer:sent":
@@ -100,6 +100,11 @@ export async function handleWSMessage(ev) {
         case "user:deleted":
             window.location.href = "/";
             break;
+
+        case "lesson:attached":
+            refreshClassroom();
+            break;
+
     }
 }
 

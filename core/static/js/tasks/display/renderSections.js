@@ -17,7 +17,7 @@ let isSubmitting = false;
 
 function renderSectionItem(section) {
     const li = document.createElement("li");
-    li.className = "list-group-item d-flex justify-content-between align-items-center border-0 px-2 my-1 rounded";
+    li.className = "list-group-item d-flex justify-content-between align-items-center border-0 px-2 my-1";
     li.dataset.sectionId = section.id;
     li.draggable = isTeacher;
 
@@ -26,16 +26,17 @@ function renderSectionItem(section) {
         : "";
 
     li.innerHTML = `
-        <div class="d-flex align-items-center gap-2" style="flex:1; min-width:0;">
+        <div class="d-flex align-items-center gap-2" style="flex:1; min-width:0; overflow:hidden;">
             ${teacherHandle}
             <button type="button"
                     class="btn btn-link section-link text-decoration-none text-truncate p-0"
+                    style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"
                     data-section-id="${section.id}">
                 ${section.title}
             </button>
         </div>
         ${isTeacher ? `
-            <div class="d-flex gap-2">
+            <div class="d-flex gap-2 flex-shrink-0">
                 <button type="button" class="btn btn-link p-0 edit-section-button">
                     <i class="bi bi-pencil-fill text-secondary"></i>
                 </button>

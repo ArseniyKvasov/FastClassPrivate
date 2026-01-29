@@ -180,7 +180,8 @@ export const TaskValidators = {
 
         const supportedDomains = [
             'youtube.com', 'youtu.be', 'wordwall.net', 'miro.com',
-            'quizlet.com', 'learningapps.org', 'rutube.ru', 'sboard.online'
+            'quizlet.com', 'learningapps.org', 'rutube.ru', 'sboard.online',
+            'geogebra.org'
         ];
 
         const hasSupportedDomain = supportedDomains.some(domain => embedCode.includes(domain));

@@ -50,14 +50,19 @@
             </button>
             <ul class="dropdown-menu dropdown-menu-end shadow-sm">
                 <li>
-                    <button class="dropdown-item text-danger" id="disableCopyingButton"
+                    <button class="dropdown-item text-danger bg-white" id="disableCopyingButton"
                             data-copy-allowed="{{ copying_enabled|yesno:'true,false' }}">
                         <i class="bi bi-ban me-2"></i> <span class="btn-text">Запретить копирование</span>
                     </button>
                 </li>
                 <li>
-                    <button class="dropdown-item" id="changeTasksOrderButton">
+                    <button class="dropdown-item text-dark bg-white" id="changeTasksOrderButton">
                         <i class="bi bi-list-ol me-2"></i> Порядок заданий
+                    </button>
+                </li>
+                <li>
+                    <button class="dropdown-item text-dark bg-white" id="selectLessonButton">
+                        <i class="bi bi-journal-plus me-2"></i> Выбрать урок
                     </button>
                 </li>
             </ul>

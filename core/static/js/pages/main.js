@@ -29,8 +29,10 @@ export function openEntityModal({
     const modeInput = document.getElementById('universalModalMode');
     const entityInput = document.getElementById('universalModalEntity');
     const idInput = document.getElementById('universalModalCourseId');
-    const btnText = document.getElementById('universalModalButtonText');
+    const submitBtn = document.getElementById('universalModalButton');
     const errorEl = document.getElementById('universalModalError');
+
+    submitBtn.disabled = false;
 
     modeInput.value = mode;
     entityInput.value = entity;
@@ -53,13 +55,16 @@ export function openEntityModal({
 
     if (mode === 'create') {
         titleEl.textContent = entity === 'course' ? 'Новый курс' : 'Новый класс';
-        btnText.textContent = 'Создать';
+        submitBtn.innerText = 'Создать';
     } else {
         titleEl.textContent = entity === 'course' ? 'Редактировать курс' : 'Редактировать класс';
-        btnText.textContent = 'Сохранить';
+        submitBtn.innerText = 'Сохранить';
     }
 
+    submitBtn.innerHTML = submitBtn.innerText;
+
     bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    setTimeout(() => nameInput.focus(), 550);
 }
 
 /**
@@ -148,6 +153,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const idInput = document.getElementById('universalModalCourseId');
     const errorEl = document.getElementById('universalModalError');
     const modalEl = document.getElementById('universalModal');
+    const submitBtn = document.getElementById('universalModalButton');
+    const originalBtnText = submitBtn.innerHTML;
+
+    let submitTimeout = null;
 
     modalForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -158,6 +167,16 @@ document.addEventListener('DOMContentLoaded', () => {
             errorEl.classList.remove('d-none');
             return;
         }
+
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Обработка...';
+
+        submitTimeout = setTimeout(() => {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = submitBtn.innerText;
+            errorEl.textContent = 'Таймаут запроса. Попробуйте еще раз.';
+            errorEl.classList.remove('d-none');
+        }, 5000);
 
         const mode = modeInput.value;
         const entity = entityInput.value || 'course';
@@ -195,6 +214,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         } catch (err) {
+            clearTimeout(submitTimeout);
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = submitBtn.innerText;
             errorEl.textContent = 'Сетевая ошибка';
             errorEl.classList.remove('d-none');
             return;
@@ -204,16 +226,26 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             data = await resp.json();
         } catch (err) {
+            clearTimeout(submitTimeout);
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = submitBtn.innerText;
             errorEl.textContent = 'Невалидный ответ сервера';
             errorEl.classList.remove('d-none');
             return;
         }
 
+        clearTimeout(submitTimeout);
+
         if (!resp.ok || data.error) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = submitBtn.innerText;
             errorEl.textContent = data.error || 'Ошибка сохранения';
             errorEl.classList.remove('d-none');
             return;
         }
+
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = submitBtn.innerText;
 
         if (mode === 'create') {
             if (data.url) {
@@ -308,6 +340,13 @@ document.addEventListener('DOMContentLoaded', () => {
         bootstrap.Modal.getInstance(modalEl).hide();
     });
 
+    modalEl.addEventListener('hidden.bs.modal', () => {
+        clearTimeout(submitTimeout);
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = submitBtn.innerText;
+        errorEl.classList.add('d-none');
+    });
+
     document.querySelectorAll('[data-create]').forEach(el => {
         el.addEventListener('click', (ev) => {
             ev.preventDefault();
@@ -396,6 +435,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (item) {
                 item.remove();
             }
+        }
+    });
+
+    nameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            modalForm.dispatchEvent(new Event('submit'));
         }
     });
 });

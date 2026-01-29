@@ -17,11 +17,11 @@ from fastlesson import settings
 def serialize_task_data(task: Task):
     """
     Сериализация задачи с учётом edited_content.
-    Если задача является копией (original_task), накладываются изменения из edited_content.
+    Если задача является копией (root_type='copy'), накладываются изменения из edited_content.
     """
     obj = getattr(task, "specific", None)
     data = {}
-    is_copy_task = getattr(task, "original_task", None)
+    is_copy_task = task.root_type == "copy"
 
     if obj:
         if task.task_type == "image":
@@ -110,7 +110,7 @@ def _update_existing_task(task_id, section, serializer_class, data):
         return JsonResponse({"success": False, "errors": "Неверный раздел"}, status=400)
 
     specific_obj = getattr(task, "specific", None)
-    is_copy_task = getattr(task, "original_task", None)
+    is_copy_task = task.root_type == "copy"
     item = data[0].copy() if isinstance(data, list) and data else data
 
     if isinstance(specific_obj, ImageTask):
@@ -139,15 +139,12 @@ def _update_existing_task(task_id, section, serializer_class, data):
 
 
 def _create_new_task(section, task_type, serializer_class, data):
-    max_order = section.tasks.aggregate(models.Max("order"))["order__max"] or 0
-    task_order = max_order + 1
-
     item = data[0].copy() if isinstance(data, list) and data else data
 
     if task_type == "test":
-        return _create_test_task(section, serializer_class, data, task_order)
+        return _create_test_task(section, serializer_class, data)
     if task_type == "true_false":
-        return _create_true_false_task(section, serializer_class, data, task_order)
+        return _create_true_false_task(section, serializer_class, data)
 
     if isinstance(data, list) and len(data) > 1:
         return JsonResponse(
@@ -167,11 +164,10 @@ def _create_new_task(section, task_type, serializer_class, data):
     task = Task.objects.create(
         section=section,
         task_type=task_type,
+        root_type="original",
         content_type=ContentType.objects.get_for_model(specific_obj),
         object_id=specific_obj.id,
-        edited_content={} if getattr(specific_obj, "file_path", None) is None else {
-            "file_path": specific_obj.file_path},
-        order=task_order,
+        edited_content={},
     )
 
     return JsonResponse({
@@ -182,7 +178,7 @@ def _create_new_task(section, task_type, serializer_class, data):
     })
 
 
-def _create_test_task(section, serializer_class, data, order):
+def _create_test_task(section, serializer_class, data):
     obj = serializer_class(data={"questions": data})
     obj.is_valid(raise_exception=True)
     specific_obj = obj.save()
@@ -190,10 +186,10 @@ def _create_test_task(section, serializer_class, data, order):
     task = Task.objects.create(
         section=section,
         task_type="test",
+        root_type="original",
         content_type=ContentType.objects.get_for_model(specific_obj),
         object_id=specific_obj.id,
         edited_content={},
-        order=order,
     )
 
     return JsonResponse({
@@ -204,7 +200,7 @@ def _create_test_task(section, serializer_class, data, order):
     })
 
 
-def _create_true_false_task(section, serializer_class, data, order):
+def _create_true_false_task(section, serializer_class, data):
     obj = serializer_class(data={"statements": data})
     obj.is_valid(raise_exception=True)
     specific_obj = obj.save()
@@ -212,10 +208,10 @@ def _create_true_false_task(section, serializer_class, data, order):
     task = Task.objects.create(
         section=section,
         task_type="true_false",
+        root_type="original",
         content_type=ContentType.objects.get_for_model(specific_obj),
         object_id=specific_obj.id,
         edited_content={},
-        order=order,
     )
 
     return JsonResponse({

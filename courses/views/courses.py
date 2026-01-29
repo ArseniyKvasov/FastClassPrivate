@@ -4,6 +4,7 @@ from django.db.models import ProtectedError
 from django.http import JsonResponse, Http404
 from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
+from django.db.models import Prefetch, Case, When, Value, IntegerField
 from courses.models import Course, Lesson
 from classroom.models import Classroom
 
@@ -100,7 +101,6 @@ def create_course(request):
         "title": course.title,
         "description": course.description,
         "subject": course.subject,
-        "version": course.version,
         "url": course_url
     })
 
@@ -173,24 +173,26 @@ def create_lesson(request, course_id):
 def course_detail(request, course_id):
     """
     Детальная страница курса.
-
-    Для пользовательских курсов (копий) проверяет наличие новой версии оригинального курса.
-    Если есть новая версия - передает ее ID для отображения кнопки "Обновить курс".
-    Для публичных курсов проверка версий не выполняется.
+    Открывает копию курса, если она есть у пользователя
     """
-
     course = get_object_or_404(Course, id=course_id)
 
     if course.creator != request.user and not course.is_public:
         return JsonResponse({"error": "Доступ запрещен"}, status=403)
 
-    lessons = course.lessons.all().order_by("order")
+    user_copy_courses = Course.objects.filter(
+        creator=request.user,
+        root_type="copy",
+        linked_to=course
+    )
 
-    latest_version_id = None
-    if course.original_course:
-        latest_version = course.original_course.get_latest_version()
-        if latest_version and latest_version.id != course.original_course.id:
-            latest_version_id = latest_version.id
+    if user_copy_courses.exists():
+        user_course = user_copy_courses.first()
+        lessons = user_course.lessons.all().order_by("order")
+        display_course = user_course
+    else:
+        lessons = course.lessons.all().order_by("order")
+        display_course = course
 
     classrooms_list = Classroom.objects.filter(
         teacher=request.user
@@ -198,10 +200,67 @@ def course_detail(request, course_id):
 
     context = {
         "lessons": lessons,
-        "course": course,
+        "course": display_course,
         "is_public": course.is_public,
-        "latest_version_id": latest_version_id,
         "classrooms_list": classrooms_list,
+        "is_user_copy": user_copy_courses.exists(),
+        "original_course_id": course.id if user_copy_courses.exists() else None,
     }
 
     return render(request, "courses/details.html", context)
+
+
+@login_required
+def get_all_courses_for_selection(request):
+    """
+    Возвращает все курсы пользователя для выбора урока.
+
+    Порядок:
+    1. Оригиналы пользователя
+    2. Копии пользователя
+    3. Публичные клоны, не привязанные к копиям пользователя
+
+    Реализация делает два SQL-запроса: courses + lessons (prefetch).
+    """
+    user = request.user
+
+    courses_qs = (
+        Course.objects
+        .for_selection(user)
+        .annotate(
+            priority=Case(
+                When(root_type='original', creator=user, then=Value(0)),
+                When(root_type='copy', creator=user, then=Value(1)),
+                When(root_type='clone', then=Value(2)),
+                default=Value(3),
+                output_field=IntegerField(),
+            )
+        )
+        .order_by('priority', '-created_at')
+        .only('id', 'title', 'description', 'root_type', 'created_at')
+        .prefetch_related(
+            Prefetch(
+                'lessons',
+                queryset=Lesson.objects.only('id', 'title', 'description')
+            )
+        )
+    )
+
+    courses_data = [
+        {
+            'id': course.id,
+            'title': course.title,
+            'description': course.description or '',
+            'lessons': [
+                {
+                    'id': lesson.id,
+                    'title': lesson.title,
+                    'description': lesson.description or '',
+                }
+                for lesson in course.lessons.all()
+            ]
+        }
+        for course in courses_qs
+    ]
+
+    return JsonResponse({'courses': courses_data})

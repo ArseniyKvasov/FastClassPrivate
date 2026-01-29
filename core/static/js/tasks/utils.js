@@ -206,13 +206,13 @@ export const TASK_MAP = {
         render: ["/static/js/tasks/display/templates/common/fillGaps.js", "renderFillGapsTask"],
         edit:   ["/static/js/tasks/editor/templates/common/fillGaps.js", "renderFillGapsTaskEditor"],
         icon:   "bi-pen",
-        label:  "Заполнить пропуски"
+        label:  "Пропуски"
     },
     image: {
         render: ["/static/js/tasks/display/templates/common/image.js", "renderImageTask"],
         edit:   ["/static/js/tasks/editor/templates/common/image.js", "renderImageTaskEditor"],
         icon:   "bi-image",
-        label:  "Картинка"
+        label:  "Изображение"
     },
     note: {
         render: ["/static/js/tasks/display/templates/common/note.js", "renderNoteTask"],
@@ -224,19 +224,19 @@ export const TASK_MAP = {
         render: ["/static/js/tasks/display/templates/common/textInput.js", "renderTextInputTask"],
         edit:   ["/static/js/tasks/editor/templates/common/textInput.js", "renderTextInputTaskEditor"],
         icon:   "bi-text-paragraph",
-        label:  "Текстовое задание"
+        label:  "Текст"
     },
     true_false: {
         render: ["/static/js/tasks/display/templates/common/trueFalse.js", "renderTrueFalseTask"],
         edit:   ["/static/js/tasks/editor/templates/common/trueFalse.js", "renderTrueFalseTaskEditor"],
         icon:   "bi-check2-circle",
-        label:  "Правда или ложь"
+        label:  "Утверждения"
     },
     match_cards: {
         render: ["/static/js/tasks/display/templates/common/matchCards.js", "renderMatchCardsTask"],
         edit:   ["/static/js/tasks/editor/templates/common/matchCards.js", "renderMatchCardsTaskEditor"],
         icon:   "bi-arrow-left-right",
-        label:  "Соотнеси карточки"
+        label:  "Карточки"
     },
     integration: {
         render: ["/static/js/tasks/display/templates/common/integration.js", "renderIntegrationTask"],
@@ -249,7 +249,7 @@ export const TASK_MAP = {
         edit:   ["/static/js/tasks/editor/templates/common/test.js", "renderTestTaskEditor"],
         icon:   "bi-list-check",
         label:  "Тест"
-    }
+    },
 };
 
 /**

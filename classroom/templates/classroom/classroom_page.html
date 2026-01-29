@@ -55,18 +55,14 @@
         initEvents();
     </script>
 
-    <!-- Тесты -->
-    <script type="module">
-        import { isCurrentLessonCorrect } from "{% static 'classroom/tests.js' %}";
-
-        setInterval(isCurrentLessonCorrect, 60000);
-    </script>
-
     {% if is_teacher %}
+        <link rel="stylesheet" href="{% static 'css/teacher_styles.css' %}">
+
         <!-- Загрузка модальных окон для редактирования -->
-        {% include 'core/tasks/task_selection_modal.html' %}
-        {% include 'core/tasks/section_create_modal.html' %}
-        {% include 'core/tasks/invitation_modal.html' %}
+        {% include 'classroom/modals/task_select.html' %}
+        {% include 'classroom/modals/section_create.html' %}
+        {% include 'classroom/modals/invitation.html' %}
+        {% include 'classroom/modals/lesson_select.html' %}
 
         <!-- Редактирование заданий -->
         <script type="module">
@@ -103,6 +99,8 @@
 
             initClassroomInviteModal(`{{ classroom_id }}`, `{{ classroom.join_password }}`);
         </script>
+
+        <script type="module" src="/static/js/tasks/editor/lessonSelect.js"></script>
     {% else %}
         <!-- Разрешение копирования -->
         <script type="module">
@@ -141,7 +139,7 @@
                  style="max-height: 80vh; overflow-y: hidden;">
 
                 <ul id="section-list"
-                    class="list-group list-group-flush"
+                    class="list-group list-group-flush py-1"
                     style="overflow-y: auto; max-height: calc(80vh - 60px);">
                 </ul>
             </div>

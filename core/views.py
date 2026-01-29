@@ -1,5 +1,6 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from django.db.models import Q
+from django.db.models import Q, Subquery
+from django.db import models
 from django.http import JsonResponse
 from django.contrib.auth import authenticate, login
 from django.contrib.auth import get_user_model
@@ -16,74 +17,106 @@ def home(request):
     """
     Главная страница с курсами и классами пользователя.
 
-    Возвращает:
-    - Раздел "Мои курсы": только курсы, созданные текущим пользователем
-    - Разделы по предметам (Математика/Английский/Другое): только публичные курсы,
-      исключая те, на которые ссылаются пользовательские курсы через original_course,
-      а также исключая курсы, созданные самим пользователем
-    - Список классов пользователя: где он является учителем или учеником
+    SQL-оптимизация:
+    - Subquery вместо Python-списков
+    - один базовый queryset курсов
+    - select_related для classroom.lesson
+    - only() для курсов
     """
-    courses = Course.objects.filter(deactivated_at__isnull=True)
+
+    base_courses = (
+        Course.objects
+        .filter(deactivated_at__isnull=True)
+        .only(
+            'id',
+            'title',
+            'description',
+            'subject',
+            'is_public',
+            'root_type',
+            'creator_id',
+            'linked_to_id',
+        )
+    )
 
     user_courses = Course.objects.none()
     public_courses = Course.objects.none()
+    user_classrooms = []
 
     if request.user.is_authenticated:
-        user_courses = courses.filter(creator=request.user)
-
-        referenced_course_ids = user_courses.values_list('original_course_id', flat=True)
-        referenced_course_ids = [id for id in referenced_course_ids if id is not None]
-
-        public_courses = courses.filter(
-            is_public=True
-        ).exclude(
-            id__in=referenced_course_ids
-        ).exclude(
-            creator=request.user
+        user_courses = base_courses.filter(
+            creator=request.user,
+            root_type="original",
         )
+
+        referenced_course_ids = Subquery(
+            base_courses.filter(
+                creator=request.user,
+                linked_to__isnull=False,
+            ).values('linked_to_id')
+        )
+
+        public_courses = (
+            base_courses
+            .filter(
+                is_public=True,
+                root_type="clone",
+            )
+            .exclude(
+                id__in=referenced_course_ids
+            )
+            .exclude(
+                creator=request.user
+            )
+        )
+
+        classrooms = (
+            Classroom.objects
+            .filter(
+                models.Q(teacher=request.user) |
+                models.Q(students=request.user)
+            )
+            .select_related('lesson')
+            .only('id', 'title', 'teacher_id', 'lesson__title')
+            .distinct()
+        )
+
+        for classroom in classrooms:
+            user_classrooms.append({
+                'id': classroom.id,
+                'title': classroom.title,
+                'role': 'Учитель' if classroom.teacher_id == request.user.id else 'Ученик',
+                'lesson_title': classroom.lesson.title if classroom.lesson else None,
+            })
+
     else:
-        public_courses = courses.filter(is_public=True)
+        public_courses = base_courses.filter(
+            is_public=True,
+            root_type="clone",
+        )
 
     math_courses = public_courses.filter(subject='math')
     english_courses = public_courses.filter(subject='english')
     other_courses = public_courses.filter(subject='other')
 
-    user_classrooms = []
-    if request.user.is_authenticated:
-        teacher_classrooms = Classroom.objects.filter(teacher=request.user)
-        student_classrooms = Classroom.objects.filter(students=request.user)
-
-        for classroom in teacher_classrooms:
-            user_classrooms.append({
-                'id': classroom.id,
-                'title': classroom.title,
-                'role': 'Учитель',
-                'lesson_title': classroom.lesson.title if classroom.lesson else None,
-            })
-
-        for classroom in student_classrooms:
-            user_classrooms.append({
-                'id': classroom.id,
-                'title': classroom.title,
-                'role': 'Ученик',
-                'lesson_title': classroom.lesson.title if classroom.lesson else None,
-            })
-
     SUBJECT_DISPLAY = dict(Course._meta.get_field('subject').choices)
 
     def serialize_courses(qs):
-        """Сериализация queryset курсов для шаблона."""
-        serialized = []
-        for course in qs:
-            serialized.append({
+        """
+        Сериализация курсов без дополнительных SQL-запросов.
+        """
+        return [
+            {
                 'id': course.id,
                 'title': course.title,
                 'description': course.description,
                 'subject': course.subject,
                 'subject_display': SUBJECT_DISPLAY.get(course.subject, course.subject),
-                'is_public': course.is_public
-            })
-        return serialized
+                'is_public': course.is_public,
+                'root_type': course.root_type,
+            }
+            for course in qs
+        ]
 
     context = {
         'user_classrooms': user_classrooms,

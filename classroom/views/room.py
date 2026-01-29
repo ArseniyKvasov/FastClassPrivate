@@ -5,14 +5,13 @@ from django.views.decorators.http import require_POST
 from django.db import transaction
 import json
 from django.urls import reverse
-
+from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 
 from core.services import get_display_name_from_username
 from courses.models import Lesson
-from courses.services import CourseNeedsUpdate, CourseUnavailableError
 from classroom.models import Classroom
-from classroom.services import set_copying, attach_lesson_to_classroom
+from classroom.services import set_copying, attach_lesson_and_notify
 from .session_utils import clear_verified_in_session
 
 User = get_user_model()
@@ -56,8 +55,19 @@ def create_classroom_view(request):
     )
 
     if lesson_id:
-        lesson = get_object_or_404(Lesson, pk=lesson_id)
-        attach_lesson_to_classroom(classroom, lesson, request.user)
+        try:
+            lesson = Lesson.objects.get(pk=lesson_id)
+            classroom.attach_lesson(lesson)
+        except Lesson.DoesNotExist:
+            return JsonResponse(
+                {"error": "Урок не найден"},
+                status=404
+            )
+        except ValidationError as e:
+            return JsonResponse(
+                {"error": str(e)},
+                status=400
+            )
 
     return JsonResponse({
         "redirect_url": reverse("classroom_view", args=[classroom.id])
@@ -263,35 +273,24 @@ def delete_student(request, classroom_id):
 @require_POST
 def attach_lesson_view(request, classroom_id, lesson_id):
     """
-    Прикрепляет урок к классу.
-
-    Возможные ответы:
-    - status=ok
-    - status=update_required
-    - 400 — логическая ошибка
+    Прикрепляет урок к классу и отправляет websocket-уведомление
+    участникам виртуального класса.
     """
     classroom = get_object_or_404(
         Classroom,
         pk=classroom_id,
-        teacher=request.user
+        teacher=request.user,
     )
     lesson = get_object_or_404(Lesson, pk=lesson_id)
 
     try:
-        attach_lesson_to_classroom(
-            classroom,
-            lesson,
-            request.user
+        attach_lesson_and_notify(
+            classroom=classroom,
+            lesson=lesson,
         )
-    except CourseNeedsUpdate as e:
-        return JsonResponse({
-            "status": "update_required",
-            "course_id": e.user_course_id,
-        })
-    except (CourseUnavailableError, ValueError) as e:
+        return JsonResponse({"status": "ok"})
+    except ValidationError as e:
         return JsonResponse(
-            {"status": "error", "detail": str(e)},
-            status=400
+            {"error": str(e)},
+            status=400,
         )
-
-    return JsonResponse({"status": "ok"})

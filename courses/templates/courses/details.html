@@ -106,7 +106,7 @@
                             </button>
                             <ul class="dropdown-menu">
                                 <li>
-                                    <a class="dropdown-item"
+                                    <a class="dropdown-item text-dark bg-white"
                                        href="#"
                                        data-action="edit"
                                        data-lesson-id="{{ lesson.id }}"
@@ -116,7 +116,7 @@
                                     </a>
                                 </li>
                                 <li>
-                                    <a class="dropdown-item text-danger"
+                                    <a class="dropdown-item text-danger bg-white"
                                        href="#"
                                        data-action="delete"
                                        data-lesson-id="{{ lesson.id }}">
@@ -127,14 +127,14 @@
                         </div>
                         {% endif %}
 
-                        <button class="btn btn-outline-success btn-sm preview-icon-btn"
-                                data-lesson-id="{{ lesson.id }}">
-                            Посмотреть
-                        </button>
-
-                        <button class="btn btn-primary btn-sm fw-bold select-lesson-btn"
+                        <button class="btn btn-outline-primary btn-sm select-lesson-btn"
                                 data-lesson-id="{{ lesson.id }}">
                             Выбрать
+                        </button>
+
+                        <button class="btn btn-success btn-sm preview-icon-btn"
+                                data-lesson-id="{{ lesson.id }}">
+                            Посмотреть
                         </button>
                     </div>
                 </div>

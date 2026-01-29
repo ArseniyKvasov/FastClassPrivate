@@ -3,6 +3,7 @@ import bleach
 from bleach.css_sanitizer import CSSSanitizer
 from django.utils.html import strip_tags
 from rest_framework import serializers
+from urllib.parse import urlparse
 from courses.models import (
     TestTask, TrueFalseTask, FillGapsTask, MatchCardsTask,
     NoteTask, ImageTask, TextInputTask, IntegrationTask
@@ -195,18 +196,43 @@ class IntegrationTaskSerializer(serializers.ModelSerializer):
         fields = ["embed_code"]
 
     def validate_embed_code(self, value):
+        """
+        Валидирует iframe embed-код и разрешённые домены.
+
+        Работают только:
+        - example.com
+        - www.example.com
+
+        Все остальные поддомены запрещены.
+        """
         if not value:
             raise serializers.ValidationError("Embed-код не может быть пустым")
+
         if '<iframe' not in value:
             raise serializers.ValidationError("Код должен содержать iframe")
 
-        allowed_domains = [
-            'youtube.com', 'youtu.be', 'wordwall.net', 'miro.com',
-            'quizlet.com', 'learningapps.org', 'rutube.ru', 'sboard.online'
-        ]
-        if not any(domain in value for domain in allowed_domains):
+        match = re.search(r'src=["\']([^"\']+)["\']', value)
+        if not match:
+            raise serializers.ValidationError("Не найден src у iframe")
+
+        src = match.group(1)
+        hostname = urlparse(src).hostname or ""
+
+        allowed_domains = (
+            'youtube.com',
+            'youtu.be',
+            'wordwall.net',
+            'miro.com',
+            'quizlet.com',
+            'learningapps.org',
+            'rutube.ru',
+            'sboard.online',
+            'geogebra.org',
+        )
+
+        if not any(hostname == domain or hostname == f"www.{domain}" for domain in allowed_domains):
             raise serializers.ValidationError(
-                f"Неподдерживаемый ресурс. Поддерживаются: {', '.join(allowed_domains)}"
+                f"Неподдерживаемый ресурс. Поддерживаются только основной домен и www-поддомен: {', '.join(allowed_domains)}"
             )
 
         return self._clean_embed_code(value)

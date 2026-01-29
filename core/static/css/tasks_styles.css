@@ -1,3 +1,8 @@
+body {
+    background-color: #f8f9fa;
+    font-family: 'Montserrat', 'Segoe UI', 'Helvetica', 'Arial', sans-serif;
+}
+
 #sidebar {
     position: sticky;
     top: 80px;
@@ -9,6 +14,7 @@
     transition: background-color 0.15s ease;
     scrollbar-width: none;
     -ms-overflow-style: none;
+    overflow: hidden;
 }
 
 #section-list::-webkit-scrollbar {
@@ -62,48 +68,3 @@
 }
 
 
-.horizontal-cards-container {
-    margin-top: 1rem;
-}
-
-.horizontal-cards-scroll {
-    display: flex;
-    overflow-x: auto;
-    gap: 0.75rem;
-    padding-bottom: 0.5rem;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-}
-
-.horizontal-cards-scroll::-webkit-scrollbar {
-    display: none;
-}
-
-.student-card {
-    flex: 0 0 auto;
-    min-width: 160px;
-    padding: 0.75rem 1rem;
-    border: 1px solid #dee2e6;
-    border-radius: 6px;
-}
-
-.student-card .name {
-    font-size: 0.85rem;
-    font-weight: 600;
-    margin-bottom: 0.5rem;
-    color: #212529;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.student-card .stats {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
-    font-size: 0.9rem;
-}
-
-.student-card .stats span:not(.correct, .wrong, .percent) {
-    color: #adb5bd;
-}
