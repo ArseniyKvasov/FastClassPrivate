@@ -18,11 +18,6 @@ export function renderWordListTask(task, container) {
         return;
     }
 
-    const title = document.createElement("div");
-    title.className = "d-flex justify-content-start align-items-center mb-3";
-    title.innerHTML = `<h5 class="mb-0 fw-semibold">Список слов</h5>`;
-    container.appendChild(title);
-
     const listHolder = document.createElement("div");
     listHolder.className = "word-list-holder mb-3";
     container.appendChild(listHolder);
@@ -118,10 +113,10 @@ export function renderPracticeMenu(container, words, onBack) {
     grid.className = "row g-3 mb-4";
 
     const modes = [
-        { key: "flash", label: "Флеш-карты", icon: "bi-book" },
-        { key: "choice", label: "Выбрать перевод", icon: "bi-list-check" },
-        { key: "assemble", label: "Составить слово", icon: "bi-type" },
-        { key: "input", label: "Вписать перевод", icon: "bi-pencil" }
+        { key: "flash", label: "Флеш-карты", icon: "bi-book", description: "Быстрое запоминание" },
+        { key: "choice", label: "Выбрать перевод", icon: "bi-list-check", description: "Выберите правильный ответ" },
+        { key: "assemble", label: "Составить слово", icon: "bi-type", description: "Пазл из букв" },
+        { key: "input", label: "Вписать перевод", icon: "bi-pencil", description: "Сам себе переводчик" }
     ];
 
     modes.forEach(mode => {
@@ -135,7 +130,7 @@ export function renderPracticeMenu(container, words, onBack) {
             <i class="${mode.icon} fs-3 me-3"></i>
             <div class="text-start">
                 <div class="fw-semibold">${mode.label}</div>
-                <div class="small text-muted">Быстрая практика из списка</div>
+                <div class="small text-muted">${mode.description}</div>
             </div>
         `;
 
