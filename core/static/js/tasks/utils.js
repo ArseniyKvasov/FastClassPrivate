@@ -391,6 +391,12 @@ export const TASK_MAP = {
         icon:   "bi-file-earmark",
         label:  "Файлы"
     },
+    word_list: {
+        render: ["/static/js/tasks/display/templates/languages/wordList.js", "renderWordListTask"],
+        edit:   ["/static/js/tasks/editor/templates/languages/wordList.js", "renderWordListTaskEditor"],
+        icon:   "bi-book",
+        label:  "Лексика"
+    },
 };
 
 /**

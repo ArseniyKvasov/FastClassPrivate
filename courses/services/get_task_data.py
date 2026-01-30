@@ -1,4 +1,5 @@
-from courses.models import Task, TestTask, TrueFalseTask, FillGapsTask, MatchCardsTask, TextInputTask, ImageTask
+from courses.models import Task, TestTask, TrueFalseTask, FillGapsTask, MatchCardsTask, TextInputTask, ImageTask, WordListTask
+
 
 def get_task_effective_data(task: Task) -> dict:
     """
@@ -30,6 +31,8 @@ def get_task_effective_data(task: Task) -> dict:
     elif task.task_type == "image" and isinstance(specific_obj, ImageTask):
         data["file_path"] = getattr(specific_obj, "file_path", None)
         data["caption"] = getattr(specific_obj, "caption", "")
+    elif task.task_type == "word_list" and isinstance(specific_obj, WordListTask):
+        data["words"] = getattr(specific_obj, "words", [])
     else:
         raise ValueError(f"Unsupported task type {task.task_type} or invalid specific object")
 

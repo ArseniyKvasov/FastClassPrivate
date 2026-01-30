@@ -36,6 +36,8 @@ TYPE_CHOICES = [
     ("fill_gaps", "Заполнить пропуски"),
     ("match_cards", "Соотнести карточки"),
     ("text_input", "Ввод текста"),
+    ("file", "Файл"),
+    ("word_list", "Список слов"),
 ]
 
 ROOT_TYPE_CHOICES = [

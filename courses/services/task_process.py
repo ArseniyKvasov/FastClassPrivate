@@ -49,6 +49,8 @@ def serialize_task_data(task: Task):
             data = {"embed_code": getattr(obj, "embed_code", "")}
         elif task.task_type == "file":
             data = {"file_link": getattr(obj, "file_link", "")}
+        elif task.task_type == "word_list":
+            data = {"words": getattr(obj, "words", [])}
 
     if is_copy_task and task.edited_content:
         data.update(task.edited_content)

@@ -179,3 +179,19 @@ class FileTask(models.Model):
 
     def __str__(self):
         return f"FileTask: {self.file_link}"
+
+
+class WordListTask(models.Model):
+    """
+    Список слов с переводом в формате:
+    [{"word": "cat", "translation": "кот"}]
+    """
+    words = models.JSONField(default=list)
+    total_words = models.PositiveIntegerField(default=0)
+
+    def save(self, *args, **kwargs):
+        source = self.words or []
+
+        self.total_words = len(source) if source else 0
+
+        super().save(*args, **kwargs)

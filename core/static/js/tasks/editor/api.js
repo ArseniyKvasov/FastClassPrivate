@@ -213,6 +213,7 @@ export const TaskValidators = {
 
         return [{ embed_code: cleanIframe.outerHTML }];
     },
+
     file: function(taskCard) {
         const linkEl = taskCard.querySelector(".file-link-input");
         const link = linkEl?.value.trim() || "";
@@ -249,7 +250,45 @@ export const TaskValidators = {
         }
 
         return [{ file_link: url }];
-    }
+    },
+
+    word_list: function(taskCard) {
+        const rows = [...taskCard.querySelectorAll(".word-translation-row")];
+        if (rows.length < 2) {
+            showNotification("Добавьте как минимум два слова!");
+            return null;
+        }
+
+        const words = [];
+        const wordSet = new Set();
+        const translationSet = new Set();
+
+        for (const row of rows) {
+            const word = row.querySelector(".word-input")?.value.trim();
+            const translation = row.querySelector(".translation-input")?.value.trim();
+
+            if (!word || !translation) {
+                showNotification("Каждое слово должно иметь перевод!");
+                return null;
+            }
+
+            if (wordSet.has(word)) {
+                showNotification("Найдены одинаковые слова!");
+                return null;
+            }
+
+            if (translationSet.has(translation)) {
+                showNotification("Найдены одинаковые переводы!");
+                return null;
+            }
+
+            wordSet.add(word);
+            translationSet.add(translation);
+            words.push({ word, translation });
+        }
+
+        return [{ words }];
+    },
 };
 
 /**
