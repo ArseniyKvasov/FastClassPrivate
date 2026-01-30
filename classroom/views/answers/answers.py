@@ -31,7 +31,7 @@ def get_task_answer(request):
     target_user_id = request.GET.get("user_id")
 
     if not all([task_id, classroom_id, target_user_id]):
-        return JsonResponse({"error": "Missing required parameters"}, status=400)
+        return JsonResponse({"error": "Переданы не все параметры"}, status=400)
 
     task = get_object_or_404(Task, id=task_id)
     classroom = get_object_or_404(Classroom, id=classroom_id)

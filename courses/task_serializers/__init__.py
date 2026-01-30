@@ -1,6 +1,6 @@
 from .common_tasks import TestTaskSerializer, NoteTaskSerializer, ImageTaskSerializer, TrueFalseTaskSerializer, \
-    FillGapsTaskSerializer, MatchCardsTaskSerializer, TextInputTaskSerializer, IntegrationTaskSerializer
-
+    FillGapsTaskSerializer, MatchCardsTaskSerializer, TextInputTaskSerializer, IntegrationTaskSerializer, \
+    FileTaskSerializer
 
 TASK_SERIALIZER_MAP = {
     "test": TestTaskSerializer,
@@ -11,4 +11,5 @@ TASK_SERIALIZER_MAP = {
     "match_cards": MatchCardsTaskSerializer,
     "text_input": TextInputTaskSerializer,
     "integration": IntegrationTaskSerializer,
+    "file": FileTaskSerializer,
 }

@@ -190,6 +190,141 @@ export function confirmAction(message) {
 }
 
 /**
+ * Показывает в контейнере центрированный лоадер со спиннером и меняющимися фразами.
+ *
+ * Аргументы:
+ * - container: HTMLElement — куда вставлять лоадер (у контейнера должен быть position: relative)
+ * - phrases: string[] — список фраз, которые будут меняться каждые 5 секунд в случайном порядке
+ *
+ * Возвращает объект с методами:
+ * - start() — запустить/перезапустить лоадер
+ * - stop() — остановить и удалить лоадер
+ * - showError(message, retryHandler) — показать ошибку с кнопкой "Попробовать снова" (retryHandler optional)
+ */
+export function showLoaderWithPhrases(container, phrases = []) {
+    if (!container) return;
+
+    let intervalId = null;
+    let timeoutId = null;
+    let phraseEl = null;
+    let shuffleOrder = [];
+    let pos = 0;
+    let mounted = false;
+
+    const loader = document.createElement("div");
+    loader.className = "position-absolute top-50 start-50 translate-middle text-center";
+    loader.style.pointerEvents = "auto";
+    loader.innerHTML = `
+        <div class="spinner-border text-primary" role="status" aria-hidden="true"></div>
+        <div class="mt-2 loader-phrase" style="min-height:1.25rem;"></div>
+    `;
+    phraseEl = loader.querySelector(".loader-phrase");
+
+    function shuffle(arr) {
+        const a = arr.slice();
+        for (let i = a.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+    }
+
+    function nextPhrase() {
+        if (!shuffleOrder.length) {
+            phraseEl.textContent = "";
+            return;
+        }
+        if (pos >= shuffleOrder.length) pos = 0;
+        phraseEl.textContent = shuffleOrder[pos] || "";
+        pos++;
+    }
+
+    function clearTimers() {
+        if (intervalId !== null) {
+            clearInterval(intervalId);
+            intervalId = null;
+        }
+        if (timeoutId !== null) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
+        }
+    }
+
+    function startRotation() {
+        clearTimers();
+        shuffleOrder = shuffle(phrases || []);
+        pos = 0;
+        nextPhrase();
+        intervalId = setInterval(nextPhrase, 5000);
+
+        timeoutId = setTimeout(() => {
+            if (mounted) {
+                showError("Загрузка заняла слишком много времени", null);
+            }
+        }, 40000);
+    }
+
+    function mount() {
+        if (!mounted) {
+            container.appendChild(loader);
+            mounted = true;
+        }
+    }
+
+    function unmount() {
+        clearTimers();
+        if (mounted && loader.parentNode) {
+            loader.parentNode.removeChild(loader);
+        }
+        mounted = false;
+    }
+
+    function start() {
+        mount();
+        startRotation();
+    }
+
+    function stop() {
+        unmount();
+    }
+
+    function showError(message, retryHandler = null) {
+        clearTimers();
+        loader.innerHTML = `
+            <div class="text-center">
+                <div class="alert alert-danger mb-2" role="alert" style="white-space: normal;">
+                    ${message}
+                </div>
+                ${retryHandler ? '<button class="btn btn-sm btn-primary retry-btn">Попробовать снова</button>' : ''}
+            </div>
+        `;
+        if (retryHandler) {
+            const btn = loader.querySelector(".retry-btn");
+            if (btn) {
+                btn.addEventListener("click", (e) => {
+                    btn.disabled = true;
+                    loader.innerHTML = `
+                        <div class="spinner-border text-primary" role="status" aria-hidden="true"></div>
+                        <div class="mt-2 loader-phrase" style="min-height:1.25rem;"></div>
+                    `;
+                    phraseEl = loader.querySelector(".loader-phrase");
+                    startRotation();
+                    try { retryHandler(e); } catch (err) { console.error(err); }
+                });
+            }
+        }
+        if (!mounted) mount();
+    }
+
+    return {
+        start,
+        stop,
+        showError,
+        element: loader,
+    };
+}
+
+/**
  * Маппинг типов заданий -> модули и имена экспортов.
  * Содержит иконку + читабельную русскую метку для селектора.
  *
@@ -249,6 +384,12 @@ export const TASK_MAP = {
         edit:   ["/static/js/tasks/editor/templates/common/test.js", "renderTestTaskEditor"],
         icon:   "bi-list-check",
         label:  "Тест"
+    },
+    file: {
+        render: ["/static/js/tasks/display/templates/common/file.js", "renderFileTask"],
+        edit:   ["/static/js/tasks/editor/templates/common/file.js", "renderFileTaskEditor"],
+        icon:   "bi-file-earmark",
+        label:  "Файлы"
     },
 };
 

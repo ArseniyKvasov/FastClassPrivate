@@ -109,7 +109,7 @@ class VirtualClassConsumer(AsyncWebsocketConsumer):
                 return
 
             if student_id is None:
-                await self.send_error("student_id is required for teacher messages")
+                await self.send_error("student_id обязателен для учительского сообщения")
                 return
             await self._handle_teacher_message(action_type, task_id, student_id, data)
             return

@@ -212,6 +212,43 @@ export const TaskValidators = {
         cleanIframe.style.maxWidth = '100%';
 
         return [{ embed_code: cleanIframe.outerHTML }];
+    },
+    file: function(taskCard) {
+        const linkEl = taskCard.querySelector(".file-link-input");
+        const link = linkEl?.value.trim() || "";
+
+        if (!link) {
+            showNotification("Введите ссылку на файл!");
+            return null;
+        }
+
+        let url;
+        try {
+            url = new URL(link);
+        } catch (err) {
+            showNotification("Ссылка некорректна!");
+            return null;
+        }
+
+        const allowedDomains = [
+            "docs.google.com",
+            "drive.google.com",
+            "forms.gle",
+            "sites.google.com",
+            "calendar.google.com",
+            "maps.google.com",
+        ];
+
+        const hostname = url.hostname.toLowerCase();
+        const allowed = allowedDomains.some(domain => hostname === domain || hostname === `www.${domain}`);
+        if (!allowed) {
+            showNotification(
+                `Недопустимый ресурс. Поддерживаются: ${allowedDomains.join(", ")}`
+            );
+            return null;
+        }
+
+        return [{ file_link: url }];
     }
 };
 

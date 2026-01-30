@@ -6,10 +6,9 @@ from rest_framework import serializers
 from urllib.parse import urlparse
 from courses.models import (
     TestTask, TrueFalseTask, FillGapsTask, MatchCardsTask,
-    NoteTask, ImageTask, TextInputTask, IntegrationTask
+    NoteTask, ImageTask, TextInputTask, IntegrationTask, FileTask
 )
 
-# Разрешённые теги и атрибуты
 SAFE_TAGS = ["b", "i", "u", "em", "strong", "ul", "ol", "li",
              "p", "br", "h1", "h2", "h3", "h4", "h5", "h6",
              "blockquote", "code", "pre", "table", "thead", "tbody", "tr", "th", "td",
@@ -261,3 +260,39 @@ class IntegrationTaskSerializer(serializers.ModelSerializer):
 
         attrs_string = " ".join(f'{k}="{v}"' for k, v in clean_attrs.items())
         return f'<iframe {attrs_string}></iframe>'
+
+
+class FileTaskSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FileTask
+        fields = ["file_link"]
+
+    def validate_file_link(self, value: str) -> str:
+        """
+        Валидирует ссылку на файл.
+        Разрешены только основные домены и www-поддомены.
+        """
+        if not value:
+            raise serializers.ValidationError("Ссылка на файл не может быть пустой")
+
+        try:
+            parsed = urlparse(value)
+        except Exception:
+            raise serializers.ValidationError("Ссылка некорректна")
+
+        hostname = parsed.hostname or ""
+        allowed_domains = (
+            "docs.google.com",
+            "drive.google.com",
+            "forms.gle",
+            "sites.google.com",
+            "calendar.google.com",
+            "maps.google.com",
+        )
+
+        if not any(hostname == domain or hostname == f"www.{domain}" for domain in allowed_domains):
+            raise serializers.ValidationError(
+                f"Недопустимый ресурс. Поддерживаются только основной домен и www-поддомен: {', '.join(allowed_domains)}"
+            )
+
+        return value

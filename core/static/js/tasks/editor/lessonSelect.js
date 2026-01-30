@@ -19,7 +19,10 @@ let currentPreview = null;
 let searchDebounced = null;
 
 /**
- * Debounce helper: вызывает fn не чаще чем раз в wait мс.
+ * Debounce helper — вызывает fn не чаще, чем раз в wait миллисекунд.
+ * @param {Function} fn
+ * @param {number} wait
+ * @returns {Function}
  */
 function debounce(fn, wait) {
     let timer = null;
@@ -42,6 +45,9 @@ if (searchInputEl) {
 
 accordionEl.addEventListener('click', onAccordionClick);
 
+/**
+ * Загружает список курсов и рендерит их в модалке.
+ */
 async function loadCourses() {
     loadingEl.classList.remove('d-none');
     contentEl.classList.add('d-none');
@@ -59,6 +65,10 @@ async function loadCourses() {
     }
 }
 
+/**
+ * Выполняет запрос за курсами.
+ * @returns {Promise<Array>}
+ */
 async function fetchCourses() {
     const resp = await fetch(API_URL, {
         method: 'GET',
@@ -143,11 +153,27 @@ function renderLessons(lessons, courseId) {
 
 function renderLessonItem(lesson) {
     return `
-        <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
-            <div class="fw-medium text-truncate" style="min-width:0;">${escapeHtml(lesson.title)}</div>
-            <div class="d-flex gap-2 justify-content-end mt-2 mt-md-0 flex-shrink-0">
-                <button id="attachLessonInModal" class="btn btn-sm btn-outline-primary" data-lesson-id="${lesson.id}" type="button">Выбрать</button>
-                <button id="previewLessonInModal" class="btn btn-sm btn-success" data-lesson-id="${lesson.id}" type="button">Посмотреть</button>
+        <div class="d-flex flex-column flex-md-row gap-2">
+            <div class="fw-medium text-truncate w-100" style="min-width:0;">
+                ${escapeHtml(lesson.title)}
+            </div>
+            <div class="d-flex gap-2 align-self-end align-self-md-center ms-md-auto">
+                <button
+                    id="attachLessonInModal"
+                    class="btn btn-sm btn-outline-primary"
+                    data-lesson-id="${lesson.id}"
+                    type="button"
+                >
+                    Выбрать
+                </button>
+                <button
+                    id="previewLessonInModal"
+                    class="btn btn-sm btn-success"
+                    data-lesson-id="${lesson.id}"
+                    type="button"
+                >
+                    Посмотреть
+                </button>
             </div>
         </div>
     `;
@@ -191,7 +217,7 @@ function openPreview(lessonId) {
     previewContainer.className = 'mb-3 px-2';
     previewContainer.innerHTML = `
         <div style="width:100%;">
-            <iframe id="lessonPreviewFrame" src="/courses/lesson/${lessonId}/preview/" allowfullscreen class="rounded"></iframe>
+            <iframe id="lessonPreviewFrame" src="/courses/lesson/${lessonId}/preview/" allowfullscreen class="rounded" style="width:100%;height:60vh;border:0;display:block;"></iframe>
         </div>
     `;
 

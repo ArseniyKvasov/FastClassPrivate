@@ -19,7 +19,7 @@ def save_task(request):
         elif request.content_type == "application/json":
             return _handle_json_request(request)
         else:
-            return JsonResponse({"success": False, "errors": "Unsupported content type"}, status=400)
+            return JsonResponse({"success": False, "errors": "Неподдерживаемый тип задания"}, status=400)
     except Exception as e:
         return JsonResponse({"success": False, "errors": str(e)}, status=500)
 

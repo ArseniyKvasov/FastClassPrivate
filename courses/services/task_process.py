@@ -47,6 +47,8 @@ def serialize_task_data(task: Task):
             data = {"prompt": getattr(obj, "prompt", ""), "default_text": getattr(obj, "default_text", "") or ""}
         elif task.task_type == "integration":
             data = {"embed_code": getattr(obj, "embed_code", "")}
+        elif task.task_type == "file":
+            data = {"file_link": getattr(obj, "file_link", "")}
 
     if is_copy_task and task.edited_content:
         data.update(task.edited_content)
@@ -92,7 +94,7 @@ def _process_task_data(user, section_id, task_type, task_id, data):
 
     SerializerClass = TASK_SERIALIZER_MAP.get(task_type)
     if not SerializerClass:
-        return JsonResponse({"success": False, "errors": f"Unknown task type: {task_type}"}, status=400)
+        return JsonResponse({"success": False, "errors": f"Неизвестный тип задания: {task_type}"}, status=400)
 
     if task_id:
         return _update_existing_task(task_id, section, SerializerClass, data)

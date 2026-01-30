@@ -169,3 +169,13 @@ class IntegrationTask(models.Model):
 
     def __str__(self):
         return f"Integration Task ({self.id})"
+
+
+class FileTask(models.Model):
+    """
+    Задача с внешним файлом (Google Drive)
+    """
+    file_link = models.URLField(max_length=1024, blank=False)
+
+    def __str__(self):
+        return f"FileTask: {self.file_link}"

@@ -157,7 +157,7 @@ function createTypeOptionNode(type, meta) {
     const icon = meta.icon ?? "bi-file-earmark";
     const label = meta.label ?? type;
     const col = document.createElement("div");
-    col.className = "col-6 col-md-4 col-lg-3 d-flex";
+    col.className = "col-6 col-sm-4 col-lg-3 col-xxl-2 d-flex";
     col.innerHTML = `
         <div class="task-type-option flex-fill text-center rounded-4 p-3 bg-white"
              data-type="${type}"

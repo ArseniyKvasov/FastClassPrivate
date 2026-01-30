@@ -1,8 +1,3 @@
-body {
-    background-color: #f8f9fa;
-    font-family: 'Montserrat', 'Segoe UI', 'Helvetica', 'Arial', sans-serif;
-}
-
 #sidebar {
     position: sticky;
     top: 80px;

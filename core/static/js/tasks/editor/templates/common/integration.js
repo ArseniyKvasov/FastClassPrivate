@@ -59,63 +59,50 @@ export function renderIntegrationTaskEditor(taskData = null) {
 }
 
 /**
- * Показывает подсказку по получению embed-кода
+ * Показывает минималистичную подсказку по получению embed-кода
  */
 function showEmbedInstructions() {
-    const instructions = `
-        <div class="embed-instructions">
-            <h6 class="fw-semibold mb-3">Как получить embed-код?</h6>
-            <p class="mb-3">Вставьте embed-код (встроенный HTML) с одного из следующих ресурсов:</p>
-
-            <div class="mb-3">
-                <strong class="d-block mb-2">Виртуальная доска</strong>
-                <ul class="small mb-0">
-                    <li><strong>Miro:</strong> кнопка «Поделиться» → «Embed»</li>
-                    <li><strong>Sboard:</strong> найдите кнопку «Поделиться» → «Встроить в Iframe» и скопируйте код доски</li>
-                </ul>
-            </div>
-
-            <div class="mb-3">
-                <strong class="d-block mb-2">Игры и интерактивные упражнения</strong>
-                <ul class="small mb-0">
-                    <li><strong>Wordwall:</strong> кнопка «Поделиться» → «Встраивание» → скопируйте HTML</li>
-                    <li><strong>Quizlet:</strong> кнопка «Поделиться» → «Встроить»</li>
-                    <li><strong>LearningApps:</strong> внизу под приложением есть кнопка «Встроить»</li>
-                </ul>
-            </div>
-
-            <div class="mb-3">
-                <strong class="d-block mb-2">Видео</strong>
-                <ul class="small mb-0">
-                    <li><strong>Rutube:</strong> кнопка «Поделиться» → «HTML-код»</li>
-                    <li><strong>YouTube:</strong> кнопка «Поделиться» → «Встроить»</li>
-                </ul>
-            </div>
-
-            <div class="alert alert-info small mt-3 mb-0">
-                Вставляемый код должен начинаться с <code>&lt;iframe ...&gt;</code> и содержать ссылку на один из поддерживаемых сайтов.
-            </div>
-        </div>
-    `;
+    const existingModal = document.getElementById('embedHelpModal');
+    if (existingModal) {
+        const modalInstance = bootstrap.Modal.getInstance(existingModal) || new bootstrap.Modal(existingModal);
+        modalInstance.show();
+        return;
+    }
 
     const modal = document.createElement('div');
+    modal.id = 'embedHelpModal';
     modal.className = 'modal fade';
     modal.innerHTML = `
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Помощь по embed-коду</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content rounded-4 shadow-sm">
+                <div class="modal-header border-0 pb-0">
+                    <h6 class="modal-title fw-semibold">Где взять embed-код?</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
                 </div>
-                <div class="modal-body">
-                    ${instructions}
+                <div class="modal-body pt-2">
+                    <p class="small mb-2">Вставьте embed-код (iframe) с одного из поддерживаемых ресурсов:</p>
+                    <ul class="small mb-2">
+                        <li><strong>YouTube:</strong> Поделиться → Встроить</li>
+                        <li><strong>Rutube:</strong> Поделиться → Код вставки плеера</li>
+                        <li><strong>Wordwall:</strong> Поделиться → Встраивание</li>
+                        <li><strong>Quizlet:</strong> Поделиться → Встроить</li>
+                        <li><strong>LearningApps:</strong> Встроить снизу приложения</li>
+                        <li><strong>Miro / Sboard:</strong> Поделиться → Embed / Iframe</li>
+                    </ul>
+                    <div class="alert alert-info small mb-0">
+                        Код должен начинаться с <code>&lt;iframe ...&gt;</code> и вести на поддерживаемый ресурс.
+                    </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Понятно</button>
+                <div class="modal-footer border-0 pt-2">
+                    <button type="button" class="btn btn-sm btn-primary" data-bs-dismiss="modal">Понятно</button>
                 </div>
             </div>
         </div>
     `;
 
     document.body.appendChild(modal);
+    const modalInstance = new bootstrap.Modal(modal);
+    modalInstance.show();
+
+    modal.addEventListener('hidden.bs.modal', () => modal.remove());
 }
