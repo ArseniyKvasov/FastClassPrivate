@@ -87,7 +87,7 @@ CHANNEL_LAYERS = {
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
-
+"""
 DATABASES = {
     "default": {
         "ENGINE": config('DB_ENGINE', default='django.db.backends.postgresql'),
@@ -96,6 +96,13 @@ DATABASES = {
         "PASSWORD": config('DB_PASSWORD', default='None'),
         "HOST": config('DB_HOST', default='localhost'),
         "PORT": config('DB_PORT', default='5432', cast=int),
+    }
+}
+"""
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
 

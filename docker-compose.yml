@@ -24,7 +24,7 @@ services:
     environment:
       POSTGRES_DB: fastclass_db
       POSTGRES_USER: fastclass_user
-      POSTGRES_PASSWORD: fastclass_password
+      POSTGRES_PASSWORD: None
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
