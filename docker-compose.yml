@@ -16,11 +16,15 @@ services:
     command: >
       sh -c "python manage.py migrate &&
              python manage.py collectstatic --noinput &&
-             python manage.py runserver 0.0.0.0:8000"
+             uvicorn fastlesson.asgi:application --host 0.0.0.0 --port 8000 --workers 4"
 
   db:
     container_name: fastclass-db
     image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: fastclass_db
+      POSTGRES_USER: fastclass_user
+      POSTGRES_PASSWORD: fastclass_password
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:

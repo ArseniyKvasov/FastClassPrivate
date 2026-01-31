@@ -247,74 +247,71 @@ document.addEventListener('DOMContentLoaded', () => {
         submitBtn.disabled = false;
         submitBtn.innerHTML = submitBtn.innerText;
 
-        if (mode === 'create') {
-            if (data.url) {
-                window.location.href = data.url;
-                return;
-            }
+        if (data.url) {
+            window.location.href = data.url;
+            return;
+        }
 
-            const listCategory = entity === 'course' ? 'my_courses' : 'classrooms';
-            const grid = Array.from(document.querySelectorAll('.material-item')).find(i => i.dataset.category === listCategory)?.parentElement;
-            if (grid) {
-                const newCard = document.createElement('div');
-                newCard.className = 'col-12 col-sm-6 col-md-4 col-lg-3 material-item';
-                newCard.dataset.category = listCategory;
-                const itemId = String(data.id || Date.now());
+        const listCategory = entity === 'course' ? 'my_courses' : 'classrooms';
+        const grid = Array.from(document.querySelectorAll('.material-item')).find(i => i.dataset.category === listCategory)?.parentElement;
+        if (grid) {
+            const newCard = document.createElement('div');
+            newCard.className = 'col-12 col-sm-6 col-md-4 col-lg-3 material-item';
+            newCard.dataset.category = listCategory;
+            const itemId = String(data.id || Date.now());
 
-                const subjectBadge = entity === 'course' && data.subject_display
-                    ? `<span class="badge bg-primary small">${data.subject_display}</span>`
-                    : '';
+            const subjectBadge = entity === 'course' && data.subject_display
+                ? `<span class="badge bg-primary small">${data.subject_display}</span>`
+                : '';
 
-                const roleBadge = entity === 'classroom'
-                    ? `<span class="badge bg-success small">Ученик</span>`
-                    : '';
+            const roleBadge = entity === 'classroom'
+                ? `<span class="badge bg-success small">Ученик</span>`
+                : '';
 
-                newCard.innerHTML = `
-                    <div class="card h-100 rounded-4 shadow-sm d-flex flex-column">
-                        <div class="card-body d-flex flex-column flex-grow-1">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                <h5 class="mb-0">${escapeHtml(data.title)}</h5>
-                                ${subjectBadge || roleBadge}
-                            </div>
+            newCard.innerHTML = `
+                <div class="card h-100 rounded-4 shadow-sm d-flex flex-column">
+                    <div class="card-body d-flex flex-column flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="mb-0">${escapeHtml(data.title)}</h5>
+                            ${subjectBadge || roleBadge}
                         </div>
-                        <div class="card-footer bg-transparent border-0 pt-0">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <a href="${data.detail_url || '#'}" class="btn btn-sm btn-outline-primary border-0 fw-bold">Перейти</a>
-                                <div class="dropdown">
-                                    <button class="btn btn-sm btn-link text-muted p-0" data-bs-toggle="dropdown">
-                                        <i class="bi bi-three-dots"></i>
-                                    </button>
-                                    <ul class="dropdown-menu dropdown-menu-end">
-                                        <li>
-                                            <a class="dropdown-item" href="#"
-                                               data-action="edit"
-                                               data-entity="${entity}"
-                                               data-id="${itemId}"
-                                               data-title="${escapeAttr(data.title)}"
-                                               ${entity === 'course' ? `data-description="${escapeAttr(data.description || '')}"` : ''}
-                                               ${entity === 'course' ? `data-subject="${escapeAttr(data.subject || 'other')}"` : ''}>
-                                                Редактировать
-                                            </a>
-                                        </li>
-                                        <li>
-                                            <a class="dropdown-item text-danger" href="#"
-                                               data-action="delete"
-                                               data-entity="${entity}"
-                                               data-id="${itemId}">
-                                                Удалить
-                                            </a>
-                                        </li>
-                                    </ul>
-                                </div>
+                    </div>
+                    <div class="card-footer bg-transparent border-0 pt-0">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <a href="${data.detail_url || '#'}" class="btn btn-sm btn-outline-primary border-0 fw-bold">Перейти</a>
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-link text-muted p-0" data-bs-toggle="dropdown">
+                                    <i class="bi bi-three-dots"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li>
+                                        <a class="dropdown-item" href="#"
+                                           data-action="edit"
+                                           data-entity="${entity}"
+                                           data-id="${itemId}"
+                                           data-title="${escapeAttr(data.title)}"
+                                           ${entity === 'course' ? `data-description="${escapeAttr(data.description || '')}"` : ''}
+                                           ${entity === 'course' ? `data-subject="${escapeAttr(data.subject || 'other')}"` : ''}>
+                                            Редактировать
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item text-danger" href="#"
+                                           data-action="delete"
+                                           data-entity="${entity}"
+                                           data-id="${itemId}">
+                                            Удалить
+                                        </a>
+                                    </li>
+                                </ul>
                             </div>
                         </div>
                     </div>
-                `;
-                grid.appendChild(newCard);
-            }
-            bootstrap.Modal.getInstance(modalEl).hide();
-            return;
+                </div>
+            `;
+            grid.appendChild(newCard);
         }
+        bootstrap.Modal.getInstance(modalEl).hide();
 
         const entityType = entity;
         const entityId = idInput.value;

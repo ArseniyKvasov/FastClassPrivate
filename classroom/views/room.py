@@ -26,16 +26,8 @@ def create_classroom_view(request):
     Если у пользователя нет курса с нужным уроком — копирует курс.
     Возвращает JSON с redirect_url или error.
     """
-    try:
-        payload = json.loads(request.body.decode("utf-8"))
-    except json.JSONDecodeError:
-        return JsonResponse(
-            {"error": "Некорректный формат данных"},
-            status=400
-        )
-
-    title = (payload.get("title") or "").strip()
-    lesson_id = payload.get("lesson_id")
+    title = (request.POST.get("title") or "").strip()
+    lesson_id = request.POST.get("lesson_id") or None
 
     if not title:
         return JsonResponse(
@@ -70,7 +62,7 @@ def create_classroom_view(request):
             )
 
     return JsonResponse({
-        "redirect_url": reverse("classroom_view", args=[classroom.id])
+        "url": reverse("classroom_view", args=[classroom.id])
     })
 
 
