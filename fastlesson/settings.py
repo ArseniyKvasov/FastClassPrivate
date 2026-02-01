@@ -17,12 +17,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-dev-key-change-in-production')
 
-DEBUG = config('DEBUG', default=True, cast=bool)
+DEBUG = True
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='*').split(',')
+ALLOWED_HOSTS = ["https://fastclass.ru", "https://www.fastclass.ru", "http://localhost:8000", "http://127.0.0.1:8000", "127.0.0.1:8000", "127.0.0.1"]
 
-CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='').split(',') if config('CSRF_TRUSTED_ORIGINS', default='') else []
-
+CSRF_TRUSTED_ORIGINS = ["https://fastclass.ru", "https://www.fastclass.ru", "http://localhost:8000", "http://127.0.0.1:8000"]
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -74,7 +73,6 @@ ASGI_APPLICATION = 'fastlesson.asgi.application'
 
 AUTH_USER_MODEL = 'authapp.User'
 
-# Channels configuration
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
@@ -87,7 +85,7 @@ CHANNEL_LAYERS = {
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
-"""
+
 DATABASES = {
     "default": {
         "ENGINE": config('DB_ENGINE', default='django.db.backends.postgresql'),
@@ -96,13 +94,6 @@ DATABASES = {
         "PASSWORD": config('DB_PASSWORD', default='None'),
         "HOST": config('DB_HOST', default='localhost'),
         "PORT": config('DB_PORT', default='5432', cast=int),
-    }
-}
-"""
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
 

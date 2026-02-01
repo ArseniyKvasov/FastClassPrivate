@@ -99,7 +99,7 @@ export const TaskValidators = {
 
     fill_gaps: function(taskCard) {
         const editor = taskCard.querySelector(".fill-text-editor");
-        const taskType = taskCard.querySelector(".fill-gaps-type-select")?.value || "hidden";
+        const listType = taskCard.querySelector(".fill-gaps-type-select")?.value || "hidden";
         const text = editor?.innerHTML.trim() || "";
 
         if (!text) {
@@ -113,11 +113,11 @@ export const TaskValidators = {
         while ((match = regex.exec(text)) !== null) answers.push(match[1]);
 
         if (!answers.length) {
-            showNotification("Добавьте хотя бы один пропуск в квадратных скобках");
+            showNotification("Запишите пропуски в квадратных скобках");
             return null;
         }
 
-        return [{ text, answers, task_type: taskType }];
+        return [{ text, answers, list_type: listType }];
     },
 
     match_cards: function(taskCard) {
@@ -368,14 +368,13 @@ export async function saveTask(taskType, taskCard, taskId = null) {
             if (taskObj && typeof renderTaskCard === "function") {
                 try {
                     const replaceExisting = !!taskId;
-                    renderTaskCard(taskObj.task, replaceExisting);
+                    await renderTaskCard(taskObj.task, replaceExisting);
                 } catch (err) {
                     console.warn("renderTaskCard failed:", err);
                 }
             }
         }
 
-        showNotification("Задание сохранено!");
         closeTaskEditor();
 
         eventBus.emit("section:change", { sectionId });

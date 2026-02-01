@@ -1,16 +1,16 @@
 "use strict";
 
 import { showNotification, getIsTeacher, getLessonId, getSectionId, fetchSingleTask } from "/static/js/tasks/utils.js";
-import { loadSectionTasks } from "/static/js/tasks/display/showTasks.js"
-import { selectSection } from "/static/js/tasks/display/renderSections.js"
-import { getViewedUserId, scrollToTask, refreshSections, refreshClassroom } from '/static/classroom/utils.js'
+import { loadSectionTasks } from "/static/js/tasks/display/showTasks.js";
+import { selectSection } from "/static/js/tasks/display/renderSections.js";
+import { getViewedUserId, scrollToTask, refreshSections, refreshClassroom } from '/static/classroom/utils.js';
 import { fetchTaskAnswer } from "/static/classroom/answers/api.js";
-import { handleAnswer } from "/static/classroom/answers/handleAnswer.js";
+import { processTaskAnswer } from "/static/classroom/answers/utils.js";
 import { clearTask } from "/static/classroom/answers/handlers/clearAnswers.js"
 import { markUserOnline, markUserOffline } from "/static/classroom/answers/classroomPanel.js";
 import { createBubbleNode, refreshChat, pointNewMessage } from "/static/classroom/integrations/chat.js"
 import { enableCopying, disableCopying } from "/static/classroom/copyingMode.js";
-import { sendWS } from "/static/classroom/websocket/sendMessage.js"
+import { sendWS } from "/static/classroom/websocket/sendMessage.js";
 
 /**
  * Обрабатывает входящее сообщение WebSocket.
@@ -125,22 +125,6 @@ function shouldProcessMessage({ student_id }) {
     }
 
     return String(student_id) === String(getViewedUserId()) || String(student_id) === "all";
-}
-
-/**
- * Загружает данные ответа задачи и передаёт их в handleAnswer.
- *
- * @param {string|number} taskId
- */
-async function processTaskAnswer(taskId) {
-    try {
-        const answerData = await fetchTaskAnswer(taskId);
-        if (!answerData) return;
-        await handleAnswer(answerData);
-    } catch (e) {
-        console.error("processTaskAnswer failed", e);
-        showNotification("Не удалось получить ответ задачи");
-    }
 }
 
 /**

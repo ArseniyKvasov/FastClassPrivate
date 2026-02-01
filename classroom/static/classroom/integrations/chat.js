@@ -155,7 +155,47 @@ export function createBubbleNode(message, showSenderName = true) {
 
     const raw = String(message.text || '');
     const truncated = raw.length > MAX_DISPLAY_CHARS ? raw.slice(0, MAX_DISPLAY_CHARS - 1) + '…' : raw;
-    text.innerHTML = escapeHtml(truncated);
+
+    const convertUrlsToLinks = (textContent) => {
+        const urlRegex = /(https?:\/\/[^\s<]+|www\.[^\s<]+\.[^\s<]+)/gi;
+        const fragment = document.createDocumentFragment();
+        let lastIndex = 0;
+        let match;
+
+        while ((match = urlRegex.exec(textContent)) !== null) {
+            if (match.index > lastIndex) {
+                fragment.appendChild(document.createTextNode(textContent.substring(lastIndex, match.index)));
+            }
+
+            const link = document.createElement('a');
+            const url = match[0].startsWith('www.') ? `https://${match[0]}` : match[0];
+            link.href = url;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.textContent = match[0];
+            link.className = 'text-decoration-none';
+            link.style.color = isOwn ? '#ffffff' : '#0d6efd';
+            link.style.textDecoration = 'underline';
+
+            fragment.appendChild(link);
+            lastIndex = match.index + match[0].length;
+        }
+
+        if (lastIndex < textContent.length) {
+            fragment.appendChild(document.createTextNode(textContent.substring(lastIndex)));
+        }
+
+        return fragment;
+    };
+
+    const cleanText = escapeHtml(truncated);
+    const textFragment = convertUrlsToLinks(cleanText);
+
+    if (textFragment.childNodes.length > 0) {
+        text.appendChild(textFragment);
+    } else {
+        text.innerHTML = cleanText;
+    }
 
     bubble.appendChild(text);
 
@@ -408,7 +448,7 @@ async function sendMessage() {
         const classroomId = getClassroomId();
         if (!classroomId) throw new Error('No classroom id');
 
-        const url = `/classroom/messages/${encodeURIComponent(safeDatasetValue(classroomId))}/send/`;
+        const url = `/classroom/messages/${classroomId}/send/`;
         const body = new URLSearchParams({ text });
 
         const resp = await fetch(url, {
@@ -426,7 +466,7 @@ async function sendMessage() {
         addActionToRateLimit();
 
         const data = await resp.json();
-        if (data.message) {
+        if (data.message && data.message.id) {
             const infoMessage = chatMessages.querySelector('.chat-info-message');
             if (infoMessage) {
                 infoMessage.remove();
@@ -442,7 +482,7 @@ async function sendMessage() {
             chatInput.value = '';
             autoResizeTextarea(chatInput);
             updateSendButtonState();
-            eventBus.emit('chat:send_message', { text });
+            eventBus.emit('chat:send_message', { text, messageId: data.message.id });
             scrollToBottom(true);
         }
     } catch (err) {
@@ -492,10 +532,10 @@ function hideNewMessageIndicator() {
 }
 
 export function pointNewMessage(messageData) {
-    if (!messageData || !messageData.text) return;
+    if (!messageData || !messageData.text || !messageData.message_id) return;
 
     const message = {
-        id: messageData.id || Date.now(),
+        id: messageData.message_id,
         text: messageData.text,
         sender_id: messageData.sender_id,
         sender_name: messageData.sender_name || 'Пользователь',

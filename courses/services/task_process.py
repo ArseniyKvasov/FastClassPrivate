@@ -30,7 +30,11 @@ def serialize_task_data(task: Task):
                 "caption": getattr(obj, "caption", "") or "",
             }
         elif task.task_type == "fill_gaps":
-            data = {"text": getattr(obj, "text", ""), "answers": getattr(obj, "answers", [])}
+            data = {
+                "text": getattr(obj, "text", ""),
+                "answers": getattr(obj, "answers", []) if getattr(obj, "list_type", "open") == "open" else [],
+                "list_type": getattr(obj, "list_type", "open")
+            }
         elif task.task_type == "note":
             data = {"content": getattr(obj, "content", "")}
         elif task.task_type == "true_false":

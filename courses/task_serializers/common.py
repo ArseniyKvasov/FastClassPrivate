@@ -92,7 +92,7 @@ class TrueFalseTaskSerializer(serializers.ModelSerializer):
 class FillGapsTaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = FillGapsTask
-        fields = ["text", "answers", "task_type"]
+        fields = ["text", "answers", "list_type"]
         read_only_fields = ["answers"]
 
     def validate(self, data):
@@ -108,6 +108,7 @@ class FillGapsTaskSerializer(serializers.ModelSerializer):
 
         data["text"] = text
         data["answers"] = found_blanks
+        data["list_type"] = data.get("list_type", "open")
         return data
 
 

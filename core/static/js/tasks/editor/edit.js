@@ -141,8 +141,6 @@ function attachSaveHandlerToEditorCard(card, type, taskId = null) {
                     if (res.id) card.dataset.taskId = String(res.id);
                     if (res.task_type) card.dataset.taskType = res.task_type;
                 }
-            } else {
-                showNotification("Сохранение не удалось");
             }
         } catch (err) {
             console.error("saveTask error:", err);

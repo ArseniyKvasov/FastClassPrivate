@@ -1,5 +1,6 @@
 import { showNotification, postJSON } from "/static/js/tasks/utils.js";
 import { eventBus } from "/static/js/tasks/events/eventBus.js";
+import { handleAnswer } from "/static/classroom/answers/handleAnswer.js";
 import { loadAnswerModule, fetchTaskAnswer } from "/static/classroom/answers/api.js";
 import { getClassroomId, getViewedUserId } from '/static/classroom/utils.js'
 
@@ -177,3 +178,13 @@ export function formatStudentName(name, maxLength = 12) {
         : name;
 }
 
+export async function processTaskAnswer(taskId) {
+    try {
+        const answerData = await fetchTaskAnswer(taskId);
+        if (!answerData) return;
+        await handleAnswer(answerData);
+    } catch (e) {
+        console.error("processTaskAnswer failed", e);
+        showNotification("Не удалось получить ответ задачи");
+    }
+}

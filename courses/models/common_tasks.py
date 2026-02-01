@@ -94,26 +94,22 @@ class FillGapsTask(models.Model):
         ["London", "five"]
     """
 
-    TYPE_CHOICES = [
+    LIST_TYPE_CHOICES = [
         ("open", "Открытый ввод"),
         ("hidden", "Скрытый список слов"),
     ]
 
     text = models.TextField()
     answers = models.JSONField(default=list)
-    task_type = models.CharField(
+    list_type = models.CharField(
         max_length=20,
-        choices=TYPE_CHOICES,
+        choices=LIST_TYPE_CHOICES,
         default="open"
     )
     total_answers = models.PositiveIntegerField(default=10)
 
     def save(self, *args, **kwargs):
-        if self.task_type == "open":
-            blanks_count = len(re.findall(r"\[(.*?)\]", self.text))
-            self.total_answers = blanks_count
-        else:
-            self.total_answers = len(self.answers) if self.answers else 0
+        self.total_answers = len(self.answers) if self.answers else 0
         super().save(*args, **kwargs)
 
 

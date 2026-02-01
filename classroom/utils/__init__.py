@@ -1,1 +1,1 @@
-from .formatting import normalize_str
+from .format_string import compare_normalized_answers

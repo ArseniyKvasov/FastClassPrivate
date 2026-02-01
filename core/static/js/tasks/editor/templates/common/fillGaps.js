@@ -5,14 +5,14 @@ import { showNotification } from "/static/js/tasks/utils.js";
  *
  * @param {Object|null} taskData
  * @param {string} [taskData.text]
- * @param {string} [taskData.task_type]
+ * @param {string} [taskData.list_type]
  */
 export function renderFillGapsTaskEditor(taskData = null) {
     const card = document.createElement("div");
     card.className = "task-editor-card mb-4 p-3 bg-white border-0 rounded";
 
     const htmlContent = taskData?.text || "";
-    const taskType = taskData?.task_type || "hidden";
+    const taskType = taskData?.list_type || "hidden";
 
     card.innerHTML = `
         <div class="d-flex justify-content-between align-items-center mb-3">
@@ -62,8 +62,16 @@ export function renderFillGapsTaskEditor(taskData = null) {
         const answers = [];
         const regex = /\[([^\]]*)\]/g;
         let match;
+
         while ((match = regex.exec(text)) !== null) {
-            answers.push(match[1]);
+            let answer = match[1]
+                .replace(/—/g, '-')
+                .replace(/–/g, '-')
+                .replace(/／/g, '/')
+                .replace(/⁄/g, '/')
+                .trim();
+
+            answers.push(answer);
         }
 
         gapsPreviewList.innerHTML = answers.length

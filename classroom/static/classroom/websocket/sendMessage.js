@@ -3,7 +3,7 @@
 import { eventBus } from "/static/js/tasks/events/eventBus.js";
 import { getCurrentUserId } from "/static/js/tasks/utils.js";
 import { showNotification } from "/static/js/tasks/utils.js"
-import { getViewedUserId } from '/static/classroom/utils.js'
+import { getViewedUserId, refreshClassroom } from '/static/classroom/utils.js'
 import { virtualClassWS } from "/static/classroom/websocket/init.js";
 
 /**
@@ -85,6 +85,7 @@ export function initEvents(isTeacher = false) {
         try {
             if (!payload?.text) return;
             sendWS("chat:send_message", {
+                message_id: payload.messageId,
                 text: payload.text,
                 sender_id: getCurrentUserId(),
                 student_id: "all",
@@ -133,6 +134,10 @@ export function initEvents(isTeacher = false) {
             sendWS("user:delete", {
                 student_id: studentId,
             });
+            sendWS("chat:update", {
+                student_id: "all"
+            });
+            refreshClassroom();
         } catch (e) {
             console.error("eventBus user:delete failed", e);
         }

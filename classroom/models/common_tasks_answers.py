@@ -5,7 +5,7 @@ from django.utils import timezone
 from django.core.exceptions import ValidationError
 from .base import BaseAnswer
 from courses.services import get_task_effective_data
-from classroom.utils import normalize_str
+from classroom.utils import compare_normalized_answers
 
 
 class TestTaskAnswer(BaseAnswer):
@@ -181,7 +181,7 @@ class FillGapsTaskAnswer(BaseAnswer):
             gap_index = int(gap_id)
             if 0 <= gap_index < len(correct_answers):
                 user_value = answers_dict[gap_id].get("value", "")
-                is_correct = normalize_str(correct_answers[gap_index]) == normalize_str(user_value)
+                is_correct = compare_normalized_answers(correct_answers[gap_index], user_value)
                 answers_dict[gap_id]["is_correct"] = is_correct
                 if is_correct:
                     self.increment_correct_answers()
@@ -220,6 +220,7 @@ class MatchCardsTaskAnswer(BaseAnswer):
         ]
 
     def save_answer_data(self, data):
+        print('tets 1')
         task_data = get_task_effective_data(self.task)
         cards = task_data.get("cards", [])
 
@@ -249,14 +250,12 @@ class MatchCardsTaskAnswer(BaseAnswer):
         try:
             answer_data = answers_dict[left_card]
             right_card = answer_data.get("card_right", "")
-            left_selected = normalize_str(left_card)
-            right_selected = normalize_str(right_card)
             is_correct = False
             for correct_pair in correct_pairs or []:
-                left_expected = normalize_str(correct_pair.get("card_left", ""))
-                right_expected = normalize_str(correct_pair.get("card_right", ""))
-                if left_expected == left_selected:
-                    is_correct = right_expected == right_selected
+                left_expected = correct_pair.get("card_left", "")
+                right_expected = correct_pair.get("card_right", "")
+                if left_expected == left_card:
+                    is_correct = right_expected == right_card
                     break
             answers_dict[left_card]["is_correct"] = is_correct
             if is_correct:

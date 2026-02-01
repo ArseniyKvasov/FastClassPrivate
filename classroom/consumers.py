@@ -179,6 +179,7 @@ class VirtualClassConsumer(AsyncWebsocketConsumer):
 
     async def _handle_chat_message(self, action_type, payload):
         text = payload.get("text")
+        message_id = payload.get("message_id")
 
         if action_type == "chat:send_message":
             if not text:
@@ -192,6 +193,7 @@ class VirtualClassConsumer(AsyncWebsocketConsumer):
                 {
                     "type": "chat_message_event",
                     "action": action_type,
+                    "message_id": message_id,
                     "sender_id": self.user_id,
                     "sender_name": sender_name,
                     "text": text,
@@ -260,6 +262,7 @@ class VirtualClassConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             "type": "chat:send_message",
             "data": {
+                "message_id": event.get("message_id"),
                 "text": event.get("text"),
                 "sender_id": event.get("sender_id"),
                 "sender_name": event.get("sender_name"),

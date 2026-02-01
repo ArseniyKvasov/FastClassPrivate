@@ -1,10 +1,13 @@
-import { getCsrfToken, showNotification, TASK_MAP } from "/static/js/tasks/utils.js";
+import { getCsrfToken, showNotification, TASK_MAP, getSectionId } from "/static/js/tasks/utils.js";
 import { eventBus } from '/static/js/tasks/events/eventBus.js';
+import { processTaskAnswer } from "/static/classroom/answers/utils.js";
 
 const taskListContainer = document.getElementById("task-list");
 
 const loader = document.createElement("div");
-loader.className = "loader-overlay";
+loader.className = "loader-overlay d-flex justify-content-center align-items-center position-absolute w-100 h-100";
+loader.style.top = "0";
+loader.style.left = "0";
 loader.innerHTML = `
     <div class="spinner-border text-primary" role="status">
         <span class="visually-hidden">Загрузка...</span>
@@ -103,6 +106,7 @@ export async function renderTaskCard(task, replaceExisting = false) {
         if (existing) {
             existing.replaceWith(card);
             eventBus.emit('taskCardRendered', { taskCard: card, task });
+            await processTaskAnswer(task.task_id);
         }
 
         return;

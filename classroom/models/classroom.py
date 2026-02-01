@@ -73,6 +73,7 @@ class Classroom(models.Model):
         with transaction.atomic():
             try:
                 self._delete_student_answers(user)
+                self._delete_student_chat_messages(user)
                 self.students.remove(user)
                 return {
                     "success": True,
@@ -98,6 +99,12 @@ class Classroom(models.Model):
                     print(f"Deleted {deleted_count} answers from {model.__name__}")
         except ImportError:
             pass
+
+    def _delete_student_chat_messages(self, user):
+        from .base import ChatMessage
+        deleted_count, _ = ChatMessage.objects.filter(classroom=self, sender=user).delete()
+        if deleted_count > 0:
+            print(f"Deleted {deleted_count} chat messages from {user.username}")
 
     def get_available_users(self, user):
         if self.teacher == user:

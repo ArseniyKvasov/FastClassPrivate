@@ -152,6 +152,7 @@ def save_answer(request, classroom_id):
 
         answer.save_answer_data(data)
         answer.refresh_from_db()
+        print(answer.get_answer_data())
 
         return JsonResponse({
             "success": True,

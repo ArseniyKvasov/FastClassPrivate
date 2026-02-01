@@ -1,12 +1,7 @@
 /**
  * Рендерит задание "Заполни пропуски"
- * @param {Object} task - Объект задания
- * @param {Object} task.data - Данные задания
- * @param {string} task.data.text - HTML текст с пропусками в формате [...]
- * @param {string} [task.data.title] - Заголовок задания
- * @param {string} task.data.task_type - Тип задания
- * @param {string[]} [task.data.answers] - Подсказки для задания типа "open"
- * @param {HTMLElement} container - Контейнер для рендеринга
+ * @param {Object} task
+ * @param {HTMLElement} container
  */
 export function renderFillGapsTask(task, container) {
     if (!container) return;
@@ -14,7 +9,6 @@ export function renderFillGapsTask(task, container) {
 
     const card = document.createElement("div");
     card.className = "rounded-4 mb-3";
-
     const cardBody = document.createElement("div");
 
     if (task.data.title) {
@@ -24,22 +18,19 @@ export function renderFillGapsTask(task, container) {
         cardBody.appendChild(title);
     }
 
-    if (
-        task.data.task_type === "open" &&
-        Array.isArray(task.data.answers) &&
-        task.data.answers.length
-    ) {
+    if (task.data.list_type === "open" && Array.isArray(task.data.answers) && task.data.answers.length) {
         const hintBlock = document.createElement("div");
-        hintBlock.className = "mb-2";
+        hintBlock.className = "mb-3";
 
-        const list = document.createElement("ul");
-        list.className = "list-inline m-0 p-0";
+        const list = document.createElement("div");
+        list.className = "d-flex flex-wrap gap-2";
 
         task.data.answers.forEach(answer => {
-            const li = document.createElement("li");
-            li.className = "list-inline-item badge bg-primary rounded-pill px-3 py-2 m-1";
-            li.textContent = answer;
-            list.appendChild(li);
+            const badge = document.createElement("span");
+            badge.className = "badge bg-primary me-1 mb-1";
+            badge.textContent = answer;
+
+            list.appendChild(badge);
         });
 
         hintBlock.appendChild(list);
@@ -49,15 +40,65 @@ export function renderFillGapsTask(task, container) {
     const textDiv = document.createElement("div");
     textDiv.className = "fill-gaps-text";
 
+    const updateInputWidth = (input) => {
+        const value = input.value.trim();
+        const tempSpan = document.createElement('span');
+        tempSpan.style.visibility = 'hidden';
+        tempSpan.style.position = 'absolute';
+        tempSpan.style.whiteSpace = 'pre';
+        tempSpan.style.font = window.getComputedStyle(input).font;
+        tempSpan.textContent = value || 'П';
+
+        document.body.appendChild(tempSpan);
+        const width = Math.max(90, Math.min(tempSpan.offsetWidth + 20, 250));
+        document.body.removeChild(tempSpan);
+
+        input.style.width = `${width}px`;
+    };
+
+    const createInput = (index) => {
+        const input = document.createElement("input");
+        input.type = "text";
+        input.id = `gap-${index}`;
+        input.className = "form-control d-inline gap-input mx-1";
+        input.style.minWidth = "90px";
+        input.style.maxWidth = "250px";
+        input.style.height = "34px";
+        input.style.padding = "0 8px";
+
+        input.addEventListener('input', () => {
+            updateInputWidth(input);
+        });
+
+        updateInputWidth(input);
+        return input;
+    };
+
     const htmlText = task.data.text || "";
-    const processedHtml = htmlText.replace(
-        /\[([^\]]+)\]/g,
-        '<input type="text" class="form-control d-inline gap-input m-1" style="width: 110px;">'
-    );
+    const textNodes = [];
+    let lastIndex = 0;
+    let inputIndex = 0;
+    const regex = /\[([^\]]+)\]/g;
+    let match;
 
-    textDiv.innerHTML = processedHtml;
+    while ((match = regex.exec(htmlText)) !== null) {
+        if (match.index > lastIndex) {
+            const textNode = document.createTextNode(htmlText.substring(lastIndex, match.index));
+            textNodes.push(textNode);
+        }
 
+        textNodes.push(createInput(inputIndex++));
+        lastIndex = match.index + match[0].length;
+    }
+
+    if (lastIndex < htmlText.length) {
+        const textNode = document.createTextNode(htmlText.substring(lastIndex));
+        textNodes.push(textNode);
+    }
+
+    textNodes.forEach(node => textDiv.appendChild(node));
     cardBody.appendChild(textDiv);
+
     card.appendChild(cardBody);
     container.appendChild(card);
 }
