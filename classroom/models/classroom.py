@@ -36,7 +36,7 @@ class Classroom(models.Model):
 
     join_password = models.CharField(
         max_length=12,
-        default=generate_join_password,
+        default="",
         help_text="пароль для входа в класс",
     )
 

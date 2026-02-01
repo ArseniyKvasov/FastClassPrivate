@@ -26,8 +26,8 @@
                     </div>
                 </div>
 
-                <!-- Пароль класса -->
-                <div class="mb-3">
+                <!-- Пароль класса (отображается только если есть пароль) -->
+                <div class="mb-3" id="passwordSection" style="display: none;">
                     <label class="form-label text-muted small mb-1">
                         Пароль класса
                     </label>
@@ -62,6 +62,18 @@
                             <i class="bi bi-x"></i>
                         </button>
                     </div>
+                </div>
+
+                <!-- Кнопка установки пароля (отображается если нет пароля) -->
+                <div class="mb-3" id="setPasswordSection" style="display: none;">
+                    <button
+                        type="button"
+                        id="setPasswordBtn"
+                        class="btn btn-white border-0 text-primary p-0 d-flex align-items-center gap-1 btn-sm"
+                        style="font-weight: medium;"
+                    >
+                        Установить пароль класса
+                    </button>
                 </div>
 
                 <div class="small text-muted mb-3">

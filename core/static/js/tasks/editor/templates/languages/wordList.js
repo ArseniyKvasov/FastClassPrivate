@@ -31,17 +31,34 @@ export function renderWordListTaskEditor(taskData = null, taskId = null) {
     const wrapper = card.querySelector(".word-translation-container");
 
     card.querySelector(".add-word-btn")
-        .addEventListener("click", () => addWordTranslationRow(wrapper));
+        .addEventListener("click", () => {
+            const newRow = addWordTranslationRow(wrapper);
+            newRow.querySelector(".word-input").focus();
+        });
 
     card.querySelector(".remove-task-btn")
         .addEventListener("click", () => card.remove());
 
     const initial = taskData?.words || [];
     if (initial.length) {
-        initial.forEach(w => addWordTranslationRow(wrapper, w.word, w.translation));
+        initial.forEach((w, index) => {
+            const row = addWordTranslationRow(wrapper, w.word, w.translation);
+
+            if (index === 0) {
+                setTimeout(() => {
+                    const firstInput = row.querySelector(".word-input");
+                    if (firstInput) firstInput.focus();
+                }, 550);
+            }
+        });
     } else {
+        const firstRow = addWordTranslationRow(wrapper);
         addWordTranslationRow(wrapper);
-        addWordTranslationRow(wrapper);
+
+        setTimeout(() => {
+            const firstInput = firstRow.querySelector(".word-input");
+            if (firstInput) firstInput.focus();
+        }, 550);
     }
 
     card.addEventListener("paste", (e) => handleAutoPasteWordTranslations(e, wrapper));
@@ -160,6 +177,7 @@ export function handleAutoPasteWordTranslations(e, container) {
     });
 
     let inserted = 0;
+    let rows = [];
 
     lines.forEach(line => {
         const dashRegex = /\s[-–—]\s/;
@@ -183,7 +201,8 @@ export function handleAutoPasteWordTranslations(e, container) {
         translation = cleanText(translation);
 
         if (word || translation) {
-            addWordTranslationRow(container, word, translation);
+            const row = addWordTranslationRow(container, word, translation);
+            rows.push(row);
             inserted++;
         }
     });
@@ -193,6 +212,12 @@ export function handleAutoPasteWordTranslations(e, container) {
         const t = row.querySelector(".translation-input").value.trim();
         if (!w && !t) row.remove();
     });
+
+    if (rows.length > 0) {
+        setTimeout(() => {
+            rows[0].querySelector(".word-input")?.focus();
+        }, 50);
+    }
 
     if (inserted) {
         showNotification("Слова успешно вставлены!");

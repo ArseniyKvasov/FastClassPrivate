@@ -1,7 +1,6 @@
 /**
  * Управление созданием и редактированием заданий.
  *
- * Изменения:
  *  - Редакторы возвращают HTMLElement; отображение/обновление карточек регулирует saveTask.
  *  - Редактор при редактировании всегда в модалке.
  */
@@ -36,8 +35,7 @@ async function importEditorModule(modulePath) {
 }
 
 /**
- * dogstring:
- * Получить функцию-редактор по типу из TASK_MAP.
+ * Получить функцию-редактор по task_type из TASK_MAP.
  *
  * @param {string} type
  * @returns {Promise<Function|null>}
@@ -69,7 +67,6 @@ async function getEditorHandler(type) {
 }
 
 /**
- * dogstring:
  * Возвращает/создаёт модалку редактора; очищает тело и состояние при закрытии.
  *
  * @returns {{ el: HTMLElement, bsInstance: bootstrap.Modal, body: HTMLElement }}
@@ -234,7 +231,6 @@ export async function createTaskTypeSelector() {
 }
 
 /**
- * dogstring:
  * Открыть редактор в модальном окне для существующего задания.
  *
  * @param {string|number} taskId
@@ -242,7 +238,7 @@ export async function createTaskTypeSelector() {
  */
 export async function openEditorForTask(taskId) {
     if (!taskId) {
-        showNotification("Не указан идентификатор задания");
+        showNotification("Не указан id задания");
         return;
     }
 
@@ -370,7 +366,6 @@ export function attachControlsToTaskCard(taskCard) {
 
     eventBus.emit("taskCardControlsRendered", { taskCard, panel: controls });
 
-    // Общий обработчик кликов
     controls.addEventListener("click", async (ev) => {
         ev.stopPropagation();
         const taskId = taskCard.dataset.taskId;

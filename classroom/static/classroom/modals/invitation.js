@@ -1,7 +1,7 @@
 import { showNotification, getCsrfToken } from "/static/js/tasks/utils.js";
 
 export function initClassroomInviteModal(classroom_id, join_password) {
-    if (!classroom_id || !join_password) return;
+    if (!classroom_id) return;
 
     const modalEl = document.getElementById("classroomInviteModal");
     if (!modalEl) return;
@@ -12,15 +12,31 @@ export function initClassroomInviteModal(classroom_id, join_password) {
     const editBtn = modalEl.querySelector("#editPasswordBtn");
     const saveBtn = modalEl.querySelector("#savePasswordBtn");
     const cancelBtn = modalEl.querySelector("#cancelPasswordBtn");
+    const passwordSection = modalEl.querySelector("#passwordSection");
+    const setPasswordSection = modalEl.querySelector("#setPasswordSection");
+    const setPasswordBtn = modalEl.querySelector("#setPasswordBtn");
 
-    let originalPassword = join_password;
+    let originalPassword = join_password || "";
 
     const updateInviteLink = (password) => {
-        inviteInput.value = `${window.location.origin}/classroom/join/${classroom_id}/?pw=${encodeURIComponent(password)}`;
+        const baseUrl = `${window.location.origin}/classroom/join/${classroom_id}/`;
+        if (password) {
+            inviteInput.value = `${baseUrl}?pw=${encodeURIComponent(password)}`;
+        } else {
+            inviteInput.value = baseUrl;
+        }
     };
 
-    passwordInput.value = originalPassword;
     updateInviteLink(originalPassword);
+
+    if (originalPassword) {
+        passwordSection.style.display = "block";
+        setPasswordSection.style.display = "none";
+        passwordInput.value = originalPassword;
+    } else {
+        passwordSection.style.display = "none";
+        setPasswordSection.style.display = "block";
+    }
 
     if (copyInviteBtn && !copyInviteBtn.dataset.bound) {
         copyInviteBtn.addEventListener("click", () => {
@@ -30,6 +46,20 @@ export function initClassroomInviteModal(classroom_id, join_password) {
             showNotification("Ссылка скопирована");
         });
         copyInviteBtn.dataset.bound = "1";
+    }
+
+    if (setPasswordBtn && !setPasswordBtn.dataset.bound) {
+        setPasswordBtn.addEventListener("click", () => {
+            passwordSection.style.display = "block";
+            setPasswordSection.style.display = "none";
+            passwordInput.removeAttribute("readonly");
+            passwordInput.value = "";
+            passwordInput.focus();
+            editBtn.classList.add("d-none");
+            saveBtn.classList.remove("d-none");
+            cancelBtn.classList.remove("d-none");
+        });
+        setPasswordBtn.dataset.bound = "1";
     }
 
     if (editBtn && !editBtn.dataset.bound) {
@@ -43,7 +73,7 @@ export function initClassroomInviteModal(classroom_id, join_password) {
         editBtn.dataset.bound = "1";
     }
 
-    const savePassword = async () => {
+    const savePassword = async (isNew = false) => {
         const newPassword = passwordInput.value.trim();
 
         if (!/^\d{1,12}$/.test(newPassword)) {
@@ -75,21 +105,43 @@ export function initClassroomInviteModal(classroom_id, join_password) {
             cancelBtn.classList.add("d-none");
             editBtn.classList.remove("d-none");
 
+            if (isNew) {
+                passwordSection.style.display = "block";
+                setPasswordSection.style.display = "none";
+            }
+
             updateInviteLink(originalPassword);
-            showNotification("Пароль изменён");
+            showNotification("Пароль сохранён");
         } catch (err) {
             showNotification("Ошибка сервера, попробуйте ещё раз");
         }
     };
 
+    const saveNewPassword = async () => {
+        await savePassword(true);
+    };
+
     if (saveBtn && !saveBtn.dataset.bound) {
-        saveBtn.addEventListener("click", savePassword);
+        saveBtn.addEventListener("click", () => {
+            if (!originalPassword) {
+                saveNewPassword();
+            } else {
+                savePassword(false);
+            }
+        });
         saveBtn.dataset.bound = "1";
     }
 
     if (cancelBtn && !cancelBtn.dataset.bound) {
         cancelBtn.addEventListener("click", () => {
-            passwordInput.value = originalPassword;
+            if (originalPassword) {
+                passwordInput.value = originalPassword;
+                passwordSection.style.display = "block";
+                setPasswordSection.style.display = "none";
+            } else {
+                passwordSection.style.display = "none";
+                setPasswordSection.style.display = "block";
+            }
             passwordInput.setAttribute("readonly", "true");
             saveBtn.classList.add("d-none");
             cancelBtn.classList.add("d-none");
@@ -99,11 +151,14 @@ export function initClassroomInviteModal(classroom_id, join_password) {
         cancelBtn.dataset.bound = "1";
     }
 
-    // Сохраняем пароль по Enter
     passwordInput.addEventListener("keydown", (e) => {
         if (e.key === "Enter" && !passwordInput.hasAttribute("readonly")) {
             e.preventDefault();
-            savePassword();
+            if (!originalPassword) {
+                saveNewPassword();
+            } else {
+                savePassword(false);
+            }
         }
     });
 }

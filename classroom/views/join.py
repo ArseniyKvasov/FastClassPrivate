@@ -1,14 +1,10 @@
 import json
-from datetime import timezone
-
 from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib.auth import login
 from django.views.decorators.http import require_POST
 from django.http import JsonResponse
 from django.urls import reverse
 from django.views.decorators.csrf import ensure_csrf_cookie
-from django.contrib.auth.decorators import login_required
-
 from classroom.models import Classroom
 from classroom.services import finalize_join, validate_name_parts, verify_classroom_password
 from .session_utils import is_session_verified, set_verified_in_session, clear_verified_in_session
@@ -16,13 +12,6 @@ from .session_utils import is_session_verified, set_verified_in_session, clear_v
 
 @ensure_csrf_cookie
 def join_classroom_view(request, classroom_id):
-    """
-    Страница присоединения:
-    - если пользователь уже в классе — редирект в classroom_view
-    - если пароль передан через GET (?pw=) и корректный:
-        - для авторизованного пользователя сразу добавляет в класс и редиректит
-        - для неавторизованного сохраняет отметку в сессии
-    """
     classroom = get_object_or_404(Classroom, pk=classroom_id)
 
     if request.user.is_authenticated:
@@ -32,7 +21,11 @@ def join_classroom_view(request, classroom_id):
         ):
             return redirect("classroom_view", classroom_id=classroom.id)
 
+    has_password = bool(classroom.join_password)
     password_verified = is_session_verified(request, classroom)
+
+    if not has_password:
+        password_verified = True
 
     pw = request.GET.get("pw")
     if pw and verify_classroom_password(classroom, pw):
@@ -51,6 +44,7 @@ def join_classroom_view(request, classroom_id):
         {
             "classroom": classroom,
             "password_verified": password_verified,
+            "has_password": has_password,
         },
     )
 
@@ -65,6 +59,16 @@ def verify_classroom_password_view(request, classroom_id):
     except json.JSONDecodeError:
         return JsonResponse({"ok": False, "error": "Некорректный JSON"}, status=400)
 
+    if not classroom.join_password:
+        if request.user.is_authenticated:
+            if request.user not in classroom.students.all():
+                classroom.join(request.user, "")
+            clear_verified_in_session(request, classroom)
+            return JsonResponse({"ok": True, "redirect": reverse("classroom_view", args=[classroom.id])})
+
+        set_verified_in_session(request, classroom, "")
+        return JsonResponse({"ok": True})
+
     if not password:
         return JsonResponse({"ok": False, "error": "Пароль обязателен"}, status=400)
 
@@ -75,7 +79,6 @@ def verify_classroom_password_view(request, classroom_id):
             if request.user not in classroom.students.all():
                 classroom.join(request.user, classroom.join_password)
             clear_verified_in_session(request, classroom)
-
             return JsonResponse({"ok": True, "redirect": reverse("classroom_view", args=[classroom.id])})
 
         set_verified_in_session(request, classroom, password)
@@ -87,7 +90,7 @@ def verify_classroom_password_view(request, classroom_id):
 def join_classroom_finalize_view(request, classroom_id):
     classroom = get_object_or_404(Classroom, pk=classroom_id)
 
-    if not is_session_verified(request, classroom):
+    if classroom.join_password and not is_session_verified(request, classroom):
         return JsonResponse(
             {"ok": False, "error": "Пароль класса устарел или неверен."},
             status=403,
@@ -95,7 +98,8 @@ def join_classroom_finalize_view(request, classroom_id):
 
     if request.user.is_authenticated:
         if request.user not in classroom.students.all():
-            classroom.join(request.user, classroom.join_password)
+            password = classroom.join_password if classroom.join_password else ""
+            classroom.join(request.user, password)
 
         clear_verified_in_session(request, classroom)
         return JsonResponse(

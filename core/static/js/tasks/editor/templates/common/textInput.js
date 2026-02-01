@@ -25,7 +25,7 @@ export function renderTextInputTaskEditor(taskData = null) {
                 type="text"
                 class="form-control task-prompt"
                 placeholder="Введите заголовок"
-                value="${promptValue}">
+                value="${promptValue}" autofocus>
         </div>
 
         <div class="mb-2">

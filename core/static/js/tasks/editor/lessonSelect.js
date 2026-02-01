@@ -268,7 +268,7 @@ async function attachLesson(lessonId, classroomId) {
         clearTimeout(timer);
         if (!resp.ok) { showNotification('Не удалось выбрать урок'); lessonSelectModal.hide(); return; }
         const data = await resp.json();
-        if (data && data.status === 'ok') { showNotification('Урок выбран'); lessonSelectModal.hide(); return; }
+        if (data && data.status === 'ok') { lessonSelectModal.hide(); return; }
         showNotification('Не удалось выбрать урок'); lessonSelectModal.hide();
     } catch (err) {
         showNotification('Не удалось выбрать урок');

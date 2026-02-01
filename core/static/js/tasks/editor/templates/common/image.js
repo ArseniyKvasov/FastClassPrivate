@@ -21,7 +21,7 @@ export function renderImageTaskEditor(taskData = null) {
         </div>
 
         <div class="image-upload-wrapper text-center p-3 border border-dashed rounded position-relative" style="transition: 0.2s;">
-            <input type="file" accept="image/*" class="form-control image-input mb-2" style="display: none;">
+            <input type="file" accept="image/*" class="form-control image-input mb-2" style="display: none;" autofocus>
             <div class="upload-placeholder text-secondary">
                 <i class="bi bi-image fs-2 d-block mb-2"></i>
                 <span>Нажмите или перетащите изображение сюда</span>

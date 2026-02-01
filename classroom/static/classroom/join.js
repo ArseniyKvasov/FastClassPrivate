@@ -28,7 +28,7 @@ const firstNameInput = document.getElementById("studentFirstNameInput");
 const lastNameInput = document.getElementById("studentLastNameInput");
 const nameError = document.getElementById("nameError");
 const submitNameBtn = document.getElementById("submitNameBtn");
-const backFromNameBtn = document.getElementById("backFromName");
+const backFromNameBtn = document.getElementById("backFromNameBtn");
 
 const namePattern = /^[A-Za-zА-Яа-яЁё\-\/]{1,18}$/;
 
@@ -62,10 +62,17 @@ submitRoleBtn.addEventListener("click", () => {
         return;
     }
 
-    roleModal.hide();
+    submitRoleBtn.disabled = true;
+    submitRoleBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>';
+
     setTimeout(() => {
-        passwordModal.show();
-    }, 300);
+        roleModal.hide();
+        submitRoleBtn.disabled = false;
+        submitRoleBtn.innerHTML = 'Далее';
+        setTimeout(() => {
+            passwordModal.show();
+        }, 300);
+    }, 200);
 });
 
 passwordInput.addEventListener("input", () => {
@@ -73,11 +80,16 @@ passwordInput.addEventListener("input", () => {
 });
 
 backFromPasswordBtn.addEventListener("click", () => {
+    backFromPasswordBtn.disabled = true;
     passwordVerified = false;
-    passwordModal.hide();
+
     setTimeout(() => {
-        roleModal.show();
-    }, 300);
+        passwordModal.hide();
+        backFromPasswordBtn.disabled = false;
+        setTimeout(() => {
+            roleModal.show();
+        }, 300);
+    }, 200);
 });
 
 submitPasswordBtn.addEventListener("click", async () => {
@@ -85,6 +97,9 @@ submitPasswordBtn.addEventListener("click", async () => {
     if (!password) return;
 
     passwordError.classList.add("d-none");
+    submitPasswordBtn.disabled = true;
+    const originalText = submitPasswordBtn.innerHTML;
+    submitPasswordBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>';
 
     try {
         const response = await fetch(
@@ -100,6 +115,9 @@ submitPasswordBtn.addEventListener("click", async () => {
         );
 
         const data = await response.json();
+
+        submitPasswordBtn.disabled = false;
+        submitPasswordBtn.innerHTML = originalText;
 
         if (!data.ok) {
             passwordError.textContent = data.error || "Неверный пароль";
@@ -118,21 +136,27 @@ submitPasswordBtn.addEventListener("click", async () => {
             nameModal.show();
         }, 300);
     } catch {
+        submitPasswordBtn.disabled = false;
+        submitPasswordBtn.innerHTML = originalText;
         passwordError.textContent = "Ошибка сервера, попробуйте ещё раз";
         passwordError.classList.remove("d-none");
     }
 });
 
 backFromNameBtn.addEventListener("click", () => {
-    nameModal.hide();
+    backFromNameBtn.disabled = true;
 
     setTimeout(() => {
-        if (passwordVerified) {
-            passwordModal.show();
-        } else {
-            roleModal.show();
-        }
-    }, 300);
+        nameModal.hide();
+        backFromNameBtn.disabled = false;
+        setTimeout(() => {
+            if (passwordVerified) {
+                passwordModal.show();
+            } else {
+                roleModal.show();
+            }
+        }, 300);
+    }, 200);
 });
 
 submitNameBtn.addEventListener("click", async () => {
@@ -145,6 +169,9 @@ submitNameBtn.addEventListener("click", async () => {
     }
 
     nameError.classList.add("d-none");
+    submitNameBtn.disabled = true;
+    const originalText = submitNameBtn.innerHTML;
+    submitNameBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>';
 
     try {
         const response = await fetch(
@@ -164,6 +191,9 @@ submitNameBtn.addEventListener("click", async () => {
 
         const data = await response.json();
 
+        submitNameBtn.disabled = false;
+        submitNameBtn.innerHTML = originalText;
+
         if (!data.ok) {
             showNotification(data.error || "Ошибка сервера");
             return;
@@ -173,6 +203,8 @@ submitNameBtn.addEventListener("click", async () => {
             window.location.href = data.redirect;
         }
     } catch {
+        submitNameBtn.disabled = false;
+        submitNameBtn.innerHTML = originalText;
         showNotification("Ошибка сервера, попробуйте ещё раз");
     }
 });

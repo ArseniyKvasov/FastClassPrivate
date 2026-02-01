@@ -192,8 +192,8 @@ async function deleteSection(sectionId) {
 
         if (String(currentSectionId) === String(sectionId) && sections.length) {
             selectSection(sections[0].id);
-        } else if (!sections.length) {
-            highlightSelectedSection('');
+        } else {
+            highlightSelectedSection(currentSectionId);
         }
     } catch (err) {
         showNotification('Ошибка при удалении раздела');

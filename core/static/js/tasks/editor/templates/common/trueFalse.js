@@ -30,21 +30,34 @@ export function renderTrueFalseTaskEditor(taskData = null) {
     const addBtn = card.querySelector(".add-statement-btn");
     const removeBtn = card.querySelector(".remove-task-btn");
 
-    addBtn.addEventListener("click", () => addTrueFalseStatement(wrapper));
+    addBtn.addEventListener("click", () => {
+        const newRow = addTrueFalseStatement(wrapper);
+        newRow.querySelector(".statement-text").focus();
+    });
 
     removeBtn.addEventListener("click", () => card.remove());
 
     if (Array.isArray(taskData?.statements) && taskData.statements.length) {
-        taskData.statements.forEach(s => {
-            addTrueFalseStatement(wrapper, escapeHtml(s.statement), s.is_true ? "true" : "false");
+        taskData.statements.forEach((s, index) => {
+            const row = addTrueFalseStatement(wrapper, escapeHtml(s.statement), s.is_true ? "true" : "false");
+
+            if (index === 0) {
+                setTimeout(() => {
+                    const firstInput = row.querySelector(".statement-text");
+                    if (firstInput) firstInput.focus();
+                }, 50);
+            }
         });
     } else {
-        addTrueFalseStatement(wrapper);
+        const firstRow = addTrueFalseStatement(wrapper);
+        setTimeout(() => {
+            const firstInput = firstRow.querySelector(".statement-text");
+            if (firstInput) firstInput.focus();
+        }, 50);
     }
 
     card.scrollIntoView({ behavior: "smooth", block: "center" });
 
-    // обработка Enter
     wrapper.addEventListener("keydown", (e) => {
         if (e.key !== "Enter") return;
         const inputs = Array.from(wrapper.querySelectorAll(".statement-text"));
@@ -60,7 +73,6 @@ export function renderTrueFalseTaskEditor(taskData = null) {
         }
     });
 
-    // обработка вставки
     wrapper.addEventListener("paste", (e) => {
         const target = e.target;
         if (!(target instanceof HTMLInputElement)) return;
@@ -73,12 +85,10 @@ export function renderTrueFalseTaskEditor(taskData = null) {
 
         const firstRow = target.closest(".statement-row");
         if (firstRow && parsedStatements.length) {
-            // первый блок вставляем в текущий
             const first = parsedStatements.shift();
             firstRow.querySelector(".statement-text").value = first.text;
             firstRow.querySelector(".statement-select").value = first.value;
 
-            // остальные вставляем после текущего
             let idx = Array.from(wrapper.children).indexOf(firstRow);
             parsedStatements.forEach(s => {
                 const newRow = addTrueFalseStatement(wrapper, s.text, s.value);
@@ -127,7 +137,6 @@ export function addTrueFalseStatement(container, textValue = "", value = "false"
     row.querySelector(".remove-statement-btn").addEventListener("click", () => row.remove());
 
     container.appendChild(row);
-    row.querySelector(".statement-text").focus();
     return row;
 }
 
@@ -149,16 +158,6 @@ export function collectTrueFalseData(card) {
     return statements;
 }
 
-/**
- * Разбирает вставленный текст в массив утверждений True/False.
- *
- * Каждая строка = отдельное утверждение.
- * Автоопределение значения:
- * - (Верно|True|Правда) → true
- * - (Неверно|Ложь|False) → false
- * Все скобки с этими словами или с любыми комбинациями типа
- * (True/False), (True / False), (Правда или ложь) просто удаляются из текста.
- */
 function parsePastedTrueFalse(rawText) {
     const lines = rawText.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n").map(l => l.trim()).filter(Boolean);
     const results = [];
@@ -166,17 +165,14 @@ function parsePastedTrueFalse(rawText) {
     lines.forEach(line => {
         let value = "false";
 
-        // true
         if (/\(?\s*(Верно|True|Правда)\s*\)?/i.test(line)) {
             value = "true";
         }
 
-        // false
         if (/\(?\s*(Неверно|Ложь|False)\s*\)?/i.test(line)) {
             value = "false";
         }
 
-        // удаляем все скобки с ключевыми словами или с True/False
         line = line.replace(/\(\s*(Верно|Неверно|True|False|Правда|Ложь|True\s*\/\s*False|Правда\s*или\s*ложь)\s*\)/ig, "").trim();
 
         if (line) results.push({ text: line, value });

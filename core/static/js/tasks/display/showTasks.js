@@ -5,14 +5,13 @@ import { processTaskAnswer } from "/static/classroom/answers/utils.js";
 const taskListContainer = document.getElementById("task-list");
 
 const loader = document.createElement("div");
-loader.className = "loader-overlay d-flex justify-content-center align-items-center position-absolute w-100 h-100";
-loader.style.top = "0";
-loader.style.left = "0";
+loader.className = "loader-overlay d-flex justify-content-center w-100";
 loader.innerHTML = `
     <div class="spinner-border text-primary" role="status">
         <span class="visually-hidden">Загрузка...</span>
     </div>
 `;
+
 taskListContainer.appendChild(loader);
 
 /**
@@ -58,27 +57,37 @@ async function loadRenderer(taskType) {
     }
 }
 
-/**
- * Рендерит карточку задания
- * @param {Object} task — данные задания
- * @param {boolean} replaceExisting — заменить существующую карточку с таким task_id
- */
 export async function renderTaskCard(task, replaceExisting = false) {
     if (!task) return;
+
+    const loader = document.createElement("div");
+    loader.className = "loader-overlay d-flex justify-content-center align-items-center position-absolute w-100 h-100";
+    loader.style.top = "0";
+    loader.style.left = "0";
+    loader.style.backgroundColor = "rgba(255, 255, 255, 0.8)";
+    loader.style.zIndex = "100";
+    loader.innerHTML = `
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Загрузка...</span>
+        </div>
+    `;
 
     const card = document.createElement("div");
     card.className = "task-card mb-3 p-2 rounded-3 position-relative";
     card.dataset.taskId = task.task_id;
     card.dataset.taskType = task.task_type;
+    card.appendChild(loader);
 
     const contentContainer = document.createElement("div");
     contentContainer.className = "task-content";
-    contentContainer.innerHTML = `<span class="text-secondary">Загрузка...</span>`;
+    contentContainer.style.opacity = "0.5";
     card.appendChild(contentContainer);
 
     const meta = TASK_MAP?.[task.task_type];
     if (!meta?.render) {
         contentContainer.innerHTML = "<span class='text-danger'>Не удалось отобразить задание.</span>";
+        loader.remove();
+        contentContainer.style.opacity = "1";
     } else {
         const [modulePath, fnName] = meta.render;
         try {
@@ -92,12 +101,18 @@ export async function renderTaskCard(task, replaceExisting = false) {
             if (renderer) {
                 contentContainer.innerHTML = "";
                 renderer(task, contentContainer);
+                loader.remove();
+                contentContainer.style.opacity = "1";
             } else {
                 contentContainer.innerHTML = "<span class='text-danger'>Не удалось отобразить задание.</span>";
+                loader.remove();
+                contentContainer.style.opacity = "1";
             }
         } catch (err) {
             console.error(err);
             contentContainer.innerHTML = "<span class='text-danger'>Не удалось отобразить задание.</span>";
+            loader.remove();
+            contentContainer.style.opacity = "1";
         }
     }
 
@@ -108,12 +123,10 @@ export async function renderTaskCard(task, replaceExisting = false) {
             eventBus.emit('taskCardRendered', { taskCard: card, task });
             await processTaskAnswer(task.task_id);
         }
-
         return;
     }
 
     taskListContainer.appendChild(card);
-
     eventBus.emit('taskCardRendered', { taskCard: card, task });
 }
 

@@ -40,7 +40,7 @@ export function renderFillGapsTaskEditor(taskData = null) {
         <div class="mb-3">
             <div class="fill-text-editor border rounded p-2"
                  contenteditable="true"
-                 style="min-height: 120px; outline: none;">${htmlContent}</div>
+                 style="min-height: 120px; outline: none;" autofocus>${htmlContent}</div>
         </div>
 
         <div class="mb-3">

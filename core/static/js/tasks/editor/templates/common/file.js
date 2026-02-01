@@ -27,7 +27,7 @@ export function renderFileTaskEditor(taskData = null) {
             <input type="text" class="form-control file-link-input"
                    placeholder="Вставьте ссылку на файл"
                    value="${fileLink}"
-                   autocomplete="off">
+                   autocomplete="off" autofocus>
         </div>
 
         <div class="mb-3">

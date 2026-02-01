@@ -27,7 +27,7 @@ export function renderIntegrationTaskEditor(taskData = null) {
             <textarea class="form-control embed-code-input"
                       placeholder="Вставьте iframe-код (YouTube, Wordwall и др.)"
                       rows="4"
-                      autocomplete="off">${embedCode}</textarea>
+                      autocomplete="off" autofocus>${embedCode}</textarea>
         </div>
 
         <div class="mb-3">

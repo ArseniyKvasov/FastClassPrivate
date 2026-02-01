@@ -1,4 +1,4 @@
-import { showNotification } from "/static/js/tasks/utils.js";
+import { showNotification, escapeHtml } from "/static/js/tasks/utils.js";
 
 /**
  * Рендерит редактор задания типа «Соотнести карточки».
@@ -40,7 +40,7 @@ export function renderMatchCardsTaskEditor(taskData = null, taskId = null) {
     if (initialCards.length > 0) {
         initialCards.forEach(c => addMatchCard(cardsWrapper, c.card_left, c.card_right));
     } else {
-        addMatchCard(cardsWrapper);
+        addMatchCard(cardsWrapper, isFirst = true);
         addMatchCard(cardsWrapper);
     }
 
@@ -59,7 +59,7 @@ export function renderMatchCardsTaskEditor(taskData = null, taskId = null) {
  * @param {string} rightValue
  * @returns {HTMLElement}
  */
-export function addMatchCard(container, leftValue = "", rightValue = "") {
+export function addMatchCard(container, leftValue = "", rightValue = "", isFirst = false) {
     const cId = crypto.randomUUID();
 
     const row = document.createElement("div");
@@ -67,9 +67,9 @@ export function addMatchCard(container, leftValue = "", rightValue = "") {
     row.dataset.cardId = cId;
 
     row.innerHTML = `
-        <input type="text" class="form-control card-left" placeholder="Левая карточка" style="max-width: 45%;" value="${escapeHtmlAttr(leftValue)}">
+        <input type="text" class="form-control card-left" placeholder="Левая карточка" style="max-width: 45%;" value="${escapeHtml(leftValue)}" ${isFirst ? 'autofocus' : ''}>
         <i class="bi bi-arrow-left-right text-secondary fs-5 swap-card-btn" title="Поменять местами" style="cursor: pointer;"></i>
-        <input type="text" class="form-control card-right" placeholder="Правая карточка" style="max-width: 45%;" value="${escapeHtmlAttr(rightValue)}">
+        <input type="text" class="form-control card-right" placeholder="Правая карточка" style="max-width: 45%;" value="${escapeHtml(rightValue)}">
         <button class="btn-close remove-card-btn" title="Удалить карточку" style="transform: scale(0.7);"></button>
     `;
 
@@ -114,22 +114,6 @@ export function addMatchCard(container, leftValue = "", rightValue = "") {
 
     container.appendChild(row);
     return row;
-}
-
-/**
- * Утилита: безопасно эскейпит значение для value в атрибуте input.
- *
- * @param {string} v
- * @returns {string}
- */
-function escapeHtmlAttr(v) {
-    if (v == null) return "";
-    return String(v)
-        .replace(/&/g, "&amp;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#39;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
 }
 
 /**

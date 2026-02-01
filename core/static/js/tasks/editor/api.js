@@ -316,6 +316,16 @@ export async function saveTask(taskType, taskCard, taskId = null) {
     const data = validator(taskCard);
     if (!data) return null;
 
+    const saveBtn = taskCard.querySelector('.save-btn');
+    let originalText = '';
+
+    if (saveBtn) {
+        originalText = saveBtn.innerHTML;
+        saveBtn.disabled = true;
+        saveBtn.classList.add('disabled');
+        saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Сохранение...';
+    }
+
     try {
         let result;
 
@@ -346,6 +356,13 @@ export async function saveTask(taskType, taskCard, taskId = null) {
         if (!result?.success) {
             showNotification(`Ошибка сохранения: ${result?.errors || result}`);
             console.error(result?.errors || result);
+
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.classList.remove('disabled');
+                saveBtn.innerHTML = originalText;
+            }
+
             return null;
         }
 
@@ -383,7 +400,20 @@ export async function saveTask(taskType, taskCard, taskId = null) {
     } catch (err) {
         console.error(err);
         showNotification("Ошибка сети");
+
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.classList.remove('disabled');
+            saveBtn.innerHTML = originalText;
+        }
+
         return null;
+    } finally {
+        if (saveBtn && saveBtn.disabled) {
+            saveBtn.disabled = false;
+            saveBtn.classList.remove('disabled');
+            saveBtn.innerHTML = originalText;
+        }
     }
 }
 

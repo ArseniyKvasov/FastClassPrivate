@@ -1,14 +1,5 @@
 import { showNotification, escapeHtml, generateId } from "/static/js/tasks/utils.js";
 
-/**
- * Рендерит редактор задания типа «Тест».
- *
- * Позволяет добавлять вопросы/варианты, обрабатывать вставки с несколькими
- * вопросами и вариантами, обеспечивать навигацию по Enter и сохранять
- * согласованное количество вариантов для новых вопросов.
- *
- * @param {{questions?: Array}} taskData
- */
 export function renderTestTaskEditor(taskData = null) {
     const card = document.createElement("div");
     card.className = "task-editor-card mb-4 p-3 bg-white border-0 rounded";
@@ -37,19 +28,31 @@ export function renderTestTaskEditor(taskData = null) {
     let lastAnswerCount = 3;
 
     addQuestionBtn.addEventListener("click", () => {
-        _addNewQuestion(questionsWrapper, null, lastAnswerCount);
+        const newBlock = _addNewQuestion(questionsWrapper, null, lastAnswerCount);
+        newBlock.querySelector(".question-text").focus();
     });
 
     removeTaskBtn.addEventListener("click", () => card.remove());
 
     const initialQuestions = Array.isArray(taskData?.questions) ? taskData.questions : [];
     if (initialQuestions.length) {
-        initialQuestions.forEach(q => {
-            _addNewQuestion(questionsWrapper, q);
+        initialQuestions.forEach((q, index) => {
+            const block = _addNewQuestion(questionsWrapper, q);
             lastAnswerCount = Math.max(lastAnswerCount, q.options?.length || 3);
+
+            if (index === 0) {
+                setTimeout(() => {
+                    const firstInput = block.querySelector(".question-text");
+                    if (firstInput) firstInput.focus();
+                }, 50);
+            }
         });
     } else {
-        _addNewQuestion(questionsWrapper, null, lastAnswerCount);
+        const firstBlock = _addNewQuestion(questionsWrapper, null, lastAnswerCount);
+        setTimeout(() => {
+            const firstInput = firstBlock.querySelector(".question-text");
+            if (firstInput) firstInput.focus();
+        }, 50);
     }
 
     card.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -61,8 +64,6 @@ export function renderTestTaskEditor(taskData = null) {
     function _addNewQuestion(wrapper, qData = null, answerCount = 3) {
         const block = _createQuestionBlock(qData, answerCount);
         wrapper.appendChild(block);
-        const firstInput = block.querySelector(".question-text");
-        if (firstInput) firstInput.focus();
         return block;
     }
 
@@ -245,16 +246,6 @@ export function renderTestTaskEditor(taskData = null) {
     return card;
 }
 
-/**
- * Добавляет вариант ответа к вопросу.
- *
- * Поддерживает отметку правильного ответа и удаление варианта.
- *
- * @param {HTMLElement} container
- * @param {string} questionId
- * @param {{text?: string, is_correct?: boolean}|null} answerData
- * @returns {HTMLElement}
- */
 export function addAnswer(container, questionId, answerData = null) {
     const aId = generateId("answer");
     const isChecked = answerData?.is_correct ? "checked" : "";
@@ -290,23 +281,6 @@ export function addAnswer(container, questionId, answerData = null) {
     return row;
 }
 
-/**
- * Парсит вставленный текст в структуру вопросов и вариантов.
- *
- * Возвращает массив объектов: [{ question: string, options: [{option: string, is_correct: boolean}] }]
- *
- * Поддерживает:
- * - Блоки, разделённые пустой строкой — как отдельные вопросы.
- * - Несколько вопросов подряд внутри одного блока, если обнаружены маркеры ответов (a), б), в) и т.п.).
- * - Нумерованную нотацию "1. Вопрос", "2) Вопрос".
- *
- * Алгоритм аккуратно отделяет следующие вопросы друг от друга в ситуациях
- * когда после варианта идёт новая строка с текстом вопроса без пустой строки (например, часто используемый формат:
- * "Вопрос...\nа) ...\nб) ...\nв) ...\nСледующий вопрос...\nа) ...").
- *
- * @param {string} rawText
- * @returns {Array<{question: string, options: Array}>}
- */
 function parsePastedText(rawText) {
     const text = rawText.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
     const blocks = text.split(/\n\s*\n+/).map(b => b.trim()).filter(Boolean);
@@ -324,14 +298,6 @@ function parsePastedText(rawText) {
     return parsed;
 }
 
-/**
- * Разбирает один текстовый блок на один или несколько вопросов.
- *
- * Возвращает массив вопросов (даже если обнаружен только один вопрос).
- *
- * @param {string} blockText
- * @returns {Array<{question: string, options: Array}>}
- */
 function _parseSingleBlock(blockText) {
     const rawLines = blockText.split("\n");
     const lines = rawLines.map(l => l.replace(/\u00A0/g, " ").replace(/\t/g, " ").trim()).filter(Boolean);
@@ -377,8 +343,6 @@ function _parseSingleBlock(blockText) {
             continue;
         }
 
-        // Plain line (не маркер). Решаем — это начало нового вопроса или продолжение предыдущего варианта/вопроса.
-        // Смотрим вперёд на ближайшую значимую строку.
         let j = i + 1;
         let nextIsOption = false;
         while (j < lines.length) {
@@ -393,14 +357,11 @@ function _parseSingleBlock(blockText) {
         }
 
         if (!current) {
-            // Нет текущего вопроса — начинаем новый с этой строки
             current = { question: line, options: [] };
             continue;
         }
 
-        // Если есть текущий и у текущего ещё нет вариантов, то эта строка может быть продолжением вопроса
         if (current.options.length === 0) {
-            // Если следующая значимая строка — вариант, то текущая plain-line — отдельный вопрос
             if (nextIsOption) {
                 pushCurrent();
                 current = { question: line, options: [] };
@@ -410,15 +371,12 @@ function _parseSingleBlock(blockText) {
             continue;
         }
 
-        // Если у текущего уже есть варианты, и следующая значимая строка — вариант,
-        // то plain-line скорее всего является началом НОВОГО вопроса (как в проблемном примере).
         if (current.options.length > 0 && nextIsOption) {
             pushCurrent();
             current = { question: line, options: [] };
             continue;
         }
 
-        // В остальных случаях — добавляем как продолжение последнего варианта
         if (current.options.length > 0) {
             const last = current.options[current.options.length - 1];
             last.option = (last.option + " " + line).trim();
