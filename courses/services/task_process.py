@@ -103,12 +103,15 @@ def _process_task_data(user, section_id, task_type, task_id, data):
         return JsonResponse({"success": False, "errors": f"Неизвестный тип задания: {task_type}"}, status=400)
 
     if task_id:
-        return _update_existing_task(task_id, section, SerializerClass, data)
+        return _update_existing_task(task_id, section, task_type, SerializerClass, data)
     else:
         return _create_new_task(section, task_type, SerializerClass, data)
 
 
-def _update_existing_task(task_id, section, serializer_class, data):
+def _update_existing_task(task_id, section, task_type, serializer_class, data):
+    """
+    Обновление существующей задачи.
+    """
     try:
         task = Task.objects.get(id=task_id)
     except Task.DoesNotExist:
@@ -119,9 +122,9 @@ def _update_existing_task(task_id, section, serializer_class, data):
 
     specific_obj = getattr(task, "specific", None)
     is_copy_task = task.root_type == "copy"
-    item = data[0].copy() if isinstance(data, list) and data else data
 
     if isinstance(specific_obj, ImageTask):
+        item = data[0].copy() if isinstance(data, list) and data else data
         file_obj = item.pop("file", None)
         if file_obj:
             specific_obj.file_path = _save_image_file(file_obj)
@@ -130,11 +133,19 @@ def _update_existing_task(task_id, section, serializer_class, data):
         specific_obj.save()
 
     elif is_copy_task:
-        task.edited_content = item
+        task.edited_content = data if task_type in ["test", "true_false"] else data[0]
         task.save(update_fields=["edited_content"])
 
     elif specific_obj:
-        serializer = serializer_class(specific_obj, data=item, partial=True)
+        update_data = {}
+        if task_type == "test":
+            update_data["questions"] = data
+        elif task_type == "true_false":
+            update_data["statements"] = data
+        else:
+            update_data = data[0] if isinstance(data, list) and data else data
+
+        serializer = serializer_class(specific_obj, data=update_data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
 

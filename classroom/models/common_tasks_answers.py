@@ -220,7 +220,6 @@ class MatchCardsTaskAnswer(BaseAnswer):
         ]
 
     def save_answer_data(self, data):
-        print('tets 1')
         task_data = get_task_effective_data(self.task)
         cards = task_data.get("cards", [])
 

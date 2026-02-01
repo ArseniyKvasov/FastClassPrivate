@@ -11,7 +11,6 @@ export function collectAnswers(task, container) {
     const answers = [];
     if (!container || !task) return answers;
 
-    // Каждое утверждение в форме
     const forms = container.querySelectorAll('form[data-statement-index]');
     forms.forEach(form => {
         const sIndex = Number(form.dataset.statementIndex);
@@ -57,6 +56,7 @@ export async function handleAnswer(data) {
      * @param {boolean} data.answer.answers[].is_correct - Правильность ответа
      * @param {boolean} data.answer.is_checked - Проверен ли ответ
      */
+    console.log(data.answer);
     try {
         if (!data || data.task_type !== "true_false") return;
 
