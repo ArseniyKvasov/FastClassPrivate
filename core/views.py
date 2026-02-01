@@ -127,30 +127,3 @@ def home(request):
     }
 
     return render(request, "core/pages/home.html", context)
-
-
-@require_GET
-@login_required
-def get_username_by_id(request, user_id):
-    """
-    Получает имя пользователя по ID.
-    Возвращает JSON с username или ошибку.
-    """
-    try:
-        user = User.objects.get(id=user_id)
-
-        return JsonResponse({
-            'id': user.id,
-            'username': get_display_name_from_username(user.username),
-            'email': user.email
-        })
-
-    except User.DoesNotExist:
-        return JsonResponse(
-            {'error': 'Пользователь не найден'},
-            status=404
-        )
-    except Exception as e:
-        return JsonResponse(
-            {'error': f'Внутренняя ошибка сервера: {str(e)}'},
-            status=500)

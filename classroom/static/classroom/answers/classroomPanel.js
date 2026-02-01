@@ -1,7 +1,7 @@
 import { showNotification, escapeHtml, getInfoElement, getCsrfToken, confirmAction, getCurrentUserId } from "/static/js/tasks/utils.js";
 import { eventBus } from "/static/js/tasks/events/eventBus.js";
 import { startTasksOrderEditing } from "/static/js/tasks/editor/changeTasksOrder.js";
-import { getViewedUserId, getClassroomId, getUsernameById } from "/static/classroom/utils.js";
+import { getViewedUserId, getClassroomId } from "/static/classroom/utils.js";
 import { formatStudentName } from "/static/classroom/answers/utils.js";
 import { handleSectionAnswers } from "/static/classroom/answers/handleAnswer.js";
 import { clearAllTaskContainers } from "/static/classroom/answers/handlers/clearAnswers.js";
@@ -216,6 +216,133 @@ async function selectStudent(studentId, isInitial = false) {
     }
 }
 
+/**
+ * Обновляет список учеников из бэкенда и синхронизирует UI
+ * @returns {Promise<void>}
+ */
+export async function refreshStudentsList() {
+    const classroomId = getClassroomId();
+    if (!classroomId) {
+        console.warn("Classroom ID not found");
+        return;
+    }
+
+    const currentViewedUserId = getViewedUserId();
+    const currentUserId = getCurrentUserId();
+
+    try {
+        const response = await fetch(`/classroom/api/${classroomId}/get-classroom-students-list/`, {
+            method: "GET",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": getCsrfToken()
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+
+        if (!data.students || !Array.isArray(data.students)) {
+            throw new Error("Invalid response format from server");
+        }
+
+        await updateStudentDropdown(data.students, currentViewedUserId, currentUserId);
+
+    } catch (error) {
+        console.error("Error refreshing students list:", error);
+        showNotification("Не удалось обновить список учеников", "error");
+    }
+}
+
+/**
+ * Обновляет выпадающий список учеников
+ * @param {Array} students - Массив учеников с бэкенда
+ * @param {string} currentViewedUserId - ID текущего просматриваемого ученика
+ * @param {string} currentUserId - ID текущего пользователя (учителя)
+ * @returns {Promise<void>}
+ */
+async function updateStudentDropdown(students, currentViewedUserId, currentUserId) {
+    const dropdownMenu = document.getElementById("studentDropdownMenu");
+    if (!dropdownMenu) return;
+
+    const previousSelection = currentViewedUserId;
+    const wasAllSelected = previousSelection === "all";
+
+    const existingStudentIds = new Set();
+    const existingStudentElements = Array.from(dropdownMenu.querySelectorAll(".student-menu-item"));
+
+    existingStudentElements.forEach(item => {
+        const link = item.querySelector(".student-option");
+        if (link) existingStudentIds.add(link.dataset.studentId);
+    });
+
+    const newStudentIds = new Set(students.map(s => String(s.id)));
+
+    let displayStudents = [...students];
+    const onlyTeacher = students.length === 1 && String(students[0].id) === currentUserId;
+    const noStudents = students.length === 0;
+
+    if (onlyTeacher || noStudents) {
+        const teacherStudent = students.find(s => String(s.id) === currentUserId) ||
+                               { id: currentUserId, display_name: "Учитель", username: currentUserId };
+        displayStudents = [teacherStudent];
+        newStudentIds.add(String(currentUserId));
+    }
+
+    existingStudentElements.forEach(item => {
+        const link = item.querySelector(".student-option");
+        if (link) {
+            const studentId = link.dataset.studentId;
+            if (studentId !== "all" && !newStudentIds.has(studentId)) {
+                item.remove();
+                eventBus.emit("user:delete", studentId);
+            }
+        }
+    });
+
+    displayStudents.forEach(student => {
+        const studentId = String(student.id);
+        if (existingStudentIds.has(studentId)) return;
+
+        const studentItem = createStudentItem(
+            studentId,
+            student.display_name || student.username,
+            student.is_teacher
+        );
+
+        const allItem = dropdownMenu.querySelector('[data-student-id="all"]');
+        if (allItem) {
+            allItem.parentNode.insertBefore(studentItem, allItem.nextSibling);
+        } else {
+            dropdownMenu.appendChild(studentItem);
+        }
+    });
+
+    const validStudents = displayStudents.filter(s => String(s.id) !== currentUserId);
+
+    if (wasAllSelected) {
+        await selectStudent("all", false);
+    } else {
+        const currentUserExists = displayStudents.some(s => String(s.id) === previousSelection);
+
+        if (!currentUserExists) {
+            const firstValidStudent = validStudents.length > 0 ? String(validStudents[0].id) : "all";
+            await selectStudent(firstValidStudent, false);
+
+            if (previousSelection !== currentUserId) {
+                showNotification("Выбранный ученик больше не в классе", "info", 3000);
+            }
+        }
+    }
+
+    if (currentViewedUserId === "all") {
+        eventBus.emit("students:updated", students);
+    }
+}
+
 export async function markUserOnline(userId) {
     const dropdownMenu = document.getElementById("studentDropdownMenu");
     if (!dropdownMenu) return;
@@ -223,17 +350,7 @@ export async function markUserOnline(userId) {
     let option = dropdownMenu.querySelector(`.student-option[data-student-id="${userId}"]`);
 
     if (!option) {
-        try {
-            const username = await getUsernameById(userId);
-            if (username) {
-                const li = createStudentItem(String(userId), username);
-                dropdownMenu.appendChild(li);
-                option = dropdownMenu.querySelector(`.student-option[data-student-id="${userId}"]`);
-            }
-        } catch (error) {
-            console.error("Ошибка при получении имени пользователя:", error);
-            return;
-        }
+        await refreshStudentsList();
     }
 
     if (!option) return;
@@ -358,7 +475,7 @@ export function renderResetButton(panel) {
     btns.forEach(btn => btn.classList.remove("d-none"));
 }
 
-export async function initStudentPanel(studentsList = []) {
+export async function initStudentPanel() {
     const panelEl = document.getElementById("panel");
     const dropdownButton = document.getElementById("studentDropdown");
     const dropdownMenu = document.getElementById("studentDropdownMenu");
@@ -372,11 +489,7 @@ export async function initStudentPanel(studentsList = []) {
     dropdownMenu.innerHTML = "";
     dropdownMenu.appendChild(createStudentItem("all", "Статистика"));
 
-    if (Array.isArray(studentsList) && studentsList.length > 0) {
-        studentsList.forEach(s => {
-            dropdownMenu.appendChild(createStudentItem(String(s.id), s.name));
-        });
-    }
+    await refreshStudentsList();
 
     if (!dropdownMenu.dataset.bound) {
         dropdownMenu.addEventListener("click", event => {

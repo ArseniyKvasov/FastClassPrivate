@@ -405,7 +405,7 @@ export function attachControlsToTaskCard(taskCard) {
         }
 
         if (ev.target.closest(".reset-answer-btn")) {
-            const confirmed = await confirmAction("Сбросить ответы для этого задания?");
+            const confirmed = await confirmAction("Сбросить ответы всех учеников в этом задании?");
             if (!confirmed) return;
 
             try {

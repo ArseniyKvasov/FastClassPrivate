@@ -1,6 +1,7 @@
-import { getSectionId, getInfoElement, getCsrfToken } from "/static/js/tasks/utils.js"
-import { fetchSections, renderSectionsList, selectSection } from "/static/js/tasks/display/renderSections.js"
-import { refreshChat } from "/static/classroom/integrations/chat.js"
+import { getSectionId, getInfoElement, getCsrfToken, getIsTeacher } from "/static/js/tasks/utils.js";
+import { fetchSections, renderSectionsList, selectSection } from "/static/js/tasks/display/renderSections.js";
+import { refreshChat } from "/static/classroom/integrations/chat.js";
+import { refreshStudentsList } from "/static/classroom/answers/classroomPanel.js";
 
 
 export function getClassroomId() {
@@ -90,42 +91,18 @@ export async function refreshClassroom() {
     const infoEl = getInfoElement();
     const classroomId = getClassroomId();
     if (infoEl && classroomId) {
-        infoEl.dataset.sectionId = "";
-
         const lessonId = await fetchCurrentLesson(classroomId);
         if (lessonId) {
             infoEl.dataset.lessonId = lessonId;
+        }
+
+        const isTeacher = getIsTeacher();
+        if (isTeacher) {
+            refreshStudentsList();
         }
 
         const sectionToSelect = await refreshSections();
         await selectSection(sectionToSelect);
     }
     await refreshChat();
-}
-
-/**
- * Получение имени нового пользователя
- * @param {string|number} userId - ID пользователя
- * @returns {Promise<string|null>}
- */
-export async function getUsernameById(userId) {
-    try {
-        const response = await fetch(`/api/users/${userId}/get-username-by-id/`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCsrfToken(),
-            },
-        });
-
-        if (response.ok) {
-            const data = await response.json();
-            const username = data.username;
-            return username;
-        }
-    } catch (e) {
-        console.log("Не удалось определить имя ученика");
-    }
-
-    return `Ученик #${userId}`;
 }

@@ -1,7 +1,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponseForbidden, Http404
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_GET
 from django.db import transaction
 import json
 from django.urls import reverse
@@ -135,18 +135,11 @@ def classroom_view(request, classroom_id):
     if request.user not in classroom.students.all() and not is_teacher:
         return redirect("join_classroom_view", classroom_id=classroom_id)
 
-    students_qs = classroom.students.all().values("id", "username")
+    students_qs = classroom.students.all().values_list("id", flat=True)
 
     if is_teacher:
-        students_list = [
-            {"id": s["id"], "name": get_display_name_from_username(s["username"])}
-            for s in students_qs
-        ]
-        if not students_list:
-            students_list = [{"id": request.user.id, "name": get_display_name_from_username(request.user.username)}]
-        viewed_user_id = students_list[0]["id"]
+        viewed_user_id = students_qs[0] if students_qs else request.user.id
     else:
-        students_list = []
         viewed_user_id = request.user.id
 
     lesson_id = classroom.lesson.id if classroom.lesson else None
@@ -160,7 +153,6 @@ def classroom_view(request, classroom_id):
             "lesson_id": lesson_id,
             "is_teacher": is_teacher,
             "viewed_user_id": viewed_user_id,
-            "students_list": students_list,
             "current_user_id": request.user.id,
             "copying_enabled": getattr(classroom, "copying_enabled", True),
         },
@@ -176,6 +168,39 @@ def get_current_lesson_id(request, classroom_id):
 
     return JsonResponse({
         "lesson_id": classroom.lesson.id,
+    })
+
+
+@login_required
+@require_GET
+def get_classroom_students_list(request, classroom_id):
+    classroom = get_object_or_404(Classroom, id=classroom_id)
+
+    if request.user != classroom.teacher:
+        return JsonResponse({
+            "error": "Доступ запрещен. Только учитель класса может просматривать список учеников."
+        }, status=403)
+
+    participants = classroom.students.all().order_by('username')
+    if not participants.exists():
+        participants = [classroom.teacher]
+
+    students_list = []
+    for user in participants:
+        display_name = get_display_name_from_username(user.username)
+        students_list.append({
+            "id": user.id,
+            "username": user.username,
+            "display_name": display_name,
+            "is_teacher": user == classroom.teacher
+        })
+
+    return JsonResponse({
+        "students": students_list,
+        "count": len(students_list),
+        "classroom_id": classroom.id,
+        "classroom_title": classroom.title,
+        "teacher_id": classroom.teacher.id
     })
 
 
