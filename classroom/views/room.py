@@ -26,8 +26,12 @@ def create_classroom_view(request):
     Если у пользователя нет курса с нужным уроком — копирует курс.
     Возвращает JSON с redirect_url или error.
     """
-    title = (request.POST.get("title") or "").strip()
-    lesson_id = request.POST.get("lesson_id") or None
+    try:
+        data = json.loads(request.body)
+        title = (data.get("title") or "").strip()
+        lesson_id = data.get("lesson_id") or None
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
 
     if not title:
         return JsonResponse(
@@ -62,7 +66,7 @@ def create_classroom_view(request):
             )
 
     return JsonResponse({
-        "url": reverse("classroom_view", args=[classroom.id])
+        "redirect_url": reverse("classroom_view", args=[classroom.id])
     })
 
 

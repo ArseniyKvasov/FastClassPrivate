@@ -1,15 +1,7 @@
 import { getCsrfToken, confirmAction, escapeHtml } from '/static/js/tasks/utils.js';
 
 /**
- * Открывает универсальную модалку для создания / редактирования курса или класса.
- *
- * @param {Object} options
- * @param {'create'|'edit'} options.mode
- * @param {'course'|'classroom'} options.entity
- * @param {string|null} options.id
- * @param {string} options.title
- * @param {string} options.subject
- * @param {string} options.description
+ * Открывает модальное окно для создания/редактирования сущности
  */
 export function openEntityModal({
     mode,
@@ -33,18 +25,16 @@ export function openEntityModal({
     const errorEl = document.getElementById('universalModalError');
 
     submitBtn.disabled = false;
-
     modeInput.value = mode;
     entityInput.value = entity;
     idInput.value = id || '';
-
     nameInput.value = title;
-    nameInput.placeholder = entity === 'course' ? 'Название курса' : 'Название класса';
-
     subjectSelect.value = subject;
     descInput.value = description || '';
-
     errorEl.classList.add('d-none');
+
+    nameInput.placeholder = entity === 'course' ? 'Название курса' : 'Название класса';
+
     if (entity === 'classroom') {
         subjectWrapper.classList.add('d-none');
         descWrapper.classList.add('d-none');
@@ -61,44 +51,21 @@ export function openEntityModal({
         submitBtn.innerText = 'Сохранить';
     }
 
-    submitBtn.innerHTML = submitBtn.innerText;
-
     bootstrap.Modal.getOrCreateInstance(modalEl).show();
     setTimeout(() => nameInput.focus(), 550);
 }
 
 /**
- * Преобразует шаблон URL с '0' в конец пути в конкретный URL с id.
- *
- * Простая замена первого вхождения '0', которое используется в Django url шаблонах.
- *
- * @param {string} template
- * @param {string|number} id
- * @returns {string}
- */
-function fillUrlTemplate(template, id) {
-    return template.replace(/0(?!\d)/, id);
-}
-
-/**
- * Находит .material-item элемент по сущности (course|classroom) и id.
- *
- * @param {'course'|'classroom'} entity
- * @param {string} id
- * @returns {HTMLElement|null}
+ * Находит элемент карточки по entity и id
  */
 function findMaterialItem(entity, id) {
     const selector = `[data-entity="${entity}"][data-id="${id}"]`;
     const actionEl = document.querySelector(selector);
-    if (!actionEl) return null;
-    return actionEl.closest('.material-item');
+    return actionEl ? actionEl.closest('.material-item') : null;
 }
 
 /**
- * Обновляет DOM карточки курса после редактирования
- *
- * @param {HTMLElement} itemEl - элемент карточки
- * @param {Object} updatedData - обновленные данные курса
+ * Обновляет карточку курса после редактирования
  */
 function updateCourseCard(itemEl, updatedData) {
     if (!itemEl) return;
@@ -110,7 +77,6 @@ function updateCourseCard(itemEl, updatedData) {
 
     const subjectBadge = itemEl.querySelector('.card-body .badge');
     const subjectDisplay = updatedData.subject_display || updatedData.subject;
-
     if (subjectBadge && subjectDisplay) {
         subjectBadge.textContent = subjectDisplay;
     }
@@ -123,7 +89,107 @@ function updateCourseCard(itemEl, updatedData) {
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+/**
+ * Создает HTML для новой карточки курса
+ */
+function createCourseCardHtml(data, entity) {
+    const subjectBadge = entity === 'course' && data.subject_display
+        ? `<span class="badge bg-primary small">${escapeHtml(data.subject_display)}</span>`
+        : '';
+
+    const roleBadge = entity === 'classroom'
+        ? `<span class="badge bg-success small">Ученик</span>`
+        : '';
+
+    const editUrl = entity === 'course'
+        ? data.edit_meta_url || '#'
+        : '#';
+
+    return `
+        <div class="col-12 col-md-6 col-lg-4 material-item" data-category="${entity === 'course' ? 'my_courses' : 'classrooms'}">
+            <div class="card h-100 rounded-4 shadow-sm d-flex flex-column">
+                <div class="card-body d-flex flex-column flex-grow-1">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="mb-0">${escapeHtml(data.title)}</h5>
+                        ${subjectBadge || roleBadge}
+                    </div>
+                    ${entity === 'course' && data.short_info ? `<p class="text-muted small mb-0">${escapeHtml(data.short_info)}</p>` : ''}
+                </div>
+                <div class="card-footer bg-transparent border-0 pt-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <a href="${data.detail_url || '#'}" class="btn btn-sm btn-outline-white border-0 fw-bold text-primary">Перейти</a>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-link text-muted p-0" data-bs-toggle="dropdown">
+                                <i class="bi bi-three-dots"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li>
+                                    <a class="dropdown-item text-dark bg-white" href="#"
+                                       data-action="edit"
+                                       data-entity="${entity}"
+                                       data-id="${data.id}"
+                                       data-title="${escapeHtml(data.title)}"
+                                       ${entity === 'course' ? `data-description="${escapeHtml(data.description || '')}"` : ''}
+                                       ${entity === 'course' ? `data-subject="${escapeHtml(data.subject || 'other')}"` : ''}>
+                                        Редактировать
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item text-danger bg-white" href="#"
+                                       data-action="delete"
+                                       data-entity="${entity}"
+                                       data-id="${data.id}">
+                                        Удалить
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Возвращает контейнер для вставки новой карточки
+ */
+function getInsertContainer(entity) {
+    const category = entity === 'course' ? 'my_courses' : 'classrooms';
+    const items = document.querySelectorAll(`.material-item[data-category="${category}"]`);
+    if (items.length === 0) return null;
+
+    const lastItem = items[items.length - 1];
+    return lastItem.parentElement;
+}
+
+/**
+ * Вставляет карточку в правильную позицию
+ */
+function insertCard(cardHtml, entity) {
+    const container = getInsertContainer(entity);
+    if (!container) return null;
+
+    const category = entity === 'course' ? 'my_courses' : 'classrooms';
+    const linkItem = container.querySelector(`.material-item[data-category="${category}"] a[data-create]`)?.closest('.material-item');
+
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = cardHtml;
+    const newCard = tempDiv.firstElementChild;
+
+    if (linkItem) {
+        container.insertBefore(newCard, linkItem);
+    } else {
+        container.appendChild(newCard);
+    }
+
+    return newCard;
+}
+
+/**
+ * Обработчик фильтрации по категориям
+ */
+function setupCategoryFilters() {
     const buttons = document.querySelectorAll('[data-target]');
     const items = document.querySelectorAll('.material-item');
 
@@ -143,7 +209,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     showCategory('classrooms');
     document.querySelector('[data-target="classrooms"]')?.classList.add('active');
+}
 
+/**
+ * Обработчик отправки формы модального окна
+ */
+function setupModalForm() {
     const modalForm = document.getElementById('universalModalForm');
     const nameInput = document.getElementById('universalModalName');
     const descInput = document.getElementById('universalModalDescription');
@@ -154,7 +225,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const errorEl = document.getElementById('universalModalError');
     const modalEl = document.getElementById('universalModal');
     const submitBtn = document.getElementById('universalModalButton');
-    const originalBtnText = submitBtn.innerHTML;
 
     let submitTimeout = null;
 
@@ -173,7 +243,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         submitTimeout = setTimeout(() => {
             submitBtn.disabled = false;
-            submitBtn.innerHTML = submitBtn.innerText;
+            submitBtn.innerHTML = 'Повторить';
             errorEl.textContent = 'Таймаут запроса. Попробуйте еще раз.';
             errorEl.classList.remove('d-none');
         }, 5000);
@@ -191,21 +261,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let url = '';
         if (mode === 'create') {
-            if (entity === 'course') {
-                url = '/courses/api/create/';
-            } else {
-                url = '/classroom/api/create/';
-            }
+            url = entity === 'course' ? '/courses/api/create/' : '/classroom/api/create/';
         } else {
-            const rawTemplate = entity === 'course'
-                ? '/courses/edit-meta/0/'
-                : '/classroom/api/0/edit/';
-            url = fillUrlTemplate(rawTemplate, idInput.value);
+            const template = entity === 'course' ? '/courses/edit-meta/0/' : '/classroom/api/0/edit/';
+            url = template.replace('0', idInput.value);
         }
 
-        let resp;
         try {
-            resp = await fetch(url, {
+            const resp = await fetch(url, {
                 method: 'POST',
                 body: form,
                 headers: {
@@ -213,152 +276,105 @@ document.addEventListener('DOMContentLoaded', () => {
                     'X-Requested-With': 'XMLHttpRequest'
                 }
             });
-        } catch (err) {
+
             clearTimeout(submitTimeout);
             submitBtn.disabled = false;
-            submitBtn.innerHTML = submitBtn.innerText;
-            errorEl.textContent = 'Сетевая ошибка';
-            errorEl.classList.remove('d-none');
-            return;
-        }
+            submitBtn.innerHTML = mode === 'create' ? 'Создать' : 'Сохранить';
 
-        let data;
-        try {
-            data = await resp.json();
-        } catch (err) {
-            clearTimeout(submitTimeout);
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = submitBtn.innerText;
-            errorEl.textContent = 'Невалидный ответ сервера';
-            errorEl.classList.remove('d-none');
-            return;
-        }
+            if (!resp.ok) {
+                errorEl.textContent = 'Ошибка сервера';
+                errorEl.classList.remove('d-none');
+                return;
+            }
 
-        clearTimeout(submitTimeout);
+            const data = await resp.json();
 
-        if (!resp.ok || data.error) {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = submitBtn.innerText;
-            errorEl.textContent = data.error || 'Ошибка сохранения';
-            errorEl.classList.remove('d-none');
-            return;
-        }
+            if (data.error) {
+                errorEl.textContent = data.error;
+                errorEl.classList.remove('d-none');
+                return;
+            }
 
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = submitBtn.innerText;
+            if (data.url) {
+                window.location.href = data.url;
+                return;
+            }
 
-        if (data.url) {
-            window.location.href = data.url;
-            return;
-        }
+            const modalInstance = bootstrap.Modal.getInstance(modalEl);
+            modalInstance.hide();
 
-        const listCategory = entity === 'course' ? 'my_courses' : 'classrooms';
-        const grid = Array.from(document.querySelectorAll('.material-item')).find(i => i.dataset.category === listCategory)?.parentElement;
-        if (grid) {
-            const newCard = document.createElement('div');
-            newCard.className = 'col-12 col-sm-6 col-md-4 col-lg-3 material-item';
-            newCard.dataset.category = listCategory;
-            const itemId = String(data.id || Date.now());
+            if (mode === 'create') {
+                const cardHtml = createCourseCardHtml({
+                    ...data,
+                    id: data.id,
+                    title: data.title,
+                    subject: data.subject,
+                    subject_display: data.subject_display,
+                    description: data.description,
+                    detail_url: entity === 'course'
+                        ? `/courses/${data.id}/`
+                        : `/classroom/${data.id}/`
+                }, entity);
 
-            const subjectBadge = entity === 'course' && data.subject_display
-                ? `<span class="badge bg-primary small">${data.subject_display}</span>`
-                : '';
-
-            const roleBadge = entity === 'classroom'
-                ? `<span class="badge bg-success small">Ученик</span>`
-                : '';
-
-            newCard.innerHTML = `
-                <div class="card h-100 rounded-4 shadow-sm d-flex flex-column">
-                    <div class="card-body d-flex flex-column flex-grow-1">
-                        <div class="d-flex justify-content-between align-items-start mb-2">
-                            <h5 class="mb-0">${escapeHtml(data.title)}</h5>
-                            ${subjectBadge || roleBadge}
-                        </div>
-                    </div>
-                    <div class="card-footer bg-transparent border-0 pt-0">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <a href="${data.detail_url || '#'}" class="btn btn-sm btn-outline-primary border-0 fw-bold">Перейти</a>
-                            <div class="dropdown">
-                                <button class="btn btn-sm btn-link text-muted p-0" data-bs-toggle="dropdown">
-                                    <i class="bi bi-three-dots"></i>
-                                </button>
-                                <ul class="dropdown-menu dropdown-menu-end">
-                                    <li>
-                                        <a class="dropdown-item" href="#"
-                                           data-action="edit"
-                                           data-entity="${entity}"
-                                           data-id="${itemId}"
-                                           data-title="${escapeAttr(data.title)}"
-                                           ${entity === 'course' ? `data-description="${escapeAttr(data.description || '')}"` : ''}
-                                           ${entity === 'course' ? `data-subject="${escapeAttr(data.subject || 'other')}"` : ''}>
-                                            Редактировать
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item text-danger" href="#"
-                                           data-action="delete"
-                                           data-entity="${entity}"
-                                           data-id="${itemId}">
-                                            Удалить
-                                        </a>
-                                    </li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            grid.appendChild(newCard);
-        }
-        bootstrap.Modal.getInstance(modalEl).hide();
-
-        const entityType = entity;
-        const entityId = idInput.value;
-
-        const itemEl = findMaterialItem(entityType, entityId);
-
-        if (itemEl) {
-            if (entityType === 'course') {
-                updateCourseCard(itemEl, data.updated || data);
+                insertCard(cardHtml, entity);
             } else {
-                const titleEl = itemEl.querySelector('.card-body h5');
-                if (titleEl && data.updated?.title) {
-                    titleEl.textContent = data.updated.title;
-                }
-
-                const editButton = itemEl.querySelector('[data-action="edit"]');
-                if (editButton && data.updated?.title) {
-                    editButton.dataset.title = data.updated.title;
+                const itemEl = findMaterialItem(entity, idInput.value);
+                if (itemEl) {
+                    if (entity === 'course') {
+                        updateCourseCard(itemEl, data.updated || data);
+                    } else {
+                        const titleEl = itemEl.querySelector('.card-body h5');
+                        if (titleEl && data.updated?.title) {
+                            titleEl.textContent = data.updated.title;
+                        }
+                        const editButton = itemEl.querySelector('[data-action="edit"]');
+                        if (editButton && data.updated?.title) {
+                            editButton.dataset.title = data.updated.title;
+                        }
+                    }
                 }
             }
-        }
 
-        bootstrap.Modal.getInstance(modalEl).hide();
+        } catch (err) {
+            clearTimeout(submitTimeout);
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = mode === 'create' ? 'Создать' : 'Сохранить';
+            errorEl.textContent = 'Сетевая ошибка';
+            errorEl.classList.remove('d-none');
+        }
     });
 
     modalEl.addEventListener('hidden.bs.modal', () => {
         clearTimeout(submitTimeout);
         submitBtn.disabled = false;
-        submitBtn.innerHTML = submitBtn.innerText;
+        submitBtn.innerHTML = submitBtn.dataset.originalText || 'Сохранить';
         errorEl.classList.add('d-none');
     });
 
+    nameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            modalForm.dispatchEvent(new Event('submit'));
+        }
+    });
+}
+
+/**
+ * Обработчик кликов по действиям (редактирование, удаление)
+ */
+function setupActionHandlers() {
     document.querySelectorAll('[data-create]').forEach(el => {
         el.addEventListener('click', (ev) => {
             ev.preventDefault();
             const what = el.dataset.create;
-            if (what === 'course') {
-                openEntityModal({ mode: 'create', entity: 'course' });
-            } else if (what === 'classroom') {
-                openEntityModal({ mode: 'create', entity: 'classroom' });
+            if (what === 'course' || what === 'classroom') {
+                openEntityModal({ mode: 'create', entity: what });
             }
         });
     });
 
     document.addEventListener('click', async (e) => {
-        const target = e.target;
-        const actionEl = target.closest('[data-action]');
+        const actionEl = e.target.closest('[data-action]');
         if (!actionEl) return;
 
         const action = actionEl.dataset.action;
@@ -367,24 +383,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (action === 'edit') {
             e.preventDefault();
-            const title = actionEl.dataset.title || '';
-            const description = actionEl.dataset.description || '';
-            const subject = actionEl.dataset.subject || 'other';
-
             openEntityModal({
                 mode: 'edit',
                 entity: entity,
                 id,
-                title,
-                subject,
-                description
+                title: actionEl.dataset.title || '',
+                description: actionEl.dataset.description || '',
+                subject: actionEl.dataset.subject || 'other'
             });
 
-            const descWrapper = document.getElementById('universalModalDescriptionWrapper');
             if (entity === 'course') {
-                descWrapper.classList.remove('d-none');
+                document.getElementById('universalModalDescriptionWrapper').classList.remove('d-none');
             }
-
             return;
         }
 
@@ -394,61 +404,38 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!ok) return;
 
             const csrfToken = getCsrfToken();
-            let url = '';
-            if (entity === 'course') {
-                url = `/courses/api/${id}/delete/`;
-            } else {
-                url = `/classroom/api/${id}/delete/`;
-            }
+            const url = entity === 'course'
+                ? `/courses/api/${id}/delete/`
+                : `/classroom/api/${id}/delete/`;
 
-            let resp;
             try {
-                resp = await fetch(url, {
+                const resp = await fetch(url, {
                     method: 'POST',
                     headers: {
                         'X-CSRFToken': csrfToken,
                         'X-Requested-With': 'XMLHttpRequest'
                     }
                 });
+
+                const data = await resp.json();
+
+                if (!resp.ok || data.error) {
+                    alert(data.error || 'Ошибка удаления');
+                    return;
+                }
+
+                const item = findMaterialItem(entity, id);
+                if (item) item.remove();
+
             } catch (err) {
                 alert('Сетевая ошибка при удалении');
-                return;
-            }
-
-            let data;
-            try {
-                data = await resp.json();
-            } catch (err) {
-                alert('Невалидный ответ сервера');
-                return;
-            }
-
-            if (!resp.ok || data.error) {
-                alert(data.error || 'Ошибка удаления');
-                return;
-            }
-
-            const item = findMaterialItem(entity, id);
-            if (item) {
-                item.remove();
             }
         }
     });
-
-    nameInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            modalForm.dispatchEvent(new Event('submit'));
-        }
-    });
-});
-
-/**
- * Экранирует текст для использования в атрибутах.
- *
- * @param {string} str
- * @returns {string}
- */
-function escapeAttr(str) {
-    return escapeHtml(str).replaceAll('\n', '&#10;').replaceAll('\r', '');
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    setupCategoryFilters();
+    setupModalForm();
+    setupActionHandlers();
+});
