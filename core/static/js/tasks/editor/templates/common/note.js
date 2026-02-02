@@ -21,22 +21,22 @@ export function renderNoteTaskEditor(taskData = null) {
         </div>
 
         <div class="toolbar mb-2 d-flex flex-wrap gap-2">
-            <button class="btn btn-sm btn-light border format-btn" data-md="**">
+            <button class="btn btn-sm btn-light border format-btn" data-md="**" title="Жирный">
                 <i class="bi bi-type-bold"></i>
             </button>
-            <button class="btn btn-sm btn-light border format-btn" data-md="*">
+            <button class="btn btn-sm btn-light border format-btn" data-md="*" title="Курсив">
                 <i class="bi bi-type-italic"></i>
             </button>
-            <button class="btn btn-sm btn-light border format-btn" data-md="__">
+            <button class="btn btn-sm btn-light border format-btn" data-md="__" title="Подчёркнутый">
                 <i class="bi bi-type-underline"></i>
             </button>
-            <button class="btn btn-sm btn-light border format-btn" data-md="- ">
+            <button class="btn btn-sm btn-light border format-btn" data-md="- " title="Маркированный список">
                 <i class="bi bi-list-ul"></i>
             </button>
-            <button class="btn btn-sm btn-light border format-btn" data-md="1. ">
+            <button class="btn btn-sm btn-light border format-btn" data-md="1. " title="Нумерованный список">
                 <i class="bi bi-list-ol"></i>
             </button>
-            <button class="btn btn-sm btn-light border clear-format-btn">
+            <button class="btn btn-sm btn-light border clear-format-btn" title="Очистить форматирование">
                 <i class="bi bi-eraser"></i>
             </button>
         </div>
@@ -53,54 +53,113 @@ export function renderNoteTaskEditor(taskData = null) {
 
     const editor = card.querySelector(".note-editor");
 
-    const wrapSelection = (before, after = before) => {
+    function toggleWrapSelection(wrapper) {
         const start = editor.selectionStart;
         const end = editor.selectionEnd;
         const value = editor.value;
 
-        editor.value =
-            value.slice(0, start) +
-            before +
-            value.slice(start, end) +
-            after +
-            value.slice(end);
+        if (start > end) return;
+
+        if (start === end) {
+            const left = start - wrapper.length >= 0 ? value.slice(start - wrapper.length, start) : "";
+            const right = value.slice(end, end + wrapper.length);
+
+            if (left === wrapper && right === wrapper) {
+                editor.value = value.slice(0, start - wrapper.length) + value.slice(end + wrapper.length);
+                const newPos = start - wrapper.length;
+                editor.selectionStart = editor.selectionEnd = newPos;
+            } else {
+                editor.value = value.slice(0, start) + wrapper + wrapper + value.slice(end);
+                const newPos = start + wrapper.length;
+                editor.selectionStart = editor.selectionEnd = newPos;
+            }
+        } else {
+            const selected = value.slice(start, end);
+
+            if (selected.startsWith(wrapper) && selected.endsWith(wrapper) && selected.length >= wrapper.length * 2) {
+                const inner = selected.slice(wrapper.length, selected.length - wrapper.length);
+                editor.value = value.slice(0, start) + inner + value.slice(end);
+                editor.selectionStart = start;
+                editor.selectionEnd = start + inner.length;
+            } else {
+                const wrapped = wrapper + selected + wrapper;
+                editor.value = value.slice(0, start) + wrapped + value.slice(end);
+                editor.selectionStart = start;
+                editor.selectionEnd = start + wrapped.length;
+            }
+        }
 
         editor.focus();
-        editor.selectionStart = start + before.length;
-        editor.selectionEnd = end + before.length;
-    };
+    }
 
-    const insertAtLineStart = (prefix) => {
+    function toggleLinePrefix(prefix) {
         const start = editor.selectionStart;
+        const end = editor.selectionEnd;
         const value = editor.value;
-        const lineStart = value.lastIndexOf("\n", start - 1) + 1;
 
-        editor.value =
-            value.slice(0, lineStart) +
-            prefix +
-            value.slice(lineStart);
+        const lineStart = value.lastIndexOf("\n", Math.max(0, start - 1)) + 1;
+        let lineEndIndex = value.indexOf("\n", end);
+        if (lineEndIndex === -1) lineEndIndex = value.length;
 
+        const block = value.slice(lineStart, lineEndIndex);
+        const lines = block.split("\n");
+
+        let allHavePrefix;
+        if (prefix === "1. ") {
+            allHavePrefix = lines.every(line => /^\s*\d+\.\s+/.test(line));
+        } else {
+            allHavePrefix = lines.every(line => line.startsWith(prefix));
+        }
+
+        const newLines = lines.map((line) => {
+            if (allHavePrefix) {
+                if (prefix === "1. ") {
+                    return line.replace(/^\s*\d+\.\s+/, "");
+                } else {
+                    return line.startsWith(prefix) ? line.slice(prefix.length) : line;
+                }
+            } else {
+                return prefix + line;
+            }
+        });
+
+        const newBlock = newLines.join("\n");
+        editor.value = value.slice(0, lineStart) + newBlock + value.slice(lineEndIndex);
+
+        editor.selectionStart = lineStart;
+        editor.selectionEnd = lineStart + newBlock.length;
         editor.focus();
-        editor.selectionStart = editor.selectionEnd = start + prefix.length;
-    };
+    }
+
+    function clearFormatting() {
+        let val = editor.value;
+        val = val.replace(/```[\s\S]*?```/g, match => match.replace(/./g, ""));
+        val = val.replace(/`+/g, "");
+        val = val.replace(/\*\*/g, "");
+        val = val.replace(/__/g, "");
+        val = val.replace(/\*(?=\S)/g, "");
+        val = val.replace(/_(?=\S)/g, "");
+        val = val.replace(/^\s{0,3}#{1,6}\s+/gm, "");
+        val = val.replace(/^\s{0,3}>\s?/gm, "");
+        val = val.replace(/^\s*-\s+/gm, "");
+        val = val.replace(/^\s*\d+\.\s+/gm, "");
+        editor.value = val;
+        editor.focus();
+    }
 
     card.querySelectorAll(".format-btn").forEach(btn => {
         btn.addEventListener("click", () => {
             const md = btn.dataset.md;
-
             if (md === "- " || md === "1. ") {
-                insertAtLineStart(md);
+                toggleLinePrefix(md);
             } else {
-                wrapSelection(md);
+                toggleWrapSelection(md);
             }
         });
     });
 
     card.querySelector(".clear-format-btn")
-        .addEventListener("click", () => {
-            editor.value = editor.value.replace(/[*_`#>-]/g, "");
-            editor.focus();
-        });
+        .addEventListener("click", () => clearFormatting());
 
     card.querySelector(".remove-task-btn")
         .addEventListener("click", () => card.remove());
