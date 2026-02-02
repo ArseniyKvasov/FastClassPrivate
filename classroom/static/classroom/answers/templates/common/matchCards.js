@@ -72,29 +72,16 @@ export async function handleAnswer(data) {
      * @param {Object} data.answer - Данные ответа пользователя
      * @param {Object} data.answer.answers - Объект с информацией о сопоставлениях
      * @param {Object} data.answer.answers[leftCardId] - Данные для конкретной левой карточки
-     * @param {string} data.answer.answers[leftCardId].card_right - текст сопоставленной правой карточки
+     * @param {string} data.answer.answers[leftCardId].card_right - ID сопоставленной правой карточки
      * @param {boolean|null} data.answer.answers[leftCardId].is_correct - Флаг правильности сопоставления
      * @param {Object} [data.answer.last_pair] - Информация о последней неправильной паре для подсветки
-     * @param {string} data.answer.last_pair.card_left - текст левой карточки последней неправильной пары
-     * @param {string} data.answer.last_pair.card_right - текст правой карточки последней неправильной пары
-     *
-     * @example
-     * // Пример данных для обработки
-     * handleMatchCardsAnswer({
-     *   task_id: "task_123",
-     *   task_type: "match_cards",
-     *   answer: {
-     *     answers: {
-     *       "left_1": { card_right: "right_2", is_correct: true },
-     *       "left_2": { card_right: "right_1", is_correct: false },
-     *       "left_3": { card_right: null, is_correct: null }
-     *     },
-     *     last_pair: { card_left: "left_2", card_right: "right_1" }
-     *   }
-     * });
+     * @param {string} data.answer.last_pair.card_left - ID левой карточки последней неправильной пары
+     * @param {string} data.answer.last_pair.card_right - ID правой карточки последней неправильной пары
+     * @returns {Promise<void>}
      */
     try {
         if (!data || data.task_type !== "match_cards" || !data.answer) return;
+
         const container = document.querySelector(`[data-task-id="${data.task_id}"]`);
         if (!container) return;
 
@@ -119,19 +106,16 @@ export async function handleAnswer(data) {
             btn.disabled = false;
         });
 
-        // Обработка правильно сопоставленных карточек
         Object.entries(answers).forEach(([leftCard, answerData]) => {
             if (answerData.is_correct === true) {
                 const leftBtn = leftButtons.find(btn => btn.dataset.left === leftCard);
                 const rightBtn = rightButtons.find(btn => btn.dataset.right === answerData.card_right);
 
-                if (leftBtn) {
+                if (leftBtn && rightBtn) {
                     leftBtn.classList.remove("btn-outline-secondary");
                     leftBtn.classList.add("btn-success", "fw-bold");
                     leftBtn.disabled = true;
-                }
 
-                if (rightBtn) {
                     rightBtn.classList.remove("btn-outline-secondary");
                     rightBtn.classList.add("btn-success", "fw-bold");
                     rightBtn.disabled = true;
@@ -139,7 +123,6 @@ export async function handleAnswer(data) {
             }
         });
 
-        // Обработка последней неправильной пары с анимацией
         if (last_pair) {
             const { card_left: left, card_right: right } = last_pair;
             const leftBtn = leftButtons.find(btn => btn.dataset.left === left);

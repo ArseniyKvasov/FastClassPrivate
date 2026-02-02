@@ -8,6 +8,7 @@ const isClassroom = getIsClassroom();
 
 const sectionList = document.getElementById('section-list');
 const saveSectionBtn = document.getElementById('saveManualSection');
+const saveSectionBtnText = document.getElementById('saveManualSectionText');
 const sectionModalEl = document.getElementById('manualSectionModal');
 const sectionModal = sectionModalEl ? new bootstrap.Modal(sectionModalEl) : null;
 const nameInput = document.getElementById('manualSectionName');
@@ -262,18 +263,22 @@ function initDragHandlers(li) {
     });
 }
 
-/**
- * Отправляет форму создания/редактирования раздела.
- */
 async function submitSectionForm() {
     if (isSubmitting) return;
     isSubmitting = true;
+
+    const originalText = saveSectionBtnText?.textContent;
 
     try {
         const title = (nameInput?.value || '').trim();
         if (!title) {
             showNotification('Введите название раздела');
             return;
+        }
+
+        saveSectionBtn.disabled = true;
+        if (saveSectionBtnText) {
+            saveSectionBtnText.textContent = 'Сохранение...';
         }
 
         const action = saveSectionBtn?.dataset?.action;
@@ -290,6 +295,10 @@ async function submitSectionForm() {
         showNotification('Ошибка сохранения');
     } finally {
         isSubmitting = false;
+        saveSectionBtn.disabled = false;
+        if (saveSectionBtnText) {
+            saveSectionBtnText.textContent = originalText;
+        }
     }
 }
 

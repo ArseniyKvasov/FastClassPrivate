@@ -87,6 +87,10 @@ class TrueFalseTaskAnswer(BaseAnswer):
         ]
 
     def save_answer_data(self, data):
+        """
+        Сохраняет данные ответа пользователя.
+        Сохраняет только те ответы, которые были явно отправлены пользователем.
+        """
         if self.is_checked:
             raise ValidationError("Ответ уже проверен и не может быть изменен")
 
@@ -96,41 +100,65 @@ class TrueFalseTaskAnswer(BaseAnswer):
         input_answers = data.get("answers", [])
         if not self.answers or len(self.answers) != len(statements):
             self.answers = [
-                {"statement_index": i, "selected_value": None, "is_correct": False}
+                {"statement_index": i, "selected_value": None, "is_correct": None}
                 for i in range(len(statements))
             ]
 
         for ans in input_answers:
             idx = ans.get("statement_index")
-            val = bool(ans.get("selected_value", False))
+            selected_value = ans.get("selected_value")
+
             if 0 <= idx < len(statements):
-                self.answers[idx]["selected_value"] = val
+                if selected_value is None:
+                    self.answers[idx]["selected_value"] = None
+                else:
+                    self.answers[idx]["selected_value"] = bool(selected_value)
 
         self.total_answers = self.get_task_total_answers()
         self.answered_at = timezone.now()
         self.save()
 
     def mark_as_checked(self):
+        """
+        Проверяет ответы и выставляет оценки.
+        Учитывает только явно выбранные ответы (не None).
+        """
         if self.is_checked:
             return
-        self.is_checked = True
-        self.correct_answers = 0
-        self.wrong_answers = 0
 
         task_data = get_task_effective_data(self.task)
         statements = task_data.get("statements", [])
 
+        self.is_checked = True
+        self.correct_answers = 0
+        self.wrong_answers = 0
+
         for i, answer_data in enumerate(self.answers):
             selected_value = answer_data.get("selected_value")
+
+            if selected_value is None:
+                answer_data["is_correct"] = None
+                continue
+
             correct_value = bool(statements[i].get("is_true", False))
-            is_correct = selected_value is correct_value
+            is_correct = selected_value == correct_value
             answer_data["is_correct"] = is_correct
+
             if is_correct:
                 self.correct_answers += 1
             else:
                 self.wrong_answers += 1
 
         self.save()
+
+    def get_task_total_answers(self):
+        """
+        Возвращает количество ответов, которые были явно выбраны пользователем.
+        """
+        if not self.answers:
+            return 0
+
+        return sum(1 for answer in self.answers if answer.get("selected_value") is not None)
 
     def get_answer_data(self):
         return {

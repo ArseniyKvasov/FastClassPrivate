@@ -1,12 +1,5 @@
 import { showNotification, escapeHtml } from "/static/js/tasks/utils.js";
 
-/**
- * Рендерит редактор задания типа «Соотнести карточки».
- *
- * @param {{cards?: Array<{card_left: string, card_right: string}>}|null} taskData
- * @param {string|null} taskId
- * @returns {HTMLElement}
- */
 export function renderMatchCardsTaskEditor(taskData = null, taskId = null) {
     const card = document.createElement("div");
     card.className = "task-editor-card mb-4 p-3 bg-white border-0 rounded";
@@ -30,17 +23,21 @@ export function renderMatchCardsTaskEditor(taskData = null, taskId = null) {
 
     const cardsWrapper = card.querySelector(".match-cards-container");
 
-    card.querySelector(".add-card-btn")
-        .addEventListener("click", () => addMatchCard(cardsWrapper));
+    card.querySelector(".add-card-btn").addEventListener("click", () => addMatchCard(cardsWrapper));
 
-    card.querySelector(".remove-task-btn")
-        .addEventListener("click", () => card.remove());
+    card.querySelector(".remove-task-btn").addEventListener("click", () => card.remove());
 
     const initialCards = taskData?.cards || [];
     if (initialCards.length > 0) {
-        initialCards.forEach(c => addMatchCard(cardsWrapper, c.card_left, c.card_right));
+        initialCards.forEach((c, index) => {
+            const row = addMatchCard(cardsWrapper, c.card_left, c.card_right);
+            if (index === 0) {
+                setTimeout(() => row.querySelector(".card-left").focus(), 50);
+            }
+        });
     } else {
-        addMatchCard(cardsWrapper, isFirst = true);
+        const firstRow = addMatchCard(cardsWrapper, "", "", true);
+        setTimeout(() => firstRow.querySelector(".card-left").focus(), 50);
         addMatchCard(cardsWrapper);
     }
 
@@ -51,15 +48,7 @@ export function renderMatchCardsTaskEditor(taskData = null, taskId = null) {
     return card;
 }
 
-/**
- * Добавляет строку с парой карточек в редактор.
- *
- * @param {HTMLElement} container
- * @param {string} leftValue
- * @param {string} rightValue
- * @returns {HTMLElement}
- */
-export function addMatchCard(container, leftValue = "", rightValue = "", isFirst = false) {
+export function addMatchCard(container, leftValue = "", rightValue = "") {
     const cId = crypto.randomUUID();
 
     const row = document.createElement("div");
@@ -67,7 +56,7 @@ export function addMatchCard(container, leftValue = "", rightValue = "", isFirst
     row.dataset.cardId = cId;
 
     row.innerHTML = `
-        <input type="text" class="form-control card-left" placeholder="Левая карточка" style="max-width: 45%;" value="${escapeHtml(leftValue)}" ${isFirst ? 'autofocus' : ''}>
+        <input type="text" class="form-control card-left" placeholder="Левая карточка" style="max-width: 45%;" value="${escapeHtml(leftValue)}">
         <i class="bi bi-arrow-left-right text-secondary fs-5 swap-card-btn" title="Поменять местами" style="cursor: pointer;"></i>
         <input type="text" class="form-control card-right" placeholder="Правая карточка" style="max-width: 45%;" value="${escapeHtml(rightValue)}">
         <button class="btn-close remove-card-btn" title="Удалить карточку" style="transform: scale(0.7);"></button>
@@ -76,16 +65,14 @@ export function addMatchCard(container, leftValue = "", rightValue = "", isFirst
     const leftInput = row.querySelector(".card-left");
     const rightInput = row.querySelector(".card-right");
 
-    row.querySelector(".remove-card-btn")
-        .addEventListener("click", () => row.remove());
+    row.querySelector(".remove-card-btn").addEventListener("click", () => row.remove());
 
-    row.querySelector(".swap-card-btn")
-        .addEventListener("click", () => {
-            const tmp = leftInput.value;
-            leftInput.value = rightInput.value;
-            rightInput.value = tmp;
-            leftInput.focus();
-        });
+    row.querySelector(".swap-card-btn").addEventListener("click", () => {
+        const tmp = leftInput.value;
+        leftInput.value = rightInput.value;
+        rightInput.value = tmp;
+        leftInput.focus();
+    });
 
     leftInput.addEventListener("keydown", (e) => {
         if (e.key === "Enter") {
@@ -107,7 +94,7 @@ export function addMatchCard(container, leftValue = "", rightValue = "", isFirst
                 nextEmpty.focus();
             } else {
                 const newRow = addMatchCard(container);
-                newRow.querySelector(".card-left").focus();
+                setTimeout(() => newRow.querySelector(".card-left").focus(), 10);
             }
         }
     });
@@ -116,12 +103,6 @@ export function addMatchCard(container, leftValue = "", rightValue = "", isFirst
     return row;
 }
 
-/**
- * Обрабатывает вставку карточек из буфера обмена.
- *
- * @param {ClipboardEvent} e
- * @param {HTMLElement} container
- */
 export function handleAutoPasteCards(e, container) {
     const clipboardData = e.clipboardData || window.clipboardData;
     const text = clipboardData?.getData("text/plain");
@@ -202,18 +183,15 @@ export function handleAutoPasteCards(e, container) {
     });
 
     if (inserted) {
-        showNotification("Карточки успешно вставлены!");
+        const lastRow = container.querySelector(".match-card-row:last-child");
+        if (lastRow) {
+            setTimeout(() => lastRow.querySelector(".card-left").focus(), 10);
+        }
     } else {
-        showNotification("Не удалось распознать карточки в буфере обмена.");
+        showNotification("Не удалось распознать карточки.");
     }
 }
 
-/**
- * Чистит текст карточки от лишних ведущих маркеров.
- *
- * @param {string} s
- * @returns {string}
- */
 function cleanCardText(s) {
     if (!s) return "";
 

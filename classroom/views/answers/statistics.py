@@ -68,7 +68,7 @@ def get_classroom_section_statistics(request, classroom_id, section_id):
                 correct = data['correct']
                 wrong = data['wrong']
                 total = data['total']
-                success_percentage = round((correct / (total + wrong)) * 100) if total + wrong > 0 else 0
+                success_percentage = min(round((correct / (total + wrong)) * 100) if total + wrong > 0 else 0, 100)
 
                 task_stats.append({
                     'user': {'id': student.id, 'username': get_display_name_from_username(student.username)},

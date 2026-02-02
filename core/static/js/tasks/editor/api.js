@@ -432,7 +432,6 @@ export async function deleteTask(taskId) {
             console.error(json);
             return json;
         }
-        showNotification("Задание удалено");
         const sectionId = getSectionId();
         if (sectionId) {
             eventBus.emit("section:change", { sectionId });

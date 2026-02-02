@@ -56,7 +56,6 @@ export async function handleAnswer(data) {
      * @param {boolean} data.answer.answers[].is_correct - Правильность ответа
      * @param {boolean} data.answer.is_checked - Проверен ли ответ
      */
-    console.log(data.answer);
     try {
         if (!data || data.task_type !== "true_false") return;
 
