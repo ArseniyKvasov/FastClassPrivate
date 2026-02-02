@@ -1,52 +1,96 @@
+version: '3.8'
+
 services:
   web:
-    container_name: fastclass-docker
+    container_name: fastclass-web
     build: .
     ports:
-      - "8000:8000"
+      - "${DOCKER_WEB_PORT:-8000}:8000"
     volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf
-      - ./staticfiles:/home/projects/FastClassPrivate/staticfiles
-      - ./media:/home/projects/FastClassPrivate/media
+      - .:/app
+      - ./staticfiles:/app/staticfiles
+      - ./media:/app/media
+      - ./docker/entrypoint.sh:/app/docker/entrypoint.sh
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=db
+      - REDIS_HOST=redis
+      - STATIC_ROOT=/app/staticfiles
+      - MEDIA_ROOT=/app/media
     depends_on:
       db:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - fastclass-network
     command: >
-      sh -c "python manage.py migrate &&
-             python manage.py collectstatic --noinput &&
-             uvicorn fastlesson.asgi:application --host 0.0.0.0 --port 8000 --workers 4"
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py collectstatic --noinput --clear &&
+             python manage.py runserver 0.0.0.0:8000"
 
   db:
     container_name: fastclass-db
     image: postgres:15-alpine
     environment:
-      POSTGRES_DB: fastclass_db
-      POSTGRES_USER: fastclass_user
-      POSTGRES_PASSWORD: None
+      POSTGRES_DB: ${DB_NAME:-fastclass_db}
+      POSTGRES_USER: ${DB_USER:-fastclass_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    env_file:
+      - .env
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U fastclass_user -d fastclass_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-fastclass_user}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+    networks:
+      - fastclass-network
 
   redis:
     container_name: fastclass-redis
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    env_file:
+      - .env
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+    networks:
+      - fastclass-network
+
+  nginx:
+    container_name: fastclass-nginx
+    image: nginx:1.25-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d
+      - ./staticfiles:/usr/share/nginx/html/static
+      - ./media:/usr/share/nginx/html/media
+      - ./docker/nginx/ssl:/etc/nginx/ssl
+      - ./docker/nginx/logs:/var/log/nginx
+    depends_on:
+      - web
+    restart: unless-stopped
+    networks:
+      - fastclass-network
 
 volumes:
   postgres_data:
-  static_volume:
-  media_volume:
+  redis_data:
+
+networks:
+  fastclass-network:
+    driver: bridge
