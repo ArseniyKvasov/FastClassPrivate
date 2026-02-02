@@ -4,6 +4,8 @@ from django.http import JsonResponse, HttpResponseForbidden, Http404
 from django.views.decorators.http import require_POST, require_GET
 from django.db import transaction
 import json
+import jwt, time
+from decouple import config
 from django.urls import reverse
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
@@ -223,14 +225,12 @@ def change_classroom_password(request, classroom_id):
 
     new_password = data.get("password", "").strip()
 
-    if not new_password:
-        return JsonResponse({"ok": False, "error": "Пароль не может быть пустым."}, status=400)
+    if new_password:
+        if len(new_password) > 12:
+            return JsonResponse({"ok": False, "error": "Пароль не должен превышать 12 символов."}, status=400)
 
-    if len(new_password) > 12:
-        return JsonResponse({"ok": False, "error": "Пароль не должен превышать 12 символов."}, status=400)
-
-    if not new_password.isdigit():
-        return JsonResponse({"ok": False, "error": "Пароль должен состоять только из цифр."}, status=400)
+        if not new_password.isdigit():
+            return JsonResponse({"ok": False, "error": "Пароль должен состоять только из цифр."}, status=400)
 
     classroom.join_password = new_password
     classroom.save(update_fields=["join_password"])
@@ -254,6 +254,70 @@ def set_copying_enabled(request, classroom_id):
         return HttpResponseForbidden(result)
 
     return JsonResponse({"copying_enabled": result})
+
+
+@login_required
+def get_jitsi_token(request, classroom_id):
+    """
+    GET запрос для получения Jitsi токена
+    """
+    try:
+        jitsi_secret = config('JITSI_APP_SECRET')
+        jitsi_issuer = config('JITSI_ISSUER')
+        jitsi_subject = config('JITSI_SUBJECT')
+        jitsi_script_src = config('JITSI_SCRIPT_SRC')
+
+        if not jitsi_secret:
+            return JsonResponse({
+                "error": "Jitsi secret key not configured"
+            }, status=500)
+
+        classroom = get_object_or_404(Classroom, id=classroom_id)
+
+        is_teacher = request.user == classroom.teacher
+        is_student = request.user in classroom.students.all()
+
+        if not (is_teacher or is_student):
+            return JsonResponse({
+                "error": "Вы не состоите в этом классе"
+            }, status=403)
+
+        user_role = "teacher" if is_teacher else "student"
+
+        room_name = f"classroom-{classroom_id}"
+
+        payload = {
+            "aud": "jitsi",
+            "iss": jitsi_issuer,
+            "sub": jitsi_subject,
+            "room": room_name,
+            "exp": int(time.time()) + 3600,
+            "context": {
+                "user": {
+                    "name": request.user.username,
+                    "email": "arsenijtam@gmail.com",
+                    "moderator": user_role == "teacher"
+                }
+            }
+        }
+
+        token = jwt.encode(payload, jitsi_secret, algorithm="HS256")
+
+        if isinstance(token, bytes):
+            token = token.decode('utf-8')
+
+        return JsonResponse({
+            "token": token,
+            "room": room_name,
+            "display_name": request.user.username,
+            "is_teacher": is_teacher,
+            "jitsi_script_src": jitsi_script_src
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            "error": f"Server error: {str(e)}"
+        }, status=500)
 
 
 @require_POST

@@ -12,6 +12,7 @@ urlpatterns = [
     path("api/<int:classroom_id>/change-classroom-password/", views.change_classroom_password, name="change_classroom_password"),
     path("api/<int:classroom_id>/get-current-lesson-id/", views.get_current_lesson_id, name="get_current_lesson_id"),
     path("api/<int:classroom_id>/get-classroom-students-list/", views.get_classroom_students_list, name="get_classroom_students_list"),
+    path("api/<int:classroom_id>/get-jitsi-token/", views.get_jitsi_token, name="get_jitsi_token"),
     path("api/<int:classroom_id>/delete-student/", views.delete_student, name="delete_student"),
     path("join/<int:classroom_id>/", views.join_classroom_view, name="join_classroom_view"),
     path("join/<int:classroom_id>/verify-password/", views.verify_classroom_password_view),

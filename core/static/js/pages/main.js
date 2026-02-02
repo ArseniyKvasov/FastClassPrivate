@@ -207,8 +207,32 @@ function setupCategoryFilters() {
         });
     });
 
-    showCategory('classrooms');
-    document.querySelector('[data-target="classrooms"]')?.classList.add('active');
+    const container = document.getElementById('materials-container');
+    const prioritySubject = container?.dataset.prioritySubject || '';
+
+    let initialCategory = 'classrooms';
+
+    if (prioritySubject === 'math') {
+        initialCategory = 'math';
+    } else if (prioritySubject === 'english') {
+        initialCategory = 'english';
+    } else if (prioritySubject === 'other') {
+        initialCategory = 'other';
+    }
+
+    const categoryItems = document.querySelectorAll(`.material-item[data-category="${initialCategory}"]`);
+
+    if (categoryItems.length === 0) {
+        initialCategory = 'classrooms';
+    }
+
+    showCategory(initialCategory);
+
+    const initialButton = document.querySelector(`[data-target="${initialCategory}"]`);
+    if (initialButton) {
+        buttons.forEach(b => b.classList.remove('active'));
+        initialButton.classList.add('active');
+    }
 }
 
 /**

@@ -16,12 +16,6 @@ User = get_user_model()
 def home(request):
     """
     Главная страница с курсами и классами пользователя.
-
-    SQL-оптимизация:
-    - Subquery вместо Python-списков
-    - один базовый queryset курсов
-    - select_related для classroom.lesson
-    - only() для курсов
     """
 
     base_courses = (
@@ -102,9 +96,6 @@ def home(request):
     SUBJECT_DISPLAY = dict(Course._meta.get_field('subject').choices)
 
     def serialize_courses(qs):
-        """
-        Сериализация курсов без дополнительных SQL-запросов.
-        """
         return [
             {
                 'id': course.id,
@@ -118,12 +109,19 @@ def home(request):
             for course in qs
         ]
 
+    priority_subject = request.GET.get('subject', '').lower()
+
+    if not priority_subject:
+        if not request.user.is_authenticated or (not user_classrooms and not user_courses.exists()):
+            priority_subject = 'math'
+
     context = {
         'user_classrooms': user_classrooms,
         'user_courses': serialize_courses(user_courses),
         'math_courses': serialize_courses(math_courses),
         'english_courses': serialize_courses(english_courses),
         'other_courses': serialize_courses(other_courses),
+        'priority_subject': priority_subject,
     }
 
     return render(request, "core/pages/home.html", context)

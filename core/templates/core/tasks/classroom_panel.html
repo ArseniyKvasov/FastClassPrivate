@@ -1,78 +1,126 @@
-<!-- PANEL -->
-<div id="panel" class="position-fixed bottom-0 end-0 p-3" style="z-index:10;">
-    <div class="d-flex align-items-center gap-2 bg-white rounded-3 shadow-sm px-3 py-2">
+<!-- Общий контейнер для панели и видеозвонка -->
+<div id="bottom-panel-container" class="position-fixed p-3 end-0 d-flex flex-column align-items-end" style="bottom: 0; z-index: 10;">
+    <!-- Основная панель управления -->
+    <div id="panel">
+        <div class="d-flex align-items-center gap-2 bg-white border rounded px-3 py-2">
 
-        <!-- Видеозвонок -->
-        <button class="btn btn-sm btn-light icon-btn" id="callButton" title="Видеозвонок">
-            <i class="bi bi-telephone"></i>
-        </button>
-
-        <!-- Сообщения -->
-        <button class="btn btn-sm btn-light icon-btn" id="chatButton" title="Сообщения">
-            <i class="bi bi-chat"></i>
-        </button>
-
-        <!-- Кнопка добавления ученика -->
-        <button class="btn btn-sm btn-light icon-btn d-none" id="addStudentButton" title="Добавить ученика">
-            <i class="bi bi-person-plus"></i>
-        </button>
-
-        <!-- Разделитель -->
-        <div class="vr d-none" id="panelDivider"></div>
-
-        <!-- Статистика -->
-        <div class="dropdown dropup d-none" id="statisticsDropdown">
-            <button
-                    class="btn btn-sm btn-light icon-btn dropdown-toggle"
-                    id="studentDropdown"
-                    data-bs-toggle="dropdown"
-                    data-bs-container="body"
-                    title="Статистика">
-                <i class="bi bi-bar-chart me-5"></i>
+            <!-- Кнопка видеозвонка -->
+            <button class="btn btn-sm btn-light icon-btn" id="callButton" title="Видеозвонок">
+                <i class="bi bi-telephone"></i>
             </button>
-            <ul class="dropdown-menu dropdown-menu-end shadow-sm" id="studentDropdownMenu">
-                <li>
-                    <a class="dropdown-item active" href="#" data-student-id="all">
-                        Статистика
-                    </a>
-                </li>
-            </ul>
+
+            <!-- Кнопка сообщений -->
+            <button class="btn btn-sm btn-light icon-btn" id="chatButton" title="Сообщения">
+                <i class="bi bi-chat"></i>
+            </button>
+
+            <!-- Кнопка добавления ученика -->
+            <button class="btn btn-sm btn-light icon-btn d-none" id="addStudentButton" title="Добавить ученика">
+                <i class="bi bi-person-plus"></i>
+            </button>
+
+            <!-- Разделитель -->
+            <div class="vr d-none" id="panelDivider"></div>
+
+            <!-- Выпадающее меню статистики -->
+            <div class="dropdown dropup d-none" id="statisticsDropdown">
+                <button
+                        class="btn btn-sm btn-light icon-btn dropdown-toggle"
+                        id="studentDropdown"
+                        data-bs-toggle="dropdown"
+                        data-bs-container="body"
+                        title="Статистика">
+                    <i class="bi bi-bar-chart me-5"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" id="studentDropdownMenu">
+                    <li>
+                        <a class="dropdown-item active" href="#" data-student-id="all">
+                            Статистика
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Выпадающее меню действий -->
+            <div class="dropdown dropup d-none" id="menuDropdown">
+                <button
+                        class="btn btn-sm btn-light icon-btn"
+                        data-bs-toggle="dropdown"
+                        data-bs-container="body"
+                        title="Действия">
+                    <i class="bi bi-three-dots-vertical"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li>
+                        <button class="dropdown-item text-danger bg-white" id="disableCopyingButton"
+                                data-copy-allowed="{{ copying_enabled|yesno:'true,false' }}">
+                            <i class="bi bi-ban me-2"></i> <span class="btn-text">Запретить копирование</span>
+                        </button>
+                    </li>
+                    <li>
+                        <button class="dropdown-item text-dark bg-white" id="changeTasksOrderButton">
+                            <i class="bi bi-list-ol me-2"></i> Порядок заданий
+                        </button>
+                    </li>
+                    <li>
+                        <button class="dropdown-item text-dark bg-white" id="selectLessonButton">
+                            <i class="bi bi-journal-plus me-2"></i> Выбрать урок
+                        </button>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Панель видеозвонка -->
+    <div id="videoCallPanel"
+         class="position-relative mt-2 d-flex flex-column bg-white border rounded d-none overflow-hidden"
+         style="width: 280px; z-index: 20; max-width: 80vw; max-height: 30vh;">
+
+        <!-- Кнопка "На весь экран" сверху справа -->
+        <div class="position-absolute top-0 end-0 p-1" style="z-index: 21;">
+            <button id="fullscreenBtn" class="btn btn-sm btn-light border-0 rounded-circle"
+                    title="На весь экран"
+                    style="width: 32px; height: 32px; opacity: 0.8;">
+                <i class="bi bi-arrows-fullscreen"></i>
+            </button>
         </div>
 
-        <!-- Меню -->
-        <div class="dropdown dropup d-none" id="menuDropdown">
-            <button
-                    class="btn btn-sm btn-light icon-btn"
-                    data-bs-toggle="dropdown"
-                    data-bs-container="body"
-                    title="Действия">
-                <i class="bi bi-three-dots-vertical"></i>
+        <!-- Контейнер для Jitsi видео с сохранением ratio 16:9 -->
+        <div id="jitsiContainer" class="position-relative" style="padding-bottom: 56.75%; min-height: 0;">
+            <!-- Jitsi будет загружен сюда -->
+        </div>
+
+        <!-- Панель управления видео -->
+        <div id="video-controls-panel"
+             class="justify-content-between align-items-center p-1 border-top" style="display: flex;">
+            <button id="micBtn" class="call-btn d-flex align-items-center btn bg-none text-dark border-0 rounded-circle"
+                    title="Микрофон"
+                    style="width:40px; height:40px;">
+                <i class="bi bi-mic text-success"></i>
             </button>
-            <ul class="dropdown-menu dropdown-menu-end shadow-sm">
-                <li>
-                    <button class="dropdown-item text-danger bg-white" id="disableCopyingButton"
-                            data-copy-allowed="{{ copying_enabled|yesno:'true,false' }}">
-                        <i class="bi bi-ban me-2"></i> <span class="btn-text">Запретить копирование</span>
-                    </button>
-                </li>
-                <li>
-                    <button class="dropdown-item text-dark bg-white" id="changeTasksOrderButton">
-                        <i class="bi bi-list-ol me-2"></i> Порядок заданий
-                    </button>
-                </li>
-                <li>
-                    <button class="dropdown-item text-dark bg-white" id="selectLessonButton">
-                        <i class="bi bi-journal-plus me-2"></i> Выбрать урок
-                    </button>
-                </li>
-            </ul>
+            <button id="cameraBtn" class="call-btn d-flex align-items-center btn bg-none text-dark border-0 rounded-circle"
+                    title="Камера"
+                    style="width:40px; height:40px;">
+                <i class="bi bi-camera-video-off text-danger"></i>
+            </button>
+            <button id="screenBtn" class="call-btn d-flex align-items-center btn bg-none text-dark border-0 rounded-circle"
+                    title="Экран"
+                    style="width:40px; height:40px;">
+                <i class="bi bi-display"></i>
+            </button>
+            <button id="endCallBtn" class="call-btn d-flex align-items-center btn bg-none text-dark border-0 rounded-circle"
+                    title="Выход"
+                    style="width:40px; height:40px;">
+                <i class="bi bi-telephone-x text-danger"></i>
+            </button>
         </div>
     </div>
 </div>
 
-<!-- CHAT -->
+<!-- Панель чата -->
 <div id="chatPanel"
-     class="position-fixed flex-column bg-white shadow rounded"
+     class="position-fixed flex-column bg-white border rounded"
      style="bottom:20px; left:20px; width:300px; height:340px; max-width:80vw; max-height:80vh; display:none; z-index:20;">
 
     <div class="d-flex justify-content-between align-items-center p-2 border-bottom">
@@ -102,33 +150,3 @@
         </div>
     </div>
 </div>
-
-<style>
-    .chat-sender {
-        display: inline-block;
-        max-width: 160px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        vertical-align: bottom;
-    }
-
-    .chat-message {
-        word-break: break-word;
-    }
-
-    .chat-message.bubble {
-        border-radius: 1rem;
-        padding: 0.5rem 0.75rem;
-        word-wrap: break-word;
-    }
-
-    #chatMessages {
-        scrollbar-width: none;
-    }
-
-    #chatMessages::-webkit-scrollbar {
-        width: 0;
-        height: 0;
-    }
-</style>

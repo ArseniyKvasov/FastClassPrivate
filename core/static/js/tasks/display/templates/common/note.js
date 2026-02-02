@@ -17,6 +17,7 @@ export function renderNoteTask(task, container) {
     noteWrapper.style.borderRadius = "0.25rem";
 
     const mathRegex = /(\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\])/g;
+    const urlRegex = /(https?:\/\/[^\s<>"'()]+|www\.[^\s<>"'()]+)/gi;
 
     const escapeHtml = (str) =>
         str.replace(/&/g, "&amp;")
@@ -25,6 +26,22 @@ export function renderNoteTask(task, container) {
 
     const parseMarkdown = (text) => {
         let html = escapeHtml(text);
+
+        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g,
+            (match, linkText, url) => {
+                const fullUrl = url.startsWith('http') ? url : `https://${url}`;
+                return `<a href="${fullUrl}" target="_blank" rel="noopener noreferrer">${linkText}</a>`;
+            }
+        );
+
+        html = html.replace(urlRegex, (match) => {
+            if (!/<a[^>]*>[^<]*<\/a>/i.test(match) && !/href=["'][^"']*/.test(match)) {
+                const fullUrl = match.startsWith('http') ? match : `https://${match}`;
+                return `<a href="${fullUrl}" target="_blank" rel="noopener noreferrer">${match}</a>`;
+            }
+            return match;
+        });
+
         html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
         html = html.replace(/\*(.+?)\*/g, "<em>$1</em>");
         html = html.replace(/__(.+?)__/g, "<u>$1</u>");

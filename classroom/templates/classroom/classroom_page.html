@@ -4,7 +4,6 @@
 {% block content %}
     <link rel="stylesheet" href="{% static 'css/tasks_styles.css' %}">
 
-
     <div id="info"
          data-is-teacher="{{ is_teacher|yesno:'true,false' }}"
          data-lesson-id="{{ lesson_id }}"
@@ -53,6 +52,15 @@
 
         initVirtualClassWebSocket();
         initEvents();
+    </script>
+
+    <!-- Видеозвонок -->
+    <script type="module">
+        import { initVideoCallPanel } from '/static/classroom/integrations/call.js';
+
+        document.addEventListener('DOMContentLoaded', function() {
+            initVideoCallPanel();
+        });
     </script>
 
     {% if is_teacher %}
@@ -111,8 +119,6 @@
             }
         </script>
     {% endif %}
-
-
 
     <div class="row mt-4 d-flex justify-content-center">
         <div id="main-container" class="col-12 col-xl-9">

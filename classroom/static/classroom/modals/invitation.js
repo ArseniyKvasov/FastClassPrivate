@@ -76,7 +76,7 @@ export function initClassroomInviteModal(classroom_id, join_password) {
     const savePassword = async (isNew = false) => {
         const newPassword = passwordInput.value.trim();
 
-        if (!/^\d{1,12}$/.test(newPassword)) {
+        if (newPassword && !/^\d{1,12}$/.test(newPassword)) {
             showNotification("Пароль должен быть числовым и не более 12 символов");
             return;
         }
@@ -98,16 +98,19 @@ export function initClassroomInviteModal(classroom_id, join_password) {
                 return;
             }
 
-            originalPassword = data.password;
+            originalPassword = data.password || "";
             passwordInput.value = originalPassword;
             passwordInput.setAttribute("readonly", "true");
             saveBtn.classList.add("d-none");
             cancelBtn.classList.add("d-none");
             editBtn.classList.remove("d-none");
 
-            if (isNew) {
+            if (originalPassword) {
                 passwordSection.style.display = "block";
                 setPasswordSection.style.display = "none";
+            } else {
+                passwordSection.style.display = "none";
+                setPasswordSection.style.display = "block";
             }
 
             updateInviteLink(originalPassword);
@@ -117,18 +120,8 @@ export function initClassroomInviteModal(classroom_id, join_password) {
         }
     };
 
-    const saveNewPassword = async () => {
-        await savePassword(true);
-    };
-
     if (saveBtn && !saveBtn.dataset.bound) {
-        saveBtn.addEventListener("click", () => {
-            if (!originalPassword) {
-                saveNewPassword();
-            } else {
-                savePassword(false);
-            }
-        });
+        saveBtn.addEventListener("click", savePassword);
         saveBtn.dataset.bound = "1";
     }
 
@@ -154,11 +147,7 @@ export function initClassroomInviteModal(classroom_id, join_password) {
     passwordInput.addEventListener("keydown", (e) => {
         if (e.key === "Enter" && !passwordInput.hasAttribute("readonly")) {
             e.preventDefault();
-            if (!originalPassword) {
-                saveNewPassword();
-            } else {
-                savePassword(false);
-            }
+            savePassword();
         }
     });
 }

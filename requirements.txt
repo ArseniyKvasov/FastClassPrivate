@@ -8,6 +8,9 @@ psycopg2-binary>=2.9,<3.0
 # Окружение
 python-decouple>=3.8
 
+# JWT токены
+PyJWT>=2.8.0,<3.0
+
 # Очистка HTML
 Pillow>=11.3.0
 bleach>=6.0.0

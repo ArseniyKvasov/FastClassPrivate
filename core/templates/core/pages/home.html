@@ -43,6 +43,7 @@
         </div>
 
         <div id="materials-container" class="row g-3"
+             data-priority-subject="{{ priority_subject|default:'' }}"
              data-create-course-url="{% url 'create_course' %}"
              data-edit-meta-url-template="{% url 'course_edit_meta_view' 0 %}"
              data-course-detail-url-template="{% url 'course_detail' 0 %}"
