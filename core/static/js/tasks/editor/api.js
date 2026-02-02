@@ -51,8 +51,13 @@ export const TaskValidators = {
 
     note: function(taskCard) {
         const editor = taskCard.querySelector(".note-editor");
-        const content = editor?.innerHTML.trim() || "";
-        if (!content) { showNotification("Добавьте текст заметки!"); return null; }
+        const content = editor?.value.trim() || "";
+
+        if (!content) {
+            showNotification("Добавьте текст заметки!");
+            return null;
+        }
+
         return [{ content }];
     },
 

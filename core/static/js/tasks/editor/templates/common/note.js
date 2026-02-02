@@ -1,11 +1,10 @@
 import { showNotification } from "/static/js/tasks/utils.js";
 
 /**
- * Рендерит редактор задания типа «Текстовая заметка».
+ * Рендерит редактор задания типа «Текстовая заметка» на Markdown.
  *
- * @param {number|null} taskId
- * @param {HTMLElement|null} container
  * @param {{content?: string}|null} taskData
+ * @returns {HTMLElement}
  */
 export function renderNoteTaskEditor(taskData = null) {
     const card = document.createElement("div");
@@ -22,19 +21,19 @@ export function renderNoteTaskEditor(taskData = null) {
         </div>
 
         <div class="toolbar mb-2 d-flex flex-wrap gap-2">
-            <button class="btn btn-sm btn-light border format-btn" data-cmd="bold">
+            <button class="btn btn-sm btn-light border format-btn" data-md="**">
                 <i class="bi bi-type-bold"></i>
             </button>
-            <button class="btn btn-sm btn-light border format-btn" data-cmd="italic">
+            <button class="btn btn-sm btn-light border format-btn" data-md="*">
                 <i class="bi bi-type-italic"></i>
             </button>
-            <button class="btn btn-sm btn-light border format-btn" data-cmd="underline">
+            <button class="btn btn-sm btn-light border format-btn" data-md="__">
                 <i class="bi bi-type-underline"></i>
             </button>
-            <button class="btn btn-sm btn-light border format-btn" data-cmd="insertUnorderedList">
+            <button class="btn btn-sm btn-light border format-btn" data-md="- ">
                 <i class="bi bi-list-ul"></i>
             </button>
-            <button class="btn btn-sm btn-light border format-btn" data-cmd="insertOrderedList">
+            <button class="btn btn-sm btn-light border format-btn" data-md="1. ">
                 <i class="bi bi-list-ol"></i>
             </button>
             <button class="btn btn-sm btn-light border clear-format-btn">
@@ -42,9 +41,10 @@ export function renderNoteTaskEditor(taskData = null) {
             </button>
         </div>
 
-        <div class="note-editor border rounded p-2"
-             contenteditable="true"
-             style="min-height: 160px; outline: none;">${content}</div>
+        <textarea
+            class="note-editor border rounded p-2 w-100"
+            style="min-height: 160px; outline: none; resize: vertical;"
+        >${content}</textarea>
 
         <button class="btn btn-success mt-3 w-100 fw-semibold save-btn">
             Сохранить
@@ -53,175 +53,52 @@ export function renderNoteTaskEditor(taskData = null) {
 
     const editor = card.querySelector(".note-editor");
 
-    const normalizeText = (text) => {
-        return text
-            .replace(/—/g, '-')
-            .replace(/–/g, '-')
-            .replace(/−/g, '-')
-            .replace(/―/g, '-')
-            .replace(/／/g, '/')
-            .replace(/⁄/g, '/');
+    const wrapSelection = (before, after = before) => {
+        const start = editor.selectionStart;
+        const end = editor.selectionEnd;
+        const value = editor.value;
+
+        editor.value =
+            value.slice(0, start) +
+            before +
+            value.slice(start, end) +
+            after +
+            value.slice(end);
+
+        editor.focus();
+        editor.selectionStart = start + before.length;
+        editor.selectionEnd = end + before.length;
     };
 
-    const cleanPastedHTML = (html) => {
-        const temp = document.createElement('div');
-        temp.innerHTML = html;
+    const insertAtLineStart = (prefix) => {
+        const start = editor.selectionStart;
+        const value = editor.value;
+        const lineStart = value.lastIndexOf("\n", start - 1) + 1;
 
-        const walker = document.createTreeWalker(
-            temp,
-            NodeFilter.SHOW_ELEMENT,
-            null,
-            false
-        );
+        editor.value =
+            value.slice(0, lineStart) +
+            prefix +
+            value.slice(lineStart);
 
-        const allowedStyles = ['font-weight', 'font-style', 'text-decoration'];
-        const nodes = [];
-        let node;
-
-        while (node = walker.nextNode()) {
-            nodes.push(node);
-        }
-
-        nodes.forEach(node => {
-            if (node.style) {
-                const styles = Array.from(node.style);
-                styles.forEach(styleName => {
-                    if (!allowedStyles.includes(styleName)) {
-                        node.style.removeProperty(styleName);
-                    }
-                });
-
-                if (node.style.cssText.trim() === '') {
-                    node.removeAttribute('style');
-                }
-            }
-
-            ['class', 'id'].forEach(attr => {
-                node.removeAttribute(attr);
-            });
-        });
-
-        return temp.innerHTML;
+        editor.focus();
+        editor.selectionStart = editor.selectionEnd = start + prefix.length;
     };
-
-    const handleFormatKey = (e) => {
-        if (!e.ctrlKey && !e.metaKey) return;
-
-        let command = null;
-        let shouldPreventDefault = true;
-
-        switch (e.key.toLowerCase()) {
-            case 'b':
-                command = 'bold';
-                break;
-            case 'i':
-                command = 'italic';
-                break;
-            case 'u':
-                command = 'underline';
-                break;
-            case 'l':
-                if (e.shiftKey) {
-                    command = 'insertOrderedList';
-                } else {
-                    command = 'insertUnorderedList';
-                }
-                break;
-            default:
-                shouldPreventDefault = false;
-                return;
-        }
-
-        if (command) {
-            e.preventDefault();
-            document.execCommand(command, false, null);
-
-            const btn = card.querySelector(`.format-btn[data-cmd="${command}"]`);
-            if (btn) {
-                btn.classList.add('active');
-                setTimeout(() => btn.classList.remove('active'), 200);
-            }
-        }
-    };
-
-    const handleSelectAllKey = (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
-            e.preventDefault();
-            const range = document.createRange();
-            range.selectNodeContents(editor);
-            const selection = window.getSelection();
-            selection.removeAllRanges();
-            selection.addRange(range);
-        }
-    };
-
-    const handleClearFormatKey = (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'x') {
-            e.preventDefault();
-            const text = editor.innerText;
-            editor.innerHTML = text.replace(/\n/g, "<br>");
-
-            const btn = card.querySelector('.clear-format-btn');
-            if (btn) {
-                btn.classList.add('active');
-                setTimeout(() => btn.classList.remove('active'), 200);
-            }
-        }
-    };
-
-    editor.addEventListener('keydown', (e) => {
-        handleSelectAllKey(e);
-        handleFormatKey(e);
-        handleClearFormatKey(e);
-    });
-
-    editor.addEventListener('paste', (e) => {
-        e.preventDefault();
-
-        const clipboardData = e.clipboardData || window.clipboardData;
-
-        if (clipboardData.types.includes('text/html')) {
-            const html = clipboardData.getData('text/html');
-            const cleaned = cleanPastedHTML(html);
-            const normalized = normalizeText(cleaned);
-
-            const selection = window.getSelection();
-            if (!selection.rangeCount) return;
-
-            const range = selection.getRangeAt(0);
-            range.deleteContents();
-
-            const temp = document.createElement('div');
-            temp.innerHTML = normalized;
-
-            const fragment = document.createDocumentFragment();
-            while (temp.firstChild) {
-                fragment.appendChild(temp.firstChild);
-            }
-
-            range.insertNode(fragment);
-            range.setStartAfter(fragment.lastChild || fragment);
-            range.collapse(true);
-            selection.removeAllRanges();
-            selection.addRange(range);
-        } else {
-            let text = clipboardData.getData('text/plain');
-            text = normalizeText(text);
-            document.execCommand('insertText', false, text);
-        }
-    });
 
     card.querySelectorAll(".format-btn").forEach(btn => {
         btn.addEventListener("click", () => {
-            document.execCommand(btn.dataset.cmd, false, null);
-            editor.focus();
+            const md = btn.dataset.md;
+
+            if (md === "- " || md === "1. ") {
+                insertAtLineStart(md);
+            } else {
+                wrapSelection(md);
+            }
         });
     });
 
     card.querySelector(".clear-format-btn")
         .addEventListener("click", () => {
-            const text = editor.innerText;
-            editor.innerHTML = text.replace(/\n/g, "<br>");
+            editor.value = editor.value.replace(/[*_`#>-]/g, "");
             editor.focus();
         });
 

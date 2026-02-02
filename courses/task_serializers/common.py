@@ -153,9 +153,12 @@ class NoteTaskSerializer(serializers.ModelSerializer):
         fields = ["content"]
 
     def validate_content(self, value):
-        value = clean_text_style(value)
-        if not value.strip():
+        value = value or ""
+        value = value.strip()
+
+        if not value:
             raise serializers.ValidationError("Содержимое заметки не может быть пустым")
+
         return value
 
 
