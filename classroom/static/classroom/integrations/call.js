@@ -5,7 +5,6 @@ export function initVideoCallPanel() {
     const callButton = document.getElementById('callButton');
     if (!callButton) return;
 
-    let isVideoPanelVisible = false;
     let currentJaasApi = null;
     let mediaState = {
         audio: true,
@@ -62,21 +61,21 @@ export function initVideoCallPanel() {
     }
 
     async function handleCallButtonClick() {
-        const videoPanel = document.getElementById('videoCallPanel');
-        if (!videoPanel) return;
+        if (callButton.disabled) return;
 
-        isVideoPanelVisible = !isVideoPanelVisible;
-
-        if (isVideoPanelVisible) {
+        try {
+            callButton.disabled = true;
             await showVideoPanel();
-        } else {
-            hideVideoPanel();
+        } catch (error) {
+            console.error('Ошибка при открытии видеозвонка:', error);
+            callButton.disabled = false;
+            showNotification('Не удалось открыть видеозвонок');
         }
     }
 
     function handleVideoPanelClick(e) {
         const videoPanel = document.getElementById('videoCallPanel');
-        if (!videoPanel || !isVideoPanelVisible) return;
+        if (!videoPanel) return;
 
         const target = e.target.closest('button');
         if (!target) return;
@@ -124,7 +123,6 @@ export function initVideoCallPanel() {
 
             videoPanel.classList.remove('d-none');
             videoPanel.classList.add('d-flex');
-            callButton.classList.add('d-none');
 
             const videoControlsPanel = document.getElementById('video-controls-panel');
             if (videoControlsPanel) {
@@ -139,7 +137,8 @@ export function initVideoCallPanel() {
             await initializeVideoCall();
         } catch (error) {
             console.error('Ошибка при показе панели видеозвонка:', error);
-            showNotification('Не удалось открыть панель видеозвонка');
+            hideVideoPanel();
+            throw error;
         }
     }
 
@@ -252,7 +251,7 @@ export function initVideoCallPanel() {
         } catch (error) {
             console.error('Ошибка инициализации видеозвонка:', error);
             showNotification('Не удалось подключиться к видеозвонку');
-            setTimeout(() => hideVideoPanel(), 1000);
+            throw error;
         }
     }
 
@@ -328,12 +327,18 @@ export function initVideoCallPanel() {
 
             videoPanel.classList.remove('d-flex');
             videoPanel.classList.add('d-none');
-            callButton.classList.remove('d-none');
+
+            callButton.disabled = false;
 
             resetVideoPanelState();
         } catch (error) {
             console.error('Ошибка при скрытии панели видеозвонка:', error);
             showNotification('Не удалось закрыть панель видеозвонка');
+
+            const callButton = document.getElementById('callButton');
+            if (callButton) {
+                callButton.disabled = false;
+            }
         }
     }
 

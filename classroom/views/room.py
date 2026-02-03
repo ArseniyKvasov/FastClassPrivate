@@ -259,7 +259,7 @@ def set_copying_enabled(request, classroom_id):
 @login_required
 def get_jitsi_token(request, classroom_id):
     """
-    GET запрос для получения Jitsi токена
+    GET запрос для получения Jitsi токена с ограничениями на запись
     """
     try:
         jitsi_secret = config('JITSI_APP_SECRET')
@@ -295,9 +295,19 @@ def get_jitsi_token(request, classroom_id):
             "context": {
                 "user": {
                     "name": request.user.username,
-                    "email": "arsenijtam@gmail.com",
+                    "email": "",
                     "moderator": user_role == "teacher"
                 }
+            },
+            "features": {
+                "livestreaming": False,
+                "recording": False,
+                "outbound-call": False,
+                "transcription": False,
+            },
+            "room_metadata": {
+                "disableRecording": True,
+                "enableWelcomePage": False,
             }
         }
 
@@ -311,7 +321,11 @@ def get_jitsi_token(request, classroom_id):
             "room": room_name,
             "display_name": request.user.username,
             "is_teacher": is_teacher,
-            "jitsi_script_src": jitsi_script_src
+            "jitsi_script_src": jitsi_script_src,
+            "room_features": {
+                "recording_disabled": True,
+                "livestreaming_disabled": True
+            }
         })
 
     except Exception as e:
