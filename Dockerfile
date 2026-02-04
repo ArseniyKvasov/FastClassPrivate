@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y \
     zlib1g-dev \
     libssl-dev \
     curl \
-    netcat \
+    netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt /app/
@@ -26,5 +26,3 @@ RUN useradd -m -u 1000 fastclass && \
 USER fastclass
 
 EXPOSE 8000
-
-CMD ["sh", "/app/docker/entrypoint.sh"]

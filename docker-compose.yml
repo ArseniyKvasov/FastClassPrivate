@@ -5,17 +5,18 @@ services:
     container_name: fastclass-web
     build: .
     ports:
-      - "${DOCKER_WEB_PORT:-8000}:8000"
+      - "${DOCKER_WEB_PORT:-8001}:8001"  # Изменено на 8001
     volumes:
       - .:/app
       - ./staticfiles:/app/staticfiles
       - ./media:/app/media
-      - ./docker/entrypoint.sh:/app/docker/entrypoint.sh
     env_file:
       - .env
     environment:
       - DB_HOST=db
+      - DB_PORT=5432
       - REDIS_HOST=redis
+      - REDIS_PORT=6379
       - STATIC_ROOT=/app/staticfiles
       - MEDIA_ROOT=/app/media
     depends_on:
@@ -27,9 +28,17 @@ services:
     networks:
       - fastclass-network
     command: >
-      sh -c "python manage.py migrate --noinput &&
-             python manage.py collectstatic --noinput --clear &&
-             python manage.py runserver 0.0.0.0:8000"
+      sh -c "
+        echo 'Ожидание БД...' &&
+        while ! nc -z $${DB_HOST} $${DB_PORT}; do sleep 1; done &&
+        echo 'БД готова!' &&
+        echo 'Ожидание Redis...' &&
+        while ! nc -z $${REDIS_HOST} $${REDIS_PORT}; do sleep 1; done &&
+        echo 'Redis готов!' &&
+        python manage.py migrate --noinput &&
+        python manage.py collectstatic --noinput --clear &&
+        uvicorn fastlesson.asgi:application --host 0.0.0.0 --port 8001 --reload
+      "
 
   db:
     container_name: fastclass-db
@@ -64,25 +73,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    restart: unless-stopped
-    networks:
-      - fastclass-network
-
-  nginx:
-    container_name: fastclass-nginx
-    image: nginx:1.25-alpine
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf
-      - ./docker/nginx/conf.d:/etc/nginx/conf.d
-      - ./staticfiles:/usr/share/nginx/html/static
-      - ./media:/usr/share/nginx/html/media
-      - ./docker/nginx/ssl:/etc/nginx/ssl
-      - ./docker/nginx/logs:/var/log/nginx
-    depends_on:
-      - web
     restart: unless-stopped
     networks:
       - fastclass-network
