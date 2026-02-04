@@ -1,6 +1,6 @@
 import { showNotification, escapeHtml, getInfoElement, getCsrfToken, confirmAction, getCurrentUserId } from "/static/js/tasks/utils.js";
 import { eventBus } from "/static/js/tasks/events/eventBus.js";
-import { startTasksOrderEditing } from "/static/js/tasks/editor/changeTasksOrder.js";
+import { startTasksOrderEditing } from "/static/js/tasks/editor/changeOrder.js";
 import { getViewedUserId, getClassroomId } from "/static/classroom/utils.js";
 import { formatStudentName } from "/static/classroom/answers/utils.js";
 import { handleSectionAnswers } from "/static/classroom/answers/handleAnswer.js";

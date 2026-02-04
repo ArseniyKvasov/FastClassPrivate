@@ -1,26 +1,7 @@
 import { postJSON, showNotification, getCsrfToken, getSectionId, fetchSingleTask } from "/static/js/tasks/utils.js";
+import { closeTaskEditor } from "/static/js/tasks/editor/edit.js";
 import { renderTaskCard } from "/static/js/tasks/display/showTasks.js";
 import { eventBus } from "/static/js/tasks/events/eventBus.js";
-
-/**
- * Закрывает редактор задания. Скрывает модальное окно или удаляет карточку редактора из DOM.
- */
-export function closeTaskEditor() {
-    const modalEl = document.querySelector(".modal.show .task-editor-card");
-    if (modalEl) {
-        const modalInstance = bootstrap.Modal.getInstance(modalEl.closest(".modal"));
-        if (modalInstance) modalInstance.hide();
-        return;
-    }
-
-    const editor = document.querySelector(".task-editor-card");
-    if (editor) editor.remove();
-
-    const form = document.querySelector("#taskEditorForm");
-    if (form && form.reset) form.reset();
-
-    document.querySelectorAll(".task-card.editing").forEach(el => el.classList.remove("editing"));
-}
 
 /**
  * Валидаторы заданий по типу
@@ -28,12 +9,12 @@ export function closeTaskEditor() {
 export const TaskValidators = {
     test: function(taskCard) {
         const blocks = [...taskCard.querySelectorAll(".question-container")];
-        if (!blocks.length) { showNotification("Добавьте хотя бы один вопрос!"); return null; }
+        if (!blocks.length) return null;
 
         const tasks = [];
         for (const block of blocks) {
             const question = block.querySelector(".question-text")?.value.trim();
-            if (!question) { showNotification("Укажите текст вопроса!"); return null; }
+            if (!question) return null;
 
             const options = [...block.querySelectorAll(".answer-row")].map(row => {
                 const option = row.querySelector(".answer-text")?.value.trim();
@@ -41,38 +22,31 @@ export const TaskValidators = {
                 return option ? { option, is_correct } : null;
             }).filter(Boolean);
 
-            if (!options.length) { showNotification("Укажите хотя бы один вариант ответа!"); return null; }
-            if (!options.some(o => o.is_correct)) { showNotification("Хотя бы один вариант должен быть отмечен как правильный!"); return null; }
+            if (!options.length || !options.some(o => o.is_correct)) return null;
 
             tasks.push({ question, options });
         }
-        return tasks;
+        return tasks.length ? tasks : null;
     },
 
     note: function(taskCard) {
         const editor = taskCard.querySelector(".note-editor");
         const content = editor?.value.trim() || "";
-
-        if (!content) {
-            showNotification("Добавьте текст заметки!");
-            return null;
-        }
-
-        return [{ content }];
+        return content ? [{ content }] : null;
     },
 
     true_false: function(taskCard) {
         const rows = [...taskCard.querySelectorAll(".statement-row")];
-        if (!rows.length) { showNotification("Добавьте хотя бы одно утверждение!"); return null; }
+        if (!rows.length) return null;
 
         const tasks = [];
         for (const row of rows) {
             const statement = row.querySelector(".statement-text")?.value.trim();
-            if (!statement) { showNotification("Укажите текст утверждения!"); return null; }
+            if (!statement) return null;
             const is_true = row.querySelector(".statement-select")?.value === "true";
             tasks.push({ statement, is_true });
         }
-        return tasks;
+        return tasks.length ? tasks : null;
     },
 
     fill_gaps: function(taskCard) {
@@ -80,27 +54,19 @@ export const TaskValidators = {
         const listType = taskCard.querySelector(".fill-gaps-type-select")?.value || "hidden";
         const text = editor?.innerHTML.trim() || "";
 
-        if (!text) {
-            showNotification("Введите текст задания!");
-            return null;
-        }
+        if (!text) return null;
 
         const answers = [];
         const regex = /\[([^\]]+)\]/g;
         let match;
         while ((match = regex.exec(text)) !== null) answers.push(match[1]);
 
-        if (!answers.length) {
-            showNotification("Запишите пропуски в квадратных скобках");
-            return null;
-        }
-
-        return [{ text, answers, list_type: listType }];
+        return answers.length ? [{ text, answers, list_type: listType }] : null;
     },
 
     match_cards: function(taskCard) {
         const rows = [...taskCard.querySelectorAll(".match-card-row")];
-        if (rows.length < 2) { showNotification("Добавьте как минимум две пары карточек!"); return null; }
+        if (rows.length < 2) return null;
 
         const cards = [];
         const leftCards = new Set();
@@ -110,124 +76,37 @@ export const TaskValidators = {
             const card_left = row.querySelector(".card-left")?.value.trim();
             const card_right = row.querySelector(".card-right")?.value.trim();
 
-            if (!card_left || !card_right) {
-                showNotification("Каждая карточка должна содержать левую и правую части!");
-                return null;
-            }
-
-            if (leftCards.has(card_left)) {
-                showNotification("Найдены одинаковые левые карточки!");
-                return null;
-            }
-
-            if (rightCards.has(card_right)) {
-                showNotification("Найдены одинаковые правые карточки!");
-                return null;
-            }
+            if (!card_left || !card_right) return null;
+            if (leftCards.has(card_left) || rightCards.has(card_right)) return null;
 
             leftCards.add(card_left);
             rightCards.add(card_right);
             cards.push({ card_left, card_right });
         }
 
-        return [{ cards }];
+        return cards.length ? [{ cards }] : null;
     },
 
     text_input: function(taskCard) {
-        const promptEl = taskCard.querySelector(".task-prompt");
-        const defaultEl = taskCard.querySelector(".task-default-text");
-        const prompt = promptEl?.value.trim() || "";
-        const default_text = defaultEl?.value || "";
-        if (!prompt) { showNotification("Введите текст задания!"); return null; }
-        return [{ prompt, default_text }];
+        const prompt = taskCard.querySelector(".task-prompt")?.value.trim() || "";
+        const default_text = taskCard.querySelector(".task-default-text")?.value || "";
+        return prompt ? [{ prompt, default_text }] : null;
     },
 
     integration: function(taskCard) {
         const embedCodeEl = taskCard.querySelector("textarea");
         const embedCode = embedCodeEl?.value.trim() || "";
-
-        if (!embedCode) {
-            showNotification("Введите embed-код!");
-            return null;
-        }
-
-        if (!embedCode.includes('<iframe')) {
-            showNotification("Код должен содержать iframe!");
-            return null;
-        }
-
-        const supportedDomains = [
-            'youtube.com', 'youtu.be', 'wordwall.net', 'miro.com',
-            'quizlet.com', 'learningapps.org', 'rutube.ru', 'sboard.online',
-            'geogebra.org'
-        ];
-
-        const hasSupportedDomain = supportedDomains.some(domain => embedCode.includes(domain));
-        if (!hasSupportedDomain) {
-            showNotification("Код содержит неподдерживаемый ресурс!");
-            return null;
-        }
-
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = embedCode;
-        const iframe = tempDiv.querySelector('iframe');
-
-        if (!iframe) {
-            showNotification("Не удалось найти iframe в коде!");
-            return null;
-        }
-
-        const cleanIframe = document.createElement('iframe');
-        const allowedAttributes = ['src', 'width', 'height', 'frameborder', 'allow', 'allowfullscreen', 'title'];
-
-        allowedAttributes.forEach(attr => {
-            if (iframe.hasAttribute(attr)) {
-                cleanIframe.setAttribute(attr, iframe.getAttribute(attr));
-            }
-        });
-
-        cleanIframe.style.border = 'none';
-        cleanIframe.style.maxWidth = '100%';
-
-        return [{ embed_code: cleanIframe.outerHTML }];
+        return embedCode ? [{ embed_code: embedCode }] : null;
     },
 
     file: function(taskCard) {
         const input = taskCard.querySelector(".file-input");
-
-        if (!input.files.length) {
-            showNotification("Выберите файл!");
-            return null;
-        }
-
-        const file = input.files[0];
-        const allowedTypes = [
-            'application/pdf',
-            'video/mp4', 'video/webm', 'video/ogg',
-            'audio/mpeg', 'audio/ogg', 'audio/wav', 'audio/webm',
-            'image/png', 'image/jpeg', 'image/gif', 'image/webp'
-        ];
-
-        if (!allowedTypes.includes(file.type)) {
-            showNotification("Разрешены только PDF, видео (MP4, WebM, OGG), аудио (MP3, OGG, WAV, WebM) и изображения (PNG, JPG, JPEG, GIF, WebP) файлы");
-            return null;
-        }
-
-        const maxSize = 50 * 1024 * 1024;
-        if (file.size > maxSize) {
-            showNotification("Файл слишком большой. Максимальный размер: 50 МБ");
-            return null;
-        }
-
-        return [{ file: file }];
+        return input.files.length ? [{ file: input.files[0] }] : null;
     },
 
     word_list: function(taskCard) {
         const rows = [...taskCard.querySelectorAll(".word-translation-row")];
-        if (rows.length < 2) {
-            showNotification("Добавьте как минимум два слова!");
-            return null;
-        }
+        if (rows.length < 2) return null;
 
         const words = [];
         const wordSet = new Set();
@@ -237,27 +116,15 @@ export const TaskValidators = {
             const word = row.querySelector(".word-input")?.value.trim();
             const translation = row.querySelector(".translation-input")?.value.trim();
 
-            if (!word || !translation) {
-                showNotification("Каждое слово должно иметь перевод!");
-                return null;
-            }
-
-            if (wordSet.has(word)) {
-                showNotification("Найдены одинаковые слова!");
-                return null;
-            }
-
-            if (translationSet.has(translation)) {
-                showNotification("Найдены одинаковые переводы!");
-                return null;
-            }
+            if (!word || !translation) return null;
+            if (wordSet.has(word) || translationSet.has(translation)) return null;
 
             wordSet.add(word);
             translationSet.add(translation);
             words.push({ word, translation });
         }
 
-        return [{ words }];
+        return words.length ? [{ words }] : null;
     },
 };
 
@@ -447,7 +314,6 @@ export async function sendNewOrderToServer(taskIds) {
             return;
         }
 
-        showNotification('Порядок заданий сохранён');
         eventBus.emit("section:change", { sectionId });
     } catch (err) {
         console.error('Ошибка при сохранении порядка заданий:', err);

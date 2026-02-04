@@ -314,6 +314,26 @@ export async function openEditorForTask(taskId) {
 }
 
 /**
+ * Закрывает редактор задания. Скрывает модальное окно или удаляет карточку редактора из DOM.
+ */
+export function closeTaskEditor() {
+    const modalEl = document.querySelector(".modal.show .task-editor-card");
+    if (modalEl) {
+        const modalInstance = bootstrap.Modal.getInstance(modalEl.closest(".modal"));
+        if (modalInstance) modalInstance.hide();
+        return;
+    }
+
+    const editor = document.querySelector(".task-editor-card");
+    if (editor) editor.remove();
+
+    const form = document.querySelector("#taskEditorForm");
+    if (form && form.reset) form.reset();
+
+    document.querySelectorAll(".task-card.editing").forEach(el => el.classList.remove("editing"));
+}
+
+/**
  * Добавляет основные контролы к карточке задания.
  * На десктопе показываются кнопки, на мобильных — dropdown.
  * go и reset по умолчанию скрыты.
