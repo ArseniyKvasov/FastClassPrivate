@@ -9,7 +9,7 @@ from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.core.exceptions import ValidationError
-from courses.models import Course, Lesson, Section, Task, NoteTask, ImageTask
+from courses.models import Course, Lesson, Section, Task, NoteTask, FileTask
 from django.contrib.contenttypes.models import ContentType
 
 User = get_user_model()
@@ -416,16 +416,15 @@ class CloneCourseTests(TestCase):
             order=1
         )
 
-        image_task = ImageTask.objects.create(
+        image_task = FileTask.objects.create(
             file_path=settings.MEDIA_URL + 'test_images/test_image.jpg',
-            caption='Оригинальное изображение'
         )
 
         task = Task.objects.create(
             section=section,
             root_type='original',
             task_type='image',
-            content_type=ContentType.objects.get_for_model(ImageTask),
+            content_type=ContentType.objects.get_for_model(FileTask),
             object_id=image_task.id,
             order=1
         )
@@ -534,7 +533,7 @@ class CloneCourseTests(TestCase):
             order=1
         )
 
-        image_task1 = ImageTask.objects.create(
+        image_task1 = FileTask.objects.create(
             file_path=settings.MEDIA_URL + 'test_images/test_image1.jpg',
             caption='Первое изображение'
         )
@@ -547,7 +546,7 @@ class CloneCourseTests(TestCase):
             section=section,
             root_type='original',
             task_type='image',
-            content_type=ContentType.objects.get_for_model(ImageTask),
+            content_type=ContentType.objects.get_for_model(FileTask),
             object_id=image_task1.id,
             order=1
         )
@@ -573,16 +572,15 @@ class CloneCourseTests(TestCase):
 
         image_task1.delete()
 
-        image_task2 = ImageTask.objects.create(
+        image_task2 = FileTask.objects.create(
             file_path=settings.MEDIA_URL + 'test_images/test_image2.jpg',
-            caption='Второе изображение'
         )
 
         task2_path = os.path.join(settings.MEDIA_ROOT, 'test_images/test_image2.jpg')
         with open(task2_path, 'wb') as f:
             f.write(b'second image content')
 
-        task.content_type = ContentType.objects.get_for_model(ImageTask)
+        task.content_type = ContentType.objects.get_for_model(FileTask)
         task.object_id = image_task2.id
         task.save()
 

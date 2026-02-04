@@ -1,35 +1,35 @@
-import { showLoaderWithPhrases } from "/static/js/tasks/utils.js";
-
+/**
+ * Рендерит задание с файлом в контейнер
+ * @param {Object} task - Объект задания
+ * @param {HTMLElement} container - Контейнер для рендеринга
+ */
 export function renderFileTask(task, container) {
     if (!container) return;
     container.innerHTML = "";
 
     try {
         const card = document.createElement("div");
-        card.className = "rounded-4 mb-3";
+        card.className = "task-card";
 
-        const cardBody = document.createElement("div");
-        card.appendChild(cardBody);
+        if (task.data.file_path) {
+            const fileExtension = task.data.file_path.split('.').pop().toLowerCase();
 
-        if (task.data.file_link) {
-            const button = document.createElement("button");
-            button.className = "btn btn-primary btn-lg w-100 mb-3 d-flex justify-content-between align-items-center";
-            button.innerHTML = '<span>Открыть файл</span><i class="bi bi-arrow-right-circle-fill fs-4"></i>';
-
-            button.onclick = () => loadFile(cardBody, task.data.file_link, button);
-
-            cardBody.appendChild(button);
-
-            const fileDiv = document.createElement("div");
-            fileDiv.className = "file-content position-relative d-none";
-            fileDiv.style.minHeight = "700px";
-            fileDiv.style.overflow = "hidden";
-            cardBody.appendChild(fileDiv);
+            if (['pdf'].includes(fileExtension)) {
+                renderPdfViewer(card, task.data.file_path);
+            } else if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(fileExtension)) {
+                renderImageViewer(card, task.data.file_path);
+            } else if (['mp4', 'webm', 'ogg'].includes(fileExtension)) {
+                renderVideoPlayer(card, task.data.file_path);
+            } else if (['mp3', 'wav', 'ogg'].includes(fileExtension)) {
+                renderAudioPlayer(card, task.data.file_path);
+            } else {
+                renderDownloadLink(card, task.data.file_path);
+            }
         } else {
-            cardBody.innerHTML = `
+            card.innerHTML = `
                 <div class="alert alert-warning text-center mb-0">
                     <i class="bi bi-exclamation-triangle me-2"></i>
-                    Ссылка на файл не указана
+                    Файл не найден
                 </div>
             `;
         }
@@ -41,86 +41,135 @@ export function renderFileTask(task, container) {
     }
 }
 
-function loadFile(container, fileLink, button) {
-    button.classList.add("d-none");
+/**
+ * Рендерит PDF через готовый PDF.js viewer (iframe)
+ * с заголовком "PDF-файл" над отображением
+ *
+ * @param {HTMLElement} container
+ * @param {string} filePath
+ */
+function renderPdfViewer(container, filePath) {
+    container.innerHTML = "";
 
-    let fileDiv = container.querySelector(".file-content");
-    if (!fileDiv) {
-        fileDiv = document.createElement("div");
-        fileDiv.className = "file-content position-relative";
-        fileDiv.style.minHeight = "700px";
-        fileDiv.style.overflow = "hidden";
-        container.appendChild(fileDiv);
-    }
+    const openButton = document.createElement("button");
+    openButton.className = "btn btn-primary btn-lg w-100 d-flex justify-content-between align-items-center rounded mb-3";
+    openButton.innerHTML = '<span>Открыть файл</span><i class="bi bi-arrow-right-circle-fill fs-4"></i>';
 
-    fileDiv.classList.remove("d-none");
-    fileDiv.innerHTML = "";
+    const viewerWrapper = document.createElement("div");
+    viewerWrapper.className = "border rounded shadow-sm bg-white";
+    viewerWrapper.style.display = "none";
+    viewerWrapper.style.borderRadius = "12px";
+    viewerWrapper.style.overflow = "hidden";
+
+    const title = document.createElement("div");
+    title.textContent = "PDF-файл";
+    title.className = "fw-semibold small px-3 py-2 border-bottom bg-light";
 
     const iframe = document.createElement("iframe");
-    iframe.src = fileLink;
     iframe.style.width = "100%";
-    iframe.style.height = "700px";
-    iframe.style.maxHeight = "90vh";
+    iframe.style.height = "90vh";
     iframe.style.border = "none";
-    iframe.style.opacity = "0";
-    iframe.style.transition = "opacity 0.5s ease";
-    iframe.style.display = "block";
-    iframe.style.borderRadius = "8px";
-    iframe.style.overflow = "hidden";
-    iframe.setAttribute("sandbox", "allow-scripts allow-same-origin allow-popups allow-forms");
 
-    const phrases = [
-        "Файл пакетуется и готовится к показу...",
-        "Подготавливаем магическую панель документа...",
-        "Загружаем умные пиксели в правильном порядке...",
-        "Документ выходит из спячки и зевает...",
-        "Просим файл выглядеть презентабельно...",
-        "Пылесосим виртуальную пыль со страниц...",
-        "Файл делает разминку перед показом...",
-        "Подпитываем документ цифровым кофе...",
-        "Расставляем буквы по алфавитным квартирам...",
-        "Завязываем шнурки на виртуальных кроссовках файла...",
-        "Учим файл хорошим манерам для показа...",
-        "Разминаем скролл перед долгой работой...",
-        "Настраиваем волшебный увеличитель контента...",
-        "Файл выбирает лучший наряд для показа...",
-        "Разогреваем процессор для идеального рендера...",
-        "Приглашаем все символы на свои места...",
-        "Натягиваем виртуальный холст для контента...",
-        "Проводим файлу утреннюю зарядку...",
-        "Расстилаем цифровой ковёр для вашего взгляда...",
-        "Файл заваривает чай для комфортного просмотра..."
-    ];
+    const viewerUrl =
+        `/static/pdfjs/web/viewer.html?file=${encodeURIComponent(filePath)}`;
 
-    const loader = showLoaderWithPhrases(fileDiv, phrases);
-    loader.start();
+    iframe.src = viewerUrl;
 
-    const loadTimeout = setTimeout(() => {
-        if (iframe.contentWindow && iframe.contentWindow.length === 0) {
-            loader.stop();
-            loader.showError("Файл замечтался и забыл загрузиться. Давайте попробуем ещё раз!", () => {
-                button.classList.remove("d-none");
-                fileDiv.classList.add("d-none");
-                fileDiv.innerHTML = "";
-            });
-        }
-    }, 40000);
+    viewerWrapper.append(title, iframe);
+    container.append(openButton, viewerWrapper);
 
-    iframe.onload = () => {
-        clearTimeout(loadTimeout);
-        loader.stop();
-        iframe.style.opacity = "1";
+    openButton.addEventListener("click", () => {
+        openButton.remove();
+        viewerWrapper.style.display = "block";
+    });
+}
+
+/**
+ * Рендерит изображение
+ * @param {HTMLElement} container - Контейнер для изображения
+ * @param {string} filePath - Путь к файлу изображения
+ */
+function renderImageViewer(container, filePath) {
+    const img = document.createElement("img");
+    img.src = filePath;
+    img.className = "img-fluid rounded w-100";
+    img.alt = "Изображение";
+    img.style.maxHeight = "80vh";
+    img.style.objectFit = "contain";
+
+    container.appendChild(img);
+}
+
+/**
+ * Рендерит видео плеер
+ * @param {HTMLElement} container - Контейнер для видео
+ * @param {string} filePath - Путь к видео файлу
+ */
+function renderVideoPlayer(container, filePath) {
+    const button = document.createElement("button");
+    button.className = "btn btn-primary btn-lg w-100 mb-3 d-flex justify-content-between align-items-center";
+    button.innerHTML = '<span>Открыть видео</span><i class="bi bi-arrow-right-circle-fill fs-4"></i>';
+
+    button.onclick = () => {
+        button.remove();
+
+        const video = document.createElement("video");
+        video.src = filePath;
+        video.controls = true;
+        video.className = "w-100 rounded";
+        video.style.maxHeight = "80vh";
+
+        container.appendChild(video);
     };
 
-    iframe.onerror = () => {
-        clearTimeout(loadTimeout);
-        loader.stop();
-        loader.showError("Файл стесняется и не хочет показываться. Проверьте, не обидели ли вы его?", () => {
-            button.classList.remove("d-none");
-            fileDiv.classList.add("d-none");
-            fileDiv.innerHTML = "";
-        });
+    container.appendChild(button);
+}
+
+/**
+ * Рендерит аудио плеер
+ * @param {HTMLElement} container - Контейнер для аудио
+ * @param {string} filePath - Путь к аудио файлу
+ */
+function renderAudioPlayer(container, filePath) {
+    const button = document.createElement("button");
+    button.className = "btn btn-primary btn-lg w-100 mb-3 d-flex justify-content-between align-items-center";
+    button.innerHTML = '<span>Открыть аудио</span><i class="bi bi-arrow-right-circle-fill fs-4"></i>';
+
+    button.onclick = () => {
+        button.remove();
+
+        const audioWrapper = document.createElement("div");
+        audioWrapper.className = "bg-white border rounded p-4";
+
+        const audio = document.createElement("audio");
+        audio.src = filePath;
+        audio.controls = true;
+        audio.className = "w-100";
+        audio.style.height = "50px";
+
+        audioWrapper.appendChild(audio);
+        container.appendChild(audioWrapper);
     };
 
-    fileDiv.appendChild(iframe);
+    container.appendChild(button);
+}
+
+/**
+ * Рендерит ссылку для скачивания файла
+ * @param {HTMLElement} container - Контейнер для ссылки
+ * @param {string} filePath - Путь к файлу
+ */
+function renderDownloadLink(container, filePath) {
+    const button = document.createElement("button");
+    button.className = "btn btn-primary btn-lg w-100 mb-3 d-flex justify-content-between align-items-center";
+    button.innerHTML = '<span>Скачать файл</span><i class="bi bi-download fs-4"></i>';
+
+    button.onclick = () => {
+        const link = document.createElement("a");
+        link.href = filePath;
+        link.download = "";
+        link.click();
+    };
+
+    container.appendChild(button);
 }

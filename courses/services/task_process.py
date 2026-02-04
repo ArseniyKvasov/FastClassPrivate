@@ -8,7 +8,7 @@ from django.http import JsonResponse
 from rest_framework import serializers
 from django.core.files.storage import default_storage
 
-from courses.models import Section, Task, TestTask, TrueFalseTask, ImageTask
+from courses.models import Section, Task, TestTask, TrueFalseTask, FileTask
 from courses.task_serializers import TASK_SERIALIZER_MAP
 
 from fastlesson import settings
@@ -24,10 +24,9 @@ def serialize_task_data(task: Task):
     is_copy_task = task.root_type == "copy"
 
     if obj:
-        if task.task_type == "image":
+        if task.task_type == "file":
             data = {
                 "file_path": getattr(obj, "file_path", None),
-                "caption": getattr(obj, "caption", "") or "",
             }
         elif task.task_type == "fill_gaps":
             data = {
@@ -51,8 +50,6 @@ def serialize_task_data(task: Task):
             data = {"prompt": getattr(obj, "prompt", ""), "default_text": getattr(obj, "default_text", "") or ""}
         elif task.task_type == "integration":
             data = {"embed_code": getattr(obj, "embed_code", "")}
-        elif task.task_type == "file":
-            data = {"file_link": getattr(obj, "file_link", "")}
         elif task.task_type == "word_list":
             data = {"words": getattr(obj, "words", [])}
 
@@ -62,20 +59,32 @@ def serialize_task_data(task: Task):
     return data
 
 
-def _save_image_file(file_obj) -> str:
+def _save_file(file_obj) -> str:
     """
-    Сохраняет файл и возвращает URL для браузера.
-    В имя файла добавляется временная метка с датой и временем.
+    Сохраняет файл (PDF, видео, аудио) и возвращает URL для браузера.
     """
     if not file_obj:
         return None
 
+    allowed_types = [
+        'application/pdf',
+        'video/mp4', 'video/webm', 'video/ogg',
+        'audio/mpeg', 'audio/ogg', 'audio/wav', 'audio/webm',
+        'image/png', 'image/jpeg', 'image/gif', 'image/webp'
+    ]
+
+    if file_obj.content_type not in allowed_types:
+        raise ValueError("Недопустимый тип файла")
+
+    max_size = 50 * 1024 * 1024
+    if file_obj.size > max_size:
+        raise ValueError("Файл слишком большой. Максимальный размер: 50 МБ")
+
     ext = os.path.splitext(file_obj.name)[1]
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    file_name = f"tasks/images/{uuid.uuid4().hex}_{timestamp}{ext}"
+    file_name = f"tasks/files/{uuid.uuid4().hex}_{timestamp}{ext}"
 
     saved_path = default_storage.save(file_name, file_obj)
-
     return f"{settings.MEDIA_URL}{saved_path}".replace("\\", "/")
 
 
@@ -123,14 +132,15 @@ def _update_existing_task(task_id, section, task_type, serializer_class, data):
     specific_obj = getattr(task, "specific", None)
     is_copy_task = task.root_type == "copy"
 
-    if isinstance(specific_obj, ImageTask):
+    if isinstance(specific_obj, FileTask):
         item = data[0].copy() if isinstance(data, list) and data else data
         file_obj = item.pop("file", None)
         if file_obj:
-            specific_obj.file_path = _save_image_file(file_obj)
-
-        specific_obj.caption = item.get("caption", specific_obj.caption or "")
-        specific_obj.save()
+            try:
+                specific_obj.file_path = _save_file(file_obj)
+                specific_obj.save()
+            except ValueError as e:
+                return JsonResponse({"success": False, "errors": str(e)}, status=400)
 
     elif is_copy_task:
         task.edited_content = data if task_type in ["test", "true_false"] else data[0]
@@ -171,10 +181,16 @@ def _create_new_task(section, task_type, serializer_class, data):
             status=400,
         )
 
-    if task_type == "image":
+    if task_type == "file":
         file_obj = item.pop("file", None)
-        file_path = _save_image_file(file_obj) if file_obj else None
-        item["file_path"] = file_path
+        if file_obj:
+            try:
+                file_path = _save_file(file_obj)
+                item["file_path"] = file_path
+            except ValueError as e:
+                return JsonResponse({"success": False, "errors": str(e)}, status=400)
+        else:
+            return JsonResponse({"success": False, "errors": "Файл не загружен"}, status=400)
 
     obj = serializer_class(data=item)
     obj.is_valid(raise_exception=True)
@@ -183,50 +199,6 @@ def _create_new_task(section, task_type, serializer_class, data):
     task = Task.objects.create(
         section=section,
         task_type=task_type,
-        root_type="original",
-        content_type=ContentType.objects.get_for_model(specific_obj),
-        object_id=specific_obj.id,
-        edited_content={},
-    )
-
-    return JsonResponse({
-        "success": True,
-        "task_id": str(task.id),
-        "task_type": task.task_type,
-        "data": serialize_task_data(task),
-    })
-
-
-def _create_test_task(section, serializer_class, data):
-    obj = serializer_class(data={"questions": data})
-    obj.is_valid(raise_exception=True)
-    specific_obj = obj.save()
-
-    task = Task.objects.create(
-        section=section,
-        task_type="test",
-        root_type="original",
-        content_type=ContentType.objects.get_for_model(specific_obj),
-        object_id=specific_obj.id,
-        edited_content={},
-    )
-
-    return JsonResponse({
-        "success": True,
-        "task_id": str(task.id),
-        "task_type": task.task_type,
-        "data": serialize_task_data(task),
-    })
-
-
-def _create_true_false_task(section, serializer_class, data):
-    obj = serializer_class(data={"statements": data})
-    obj.is_valid(raise_exception=True)
-    specific_obj = obj.save()
-
-    task = Task.objects.create(
-        section=section,
-        task_type="true_false",
         root_type="original",
         content_type=ContentType.objects.get_for_model(specific_obj),
         object_id=specific_obj.id,

@@ -343,12 +343,6 @@ export const TASK_MAP = {
         icon:   "bi-pen",
         label:  "Пропуски"
     },
-    image: {
-        render: ["/static/js/tasks/display/templates/common/image.js", "renderImageTask"],
-        edit:   ["/static/js/tasks/editor/templates/common/image.js", "renderImageTaskEditor"],
-        icon:   "bi-image",
-        label:  "Изображение"
-    },
     note: {
         render: ["/static/js/tasks/display/templates/common/note.js", "renderNoteTask"],
         edit:   ["/static/js/tasks/editor/templates/common/note.js", "renderNoteTaskEditor"],

@@ -1,4 +1,5 @@
-from courses.models import Task, TestTask, TrueFalseTask, FillGapsTask, MatchCardsTask, TextInputTask, ImageTask, WordListTask
+from courses.models import Task, TestTask, TrueFalseTask, FillGapsTask, MatchCardsTask, TextInputTask, WordListTask, \
+    FileTask
 
 
 def get_task_effective_data(task: Task) -> dict:
@@ -29,9 +30,8 @@ def get_task_effective_data(task: Task) -> dict:
     elif task.task_type == "text_input" and isinstance(specific_obj, TextInputTask):
         data["prompt"] = getattr(specific_obj, "prompt", "")
         data["default_text"] = getattr(specific_obj, "default_text", "")
-    elif task.task_type == "image" and isinstance(specific_obj, ImageTask):
+    elif task.task_type == "file" and isinstance(specific_obj, FileTask):
         data["file_path"] = getattr(specific_obj, "file_path", None)
-        data["caption"] = getattr(specific_obj, "caption", "")
     elif task.task_type == "word_list" and isinstance(specific_obj, WordListTask):
         data["words"] = getattr(specific_obj, "words", [])
     else:

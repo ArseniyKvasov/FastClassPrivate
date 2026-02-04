@@ -61,33 +61,6 @@ export const TaskValidators = {
         return [{ content }];
     },
 
-    image: function(taskCard) {
-        const input = taskCard.querySelector(".image-input");
-        const preview = taskCard.querySelector(".preview-img");
-
-        if (!input?.files?.length && !preview?.src) {
-            showNotification("Добавьте изображение");
-            return null;
-        }
-
-        const file = input.files[0] || null;
-        const caption = taskCard.querySelector(".caption-input")?.value.trim() || "";
-
-        const allowed = ["image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp"];
-        if (file && !allowed.includes(file.type)) {
-            showNotification("Неподдерживаемый формат изображения");
-            return null;
-        }
-
-        const maxSizeMB = 5;
-        if (file && file.size > maxSizeMB * 1024 * 1024) {
-            showNotification(`Изображение не должно превышать ${maxSizeMB} МБ`);
-            return null;
-        }
-
-        return [{ file, caption }];
-    },
-
     true_false: function(taskCard) {
         const rows = [...taskCard.querySelectorAll(".statement-row")];
         if (!rows.length) { showNotification("Добавьте хотя бы одно утверждение!"); return null; }
@@ -220,41 +193,33 @@ export const TaskValidators = {
     },
 
     file: function(taskCard) {
-        const linkEl = taskCard.querySelector(".file-link-input");
-        const link = linkEl?.value.trim() || "";
+        const input = taskCard.querySelector(".file-input");
 
-        if (!link) {
-            showNotification("Введите ссылку на файл!");
+        if (!input.files.length) {
+            showNotification("Выберите файл!");
             return null;
         }
 
-        let url;
-        try {
-            url = new URL(link);
-        } catch (err) {
-            showNotification("Ссылка некорректна!");
-            return null;
-        }
-
-        const allowedDomains = [
-            "docs.google.com",
-            "drive.google.com",
-            "forms.gle",
-            "sites.google.com",
-            "calendar.google.com",
-            "maps.google.com",
+        const file = input.files[0];
+        const allowedTypes = [
+            'application/pdf',
+            'video/mp4', 'video/webm', 'video/ogg',
+            'audio/mpeg', 'audio/ogg', 'audio/wav', 'audio/webm',
+            'image/png', 'image/jpeg', 'image/gif', 'image/webp'
         ];
 
-        const hostname = url.hostname.toLowerCase();
-        const allowed = allowedDomains.some(domain => hostname === domain || hostname === `www.${domain}`);
-        if (!allowed) {
-            showNotification(
-                `Недопустимый ресурс. Поддерживаются: ${allowedDomains.join(", ")}`
-            );
+        if (!allowedTypes.includes(file.type)) {
+            showNotification("Разрешены только PDF, видео (MP4, WebM, OGG), аудио (MP3, OGG, WAV, WebM) и изображения (PNG, JPG, JPEG, GIF, WebP) файлы");
             return null;
         }
 
-        return [{ file_link: url }];
+        const maxSize = 50 * 1024 * 1024;
+        if (file.size > maxSize) {
+            showNotification("Файл слишком большой. Максимальный размер: 50 МБ");
+            return null;
+        }
+
+        return [{ file: file }];
     },
 
     word_list: function(taskCard) {
@@ -334,8 +299,9 @@ export async function saveTask(taskType, taskCard, taskId = null) {
     try {
         let result;
 
-        if (taskType === "image") {
+        if (["file"].includes(taskType)) {
             const fileObj = data[0];
+            console.log(data, fileObj);
             const body = new FormData();
             body.append("task_type", taskType);
             body.append("section_id", sectionId);

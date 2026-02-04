@@ -6,7 +6,7 @@ from rest_framework import serializers
 from urllib.parse import urlparse
 from courses.models import (
     TestTask, TrueFalseTask, FillGapsTask, MatchCardsTask,
-    NoteTask, ImageTask, TextInputTask, IntegrationTask, FileTask
+    NoteTask, TextInputTask, IntegrationTask, FileTask
 )
 
 SAFE_TAGS = ["b", "i", "u", "em", "strong", "ul", "ol", "li",
@@ -162,22 +162,6 @@ class NoteTaskSerializer(serializers.ModelSerializer):
         return value
 
 
-class ImageTaskSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ImageTask
-        fields = ["file_path", "caption"]
-
-    def validate_image(self, value):
-        if not value:
-            raise serializers.ValidationError("Изображение обязательно")
-        if not value.name.lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".webp")):
-            raise serializers.ValidationError("Допустимые форматы: PNG, JPG, JPEG, GIF, WEBP")
-        return value
-
-    def validate_caption(self, value):
-        return clean_text_style(value)
-
-
 class TextInputTaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = TextInputTask
@@ -267,36 +251,41 @@ class IntegrationTaskSerializer(serializers.ModelSerializer):
 
 
 class FileTaskSerializer(serializers.ModelSerializer):
+    file = serializers.FileField(write_only=True, required=False)
+
     class Meta:
         model = FileTask
-        fields = ["file_link"]
+        fields = ["file_path", "file"]
 
-    def validate_file_link(self, value: str) -> str:
+    def validate_file(self, value):
         """
-        Валидирует ссылку на файл.
-        Разрешены только основные домены и www-поддомены.
+        Валидация файла.
+        Вызывается автоматически для поля 'file'.
         """
         if not value:
-            raise serializers.ValidationError("Ссылка на файл не может быть пустой")
+            raise serializers.ValidationError("Файл обязателен")
 
-        try:
-            parsed = urlparse(value)
-        except Exception:
-            raise serializers.ValidationError("Ссылка некорректна")
+        allowed_extensions = [".pdf", ".mp4", ".webm", ".ogg", ".mp3", ".wav",
+                              ".png", ".jpg", ".jpeg", ".gif", ".webp"]
 
-        hostname = parsed.hostname or ""
-        allowed_domains = (
-            "docs.google.com",
-            "drive.google.com",
-            "forms.gle",
-            "sites.google.com",
-            "calendar.google.com",
-            "maps.google.com",
-        )
+        allowed_types = [
+            'application/pdf',
+            'video/mp4', 'video/webm', 'video/ogg',
+            'audio/mpeg', 'audio/ogg', 'audio/wav', 'audio/webm',
+            'image/png', 'image/jpeg', 'image/gif', 'image/webp'
+        ]
 
-        if not any(hostname == domain or hostname == f"www.{domain}" for domain in allowed_domains):
+        file_name = value.name.lower()
+        if not any(file_name.endswith(ext) for ext in allowed_extensions):
             raise serializers.ValidationError(
-                f"Недопустимый ресурс. Поддерживаются только основной домен и www-поддомен: {', '.join(allowed_domains)}"
+                f"Допустимые форматы: {', '.join([ext.lstrip('.') for ext in allowed_extensions])}"
             )
+
+        if value.content_type not in allowed_types:
+            raise serializers.ValidationError("Недопустимый тип файла")
+
+        max_size = 50 * 1024 * 1024
+        if value.size > max_size:
+            raise serializers.ValidationError("Максимальный размер файла: 50 МБ")
 
         return value

@@ -7,7 +7,7 @@ from django.conf import settings
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from courses.models import Course, Lesson, Section, Task, NoteTask, ImageTask
+from courses.models import Course, Lesson, Section, Task, NoteTask
 from django.contrib.contenttypes.models import ContentType
 
 User = get_user_model()

@@ -31,7 +31,6 @@ SUBJECT_CHOICES = [
 TYPE_CHOICES = [
     ("test", "Тест"),
     ("note", "Заметка"),
-    ("image", "Изображение"),
     ("true_false", "Правда или ложь"),
     ("fill_gaps", "Заполнить пропуски"),
     ("match_cards", "Соотнести карточки"),
