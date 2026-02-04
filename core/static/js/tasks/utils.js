@@ -391,6 +391,12 @@ export const TASK_MAP = {
         icon:   "bi-file-earmark",
         label:  "Файлы"
     },
+    whiteboard: {
+        render: ["/static/js/tasks/display/templates/common/whiteboard.js", "renderWhiteboardTask"],
+        edit:   ["/static/js/tasks/editor/templates/common/whiteboard.js", "renderWhiteboardTaskEditor"],
+        icon:   "bi-easel",
+        label:  "Доска"
+    },
     word_list: {
         render: ["/static/js/tasks/display/templates/languages/wordList.js", "renderWordListTask"],
         edit:   ["/static/js/tasks/editor/templates/languages/wordList.js", "renderWordListTaskEditor"],

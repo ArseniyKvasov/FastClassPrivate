@@ -81,6 +81,12 @@ CHANNEL_LAYERS = {
     },
 }
 
+CHANNELS_WS_PROTOCOLS = ["graphql-ws"]
+
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+SESSION_COOKIE_AGE = 7776000    # 90 дней
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+
 DATABASES = {
     "default": {
         "ENGINE": config('DB_ENGINE', default='django.db.backends.postgresql'),

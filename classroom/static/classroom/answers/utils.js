@@ -185,6 +185,5 @@ export async function processTaskAnswer(taskId) {
         await handleAnswer(answerData);
     } catch (e) {
         console.error("processTaskAnswer failed", e);
-        showNotification("Не удалось получить ответ задачи");
     }
 }

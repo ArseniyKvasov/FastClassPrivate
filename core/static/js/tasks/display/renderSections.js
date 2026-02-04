@@ -90,7 +90,7 @@ function highlightSelectedSection(sectionId) {
 }
 
 export async function selectSection(sectionId) {
-    if (!sectionId || sectionId === getSectionId()) return;
+    if (!sectionId) return;
 
     const sectionList = document.querySelectorAll('#section-list li[data-section-id]');
     const sectionExists = Array.from(sectionList).some(
@@ -99,6 +99,9 @@ export async function selectSection(sectionId) {
     if (!sectionExists) return;
 
     highlightSelectedSection(sectionId);
+
+    if (sectionId === getSectionId()) return;
+
     await loadSectionTasks(sectionId);
 }
 

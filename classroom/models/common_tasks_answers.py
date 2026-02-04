@@ -321,17 +321,53 @@ class TextInputTaskAnswer(BaseAnswer):
             models.UniqueConstraint(fields=["task", "user"], name="unique_textinput_answer_per_user_task")
         ]
 
+    def _get_default_text(self):
+        """
+        Вспомогательный метод для получения default_text из задания.
+        Возвращает default_text или пустую строку, если его нет.
+        """
+        try:
+            if hasattr(self.task, 'specific'):
+                task_specific = self.task.specific
+                if hasattr(task_specific, 'default_text'):
+                    return task_specific.default_text or ""
+        except Exception:
+            pass
+        return ""
+
     def save_answer_data(self, data):
-        self.current_text = data.get("current_text", "")
+        """
+        Сохраняет данные ответа.
+        Если передается текст (даже пустая строка), устанавливаем answered_at.
+        """
+        new_text = data.get("current_text", "")
+        self.current_text = new_text
+
         self.answered_at = timezone.now()
-        self.save()
+
+        self.save(update_fields=['current_text', 'answered_at'])
 
     def get_answer_data(self):
-        return {"current_text": self.current_text}
+        """
+        Возвращает данные ответа.
+        1) Если есть answered_at (был ответ) - возвращаем current_text
+        2) Если не было отвечено - возвращаем default_text из задания
+        """
+        print(self.answered_at)
+        if self.answered_at:
+            return {"current_text": self.current_text}
+        else:
+            return {"current_text": self._get_default_text()}
 
     def delete_answers(self):
+        """
+        Сбрасывает ответы.
+        Сбрасывает current_text и answered_at, затем вызывает родительский метод.
+        """
         self.current_text = ""
-        self.save()
+        self.answered_at = None
+        super().delete_answers()
+        self.save(update_fields=['current_text', 'answered_at', 'correct_answers', 'wrong_answers'])
 
     def __str__(self):
         return f"TextInputAnswer {self.user} -> {self.task_id}"

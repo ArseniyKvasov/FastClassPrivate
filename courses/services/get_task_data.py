@@ -22,10 +22,7 @@ def get_task_effective_data(task: Task) -> dict:
     elif task.task_type == "fill_gaps" and isinstance(specific_obj, FillGapsTask):
         data["text"] = getattr(specific_obj, "text", "")
         data["list_type"] = getattr(specific_obj, "list_type", "open")
-        if data["list_type"] == "open":
-            data["answers"] = getattr(specific_obj, "answers", [])
-        else:
-            data["answers"] = []
+        data["answers"] = getattr(specific_obj, "answers", [])
     elif task.task_type == "match_cards" and isinstance(specific_obj, MatchCardsTask):
         data["cards"] = getattr(specific_obj, "cards", [])
         data["shuffled_cards"] = getattr(specific_obj, "shuffled_cards", [])

@@ -80,11 +80,11 @@ export async function refreshSections() {
         return;
     }
 
-    const sectionToSelect = sections.find(
-        section => section.id === previousSectionId
-    )?.id || sections[0].id;
+    if (previousSectionId && sections.some(section => String(section.id) === String(previousSectionId))) {
+        return previousSectionId;
+    }
 
-    return sectionToSelect;
+    return sections[0].id;
 }
 
 export async function refreshClassroom() {
