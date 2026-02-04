@@ -1,5 +1,10 @@
 import { showNotification, escapeHtml, generateId } from "/static/js/tasks/utils.js";
 
+/**
+ * Рендерит редактор тестового задания
+ * @param {Object} taskData - Данные задания
+ * @returns {HTMLElement} Элемент редактора
+ */
 export function renderTestTaskEditor(taskData = null) {
     const card = document.createElement("div");
     card.className = "task-editor-card mb-4 p-3 bg-white border-0 rounded";
@@ -9,13 +14,10 @@ export function renderTestTaskEditor(taskData = null) {
             <h6 class="fw-semibold text-dark mb-0">Тест</h6>
             <button class="btn-close remove-task-btn small" title="Удалить задание"></button>
         </div>
-
         <div class="questions-wrapper"></div>
-
         <button class="btn btn-link text-primary fw-semibold mt-3 add-question-btn px-0" style="border:none;">
             <i class="bi bi-plus me-1"></i>Добавить вопрос
         </button>
-
         <button class="btn btn-success mt-2 w-100 fw-semibold save-btn">
             Сохранить
         </button>
@@ -39,7 +41,6 @@ export function renderTestTaskEditor(taskData = null) {
         initialQuestions.forEach((q, index) => {
             const block = _addNewQuestion(questionsWrapper, q);
             lastAnswerCount = Math.max(lastAnswerCount, q.options?.length || 3);
-
             if (index === 0) {
                 setTimeout(() => {
                     const firstInput = block.querySelector(".question-text");
@@ -85,9 +86,7 @@ export function renderTestTaskEditor(taskData = null) {
                         type="button"
                         title="Удалить вопрос"></button>
             </div>
-
             <div class="answers-container mb-2"></div>
-
             <button class="btn border-0 add-answer-btn text-secondary px-0"
                     type="button"
                     title="Добавить вариант">
@@ -97,15 +96,12 @@ export function renderTestTaskEditor(taskData = null) {
 
         const answersContainer = block.querySelector(".answers-container");
 
-        block.querySelector(".remove-question-btn")
-            .addEventListener("click", () => block.remove());
-
-        block.querySelector(".add-answer-btn")
-            .addEventListener("click", () => {
-                const newRow = addAnswer(answersContainer, qId);
-                newRow.querySelector(".answer-text").focus();
-                setLastAnswerCount(answersContainer.querySelectorAll(".answer-row").length);
-            });
+        block.querySelector(".remove-question-btn").addEventListener("click", () => block.remove());
+        block.querySelector(".add-answer-btn").addEventListener("click", () => {
+            const newRow = addAnswer(answersContainer, qId);
+            newRow.querySelector(".answer-text").focus();
+            setLastAnswerCount(answersContainer.querySelectorAll(".answer-row").length);
+        });
 
         const options = Array.isArray(qData?.options) && qData.options.length
             ? qData.options
@@ -135,7 +131,6 @@ export function renderTestTaskEditor(taskData = null) {
         });
 
         setLastAnswerCount(answersContainer.querySelectorAll(".answer-row").length);
-
         return block;
     }
 
@@ -230,7 +225,6 @@ export function renderTestTaskEditor(taskData = null) {
         const answersContainer = block.querySelector(".answers-container");
 
         if (qInput) qInput.value = parsedQuestion.question || "";
-
         answersContainer.innerHTML = "";
 
         const opts = Array.isArray(parsedQuestion.options) && parsedQuestion.options.length
@@ -246,10 +240,19 @@ export function renderTestTaskEditor(taskData = null) {
     return card;
 }
 
+/**
+ * Добавляет вариант ответа в контейнер
+ * @param {HTMLElement} container - Контейнер для вариантов
+ * @param {string} questionId - ID вопроса
+ * @param {Object} answerData - Данные ответа
+ * @returns {HTMLElement} Созданный элемент варианта
+ */
 export function addAnswer(container, questionId, answerData = null) {
     const aId = generateId("answer");
-    const isChecked = answerData?.is_correct ? "checked" : "";
-    const textValue = answerData?.text || "";
+    const originalText = answerData?.text || "";
+    const parsed = parseAnswerTextForMarkers(originalText);
+    const isChecked = answerData?.is_correct || parsed.hasCorrectMarker ? "checked" : "";
+    const displayText = parsed.cleanText;
 
     const row = document.createElement("div");
     row.className = "answer-row mb-2 d-flex align-items-center me-4 ms-2";
@@ -266,21 +269,35 @@ export function addAnswer(container, questionId, answerData = null) {
         <input type="text"
                class="form-control answer-text"
                placeholder="Ответ"
-               value="${escapeHtml(textValue)}">
+               value="${escapeHtml(displayText)}">
         <button class="btn-close remove-answer-btn ms-2 small"
                 style="transform: scale(0.75);"
                 type="button"
                 title="Удалить вариант"></button>
     `;
 
-    row.querySelector(".remove-answer-btn")
-        .addEventListener("click", () => row.remove());
+    row.querySelector(".remove-answer-btn").addEventListener("click", () => row.remove());
+
+    const textInput = row.querySelector(".answer-text");
+    const checkbox = row.querySelector(".correct-answer-checkbox");
+
+    textInput.addEventListener("input", () => {
+        const parsed = parseAnswerTextForMarkers(textInput.value);
+        if (parsed.hasCorrectMarker || parsed.hasIncorrectMarker) {
+            textInput.value = parsed.cleanText;
+            checkbox.checked = parsed.hasCorrectMarker;
+        }
+    });
 
     container.appendChild(row);
-
     return row;
 }
 
+/**
+ * Парсит вставленный текст для создания вопросов и ответов
+ * @param {string} rawText - Сырой текст для парсинга
+ * @returns {Array} Массив распарсенных вопросов
+ */
 function parsePastedText(rawText) {
     const text = rawText.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
     const blocks = text.split(/\n\s*\n+/).map(b => b.trim()).filter(Boolean);
@@ -298,6 +315,11 @@ function parsePastedText(rawText) {
     return parsed;
 }
 
+/**
+ * Парсит одиночный блок текста
+ * @param {string} blockText - Текст блока
+ * @returns {Array|Object} Распарсенные данные
+ */
 function _parseSingleBlock(blockText) {
     const rawLines = blockText.split("\n");
     const lines = rawLines.map(l => l.replace(/\u00A0/g, " ").replace(/\t/g, " ").trim()).filter(Boolean);
@@ -315,6 +337,15 @@ function _parseSingleBlock(blockText) {
         if (!current) return;
         if (!current.question) current.question = "";
         if (!Array.isArray(current.options)) current.options = [];
+
+        current.options = current.options.map(opt => {
+            const parsed = parseAnswerTextForMarkers(opt.option);
+            return {
+                option: parsed.cleanText,
+                is_correct: parsed.hasCorrectMarker || false
+            };
+        });
+
         results.push(current);
         current = null;
     }
@@ -386,6 +417,61 @@ function _parseSingleBlock(blockText) {
     }
 
     pushCurrent();
-
     return results;
+}
+
+/**
+ * Парсит текст ответа для поиска маркеров верно/неверно
+ * @param {string} text - Текст ответа
+ * @returns {Object} Объект с очищенным текстом и флагами
+ */
+function parseAnswerTextForMarkers(text) {
+    const trimmed = text.trim();
+
+    const correctPatterns = [
+        /^\s*(.*?)\s*\(\s*(верно|правильный ответ|true|правильно|correct|✓|✔|✅)\s*\)\s*$/i,
+        /^\s*(.*?)\s*\[\s*(верно|правильный ответ|true|правильно|correct|✓|✔|✅)\s*\]\s*$/i,
+        /^\s*(.*?)\s*-\s*(верно|правильный ответ|true|правильно|correct|✓|✔|✅)\s*$/i,
+        /^\s*(.*?)\s*\(✓\)\s*$/i,
+        /^\s*(.*?)\s*\[✓\]\s*$/i
+    ];
+
+    const incorrectPatterns = [
+        /^\s*(.*?)\s*\(\s*(неверно|false|неправильно|incorrect|✗|✘|❌)\s*\)\s*$/i,
+        /^\s*(.*?)\s*\[\s*(неверно|false|неправильно|incorrect|✗|✘|❌)\s*\]\s*$/i,
+        /^\s*(.*?)\s*-\s*(неверно|false|неправильно|incorrect|✗|✘|❌)\s*$/i,
+        /^\s*(.*?)\s*\(✗\)\s*$/i,
+        /^\s*(.*?)\s*\[✗\]\s*$/i
+    ];
+
+    for (const pattern of correctPatterns) {
+        const match = trimmed.match(pattern);
+        if (match) {
+            return {
+                cleanText: match[1].trim(),
+                hasCorrectMarker: true,
+                hasIncorrectMarker: false,
+                originalText: trimmed
+            };
+        }
+    }
+
+    for (const pattern of incorrectPatterns) {
+        const match = trimmed.match(pattern);
+        if (match) {
+            return {
+                cleanText: match[1].trim(),
+                hasCorrectMarker: false,
+                hasIncorrectMarker: true,
+                originalText: trimmed
+            };
+        }
+    }
+
+    return {
+        cleanText: trimmed,
+        hasCorrectMarker: false,
+        hasIncorrectMarker: false,
+        originalText: trimmed
+    };
 }

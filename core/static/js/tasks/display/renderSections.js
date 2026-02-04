@@ -85,8 +85,6 @@ function highlightSelectedSection(sectionId) {
         btn.classList.toggle('fw-bold', active);
         btn.classList.toggle('text-primary', active);
     });
-
-    if (sectionId) infoEl.dataset.sectionId = sectionId;
 }
 
 export async function selectSection(sectionId) {
@@ -100,7 +98,9 @@ export async function selectSection(sectionId) {
 
     highlightSelectedSection(sectionId);
 
-    if (sectionId === getSectionId()) return;
+    if (String(sectionId) === getSectionId()) return;
+
+    if (sectionId) infoEl.dataset.sectionId = sectionId;
 
     await loadSectionTasks(sectionId);
 }
