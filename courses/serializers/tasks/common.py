@@ -6,7 +6,8 @@ from rest_framework import serializers
 from urllib.parse import urlparse
 from courses.models import (
     TestTask, TrueFalseTask, FillGapsTask, MatchCardsTask,
-    NoteTask, TextInputTask, IntegrationTask, FileTask
+    NoteTask, TextInputTask, IntegrationTask, FileTask,
+    WordListTask
 )
 
 SAFE_TAGS = ["b", "i", "u", "em", "strong", "ul", "ol", "li",
@@ -29,11 +30,8 @@ CSS_SANITIZER = CSSSanitizer(
     ]
 )
 
+
 def clean_text_style(text: str) -> str:
-    """
-    Очистка текста от опасного HTML и стилей.
-    Все тексты будут в едином стиле <p>...</p>.
-    """
     cleaned = bleach.clean(
         text,
         tags=SAFE_TAGS,
@@ -46,6 +44,9 @@ def clean_text_style(text: str) -> str:
 
 
 class TestTaskSerializer(serializers.ModelSerializer):
+    """
+    Сериализатор для тестовых задач.
+    """
     class Meta:
         model = TestTask
         fields = ["questions"]
@@ -72,6 +73,9 @@ class TestTaskSerializer(serializers.ModelSerializer):
 
 
 class TrueFalseTaskSerializer(serializers.ModelSerializer):
+    """
+    Сериализатор для задач "Правда/Ложь".
+    """
     class Meta:
         model = TrueFalseTask
         fields = ["statements"]
@@ -90,6 +94,9 @@ class TrueFalseTaskSerializer(serializers.ModelSerializer):
 
 
 class FillGapsTaskSerializer(serializers.ModelSerializer):
+    """
+    Сериализатор для задач на заполнение пропусков.
+    """
     class Meta:
         model = FillGapsTask
         fields = ["text", "answers", "list_type"]
@@ -113,6 +120,9 @@ class FillGapsTaskSerializer(serializers.ModelSerializer):
 
 
 class MatchCardsTaskSerializer(serializers.ModelSerializer):
+    """
+    Сериализатор для задач на сопоставление карточек.
+    """
     class Meta:
         model = MatchCardsTask
         fields = ["cards"]
@@ -148,6 +158,9 @@ class MatchCardsTaskSerializer(serializers.ModelSerializer):
 
 
 class NoteTaskSerializer(serializers.ModelSerializer):
+    """
+    Сериализатор для задач-заметок.
+    """
     class Meta:
         model = NoteTask
         fields = ["content"]
@@ -163,6 +176,9 @@ class NoteTaskSerializer(serializers.ModelSerializer):
 
 
 class TextInputTaskSerializer(serializers.ModelSerializer):
+    """
+    Сериализатор для задач на ввод текста.
+    """
     class Meta:
         model = TextInputTask
         fields = ["prompt", "default_text"]
@@ -178,20 +194,14 @@ class TextInputTaskSerializer(serializers.ModelSerializer):
 
 
 class IntegrationTaskSerializer(serializers.ModelSerializer):
+    """
+    Сериализатор для задач интеграции с внешними ресурсами.
+    """
     class Meta:
         model = IntegrationTask
         fields = ["embed_code"]
 
     def validate_embed_code(self, value):
-        """
-        Валидирует iframe embed-код и разрешённые домены.
-
-        Работают только:
-        - example.com
-        - www.example.com
-
-        Все остальные поддомены запрещены.
-        """
         if not value:
             raise serializers.ValidationError("Embed-код не может быть пустым")
 
@@ -251,6 +261,9 @@ class IntegrationTaskSerializer(serializers.ModelSerializer):
 
 
 class FileTaskSerializer(serializers.ModelSerializer):
+    """
+    Сериализатор для задач с файлами.
+    """
     file = serializers.FileField(write_only=True, required=False)
 
     class Meta:
@@ -258,10 +271,6 @@ class FileTaskSerializer(serializers.ModelSerializer):
         fields = ["file_path", "file"]
 
     def validate_file(self, value):
-        """
-        Валидация файла.
-        Вызывается автоматически для поля 'file'.
-        """
         if not value:
             raise serializers.ValidationError("Файл обязателен")
 

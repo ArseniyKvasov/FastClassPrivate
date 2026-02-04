@@ -2,7 +2,7 @@ from courses.models import Task, TestTask, TrueFalseTask, FillGapsTask, MatchCar
     FileTask
 
 
-def get_task_effective_data(task: Task) -> dict:
+def get_effective_data(task: Task) -> dict:
     """
     Возвращает данные задачи с учётом edited_content.
     Если есть edited_content, оно накладывается поверх данных specific.

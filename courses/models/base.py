@@ -1,14 +1,3 @@
-"""
-Модели для системы курсов с поддержкой оригиналов, клонов и копий.
-Алгоритм flow создания и распространения курсов:
-1. Создание: Пользователь создает оригинальный курс (root_type="original")
-2. Публикация: Администратор создает клон (root_type="clone") на основе оригинального курса
-3. Копирование: Пользователь создает копию (root_type="copy") на основе клона
-4. Обновление оригинала -> Синхронизация клона -> Синхронизация копий
-
-Каждый пользователь может иметь только одну копию каждого курса-клона.
-"""
-
 import os
 from django.conf import settings
 from django.contrib.auth.models import User
@@ -47,16 +36,13 @@ ROOT_TYPE_CHOICES = [
 
 
 class CourseQuerySet(models.QuerySet):
+    """
+    QuerySet для работы с курсами.
+    """
     def active(self):
         return self.filter(deactivated_at__isnull=True)
 
     def for_selection(self, user):
-        """
-        Возвращает queryset курсов для выбора урока:
-        - оригиналы пользователя
-        - копии пользователя
-        - публичные клоны, не связанные с копиями пользователя
-        """
         linked_clone_ids = self.model.objects.filter(
             creator=user,
             root_type="copy",
@@ -75,8 +61,9 @@ class CourseQuerySet(models.QuerySet):
 
 
 class Course(models.Model):
-    """Модель курса с поддержкой оригиналов, клонов и копий."""
-
+    """
+    Модель курса с поддержкой оригиналов, клонов и копий.
+    """
     id = models.BigAutoField(primary_key=True)
     creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name="courses")
     linked_to = models.ForeignKey(
@@ -85,13 +72,11 @@ class Course(models.Model):
         blank=True,
         on_delete=models.PROTECT,
         related_name="linked_copies",
-        help_text="Оригинальный курс, если это копия или клон"
     )
     root_type = models.CharField(
         max_length=20,
         choices=ROOT_TYPE_CHOICES,
         default="original",
-        help_text="Тип курса: оригинал, клон или копия"
     )
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
@@ -108,31 +93,19 @@ class Course(models.Model):
 
     @property
     def is_active(self):
-        """Проверка, активен ли курс."""
         return self.deactivated_at is None
 
     def deactivate(self):
-        """Деактивация курса."""
         if self.is_active:
             self.deactivated_at = timezone.now()
             self.save(update_fields=['deactivated_at'])
 
     def activate(self):
-        """Активация курса."""
         if not self.is_active:
             self.deactivated_at = None
             self.save(update_fields=['deactivated_at'])
 
     def get_user_copy(self, user):
-        """
-        Получение копии курса пользователя.
-
-        Args:
-            user: Пользователь для поиска копии
-
-        Returns:
-            Course or None: Копия курса пользователя или None
-        """
         if self.root_type == "clone":
             return Course.objects.filter(
                 creator=user,
@@ -165,9 +138,6 @@ class Course(models.Model):
         return CopyService.sync_copy_with_clone(self)
 
     def delete(self, using=None, keep_parents=False):
-        """
-        Удаление курса с учетом связанных копий.
-        """
         if self.linked_to:
             with transaction.atomic():
                 for lesson in self.lessons.all():
@@ -198,8 +168,9 @@ class Course(models.Model):
 
 
 class Lesson(models.Model):
-    """Модель урока курса."""
-
+    """
+    Модель урока курса.
+    """
     id = models.BigAutoField(primary_key=True)
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="lessons")
     linked_to = models.ForeignKey(
@@ -222,24 +193,20 @@ class Lesson(models.Model):
         return f"{self.title} ({self.course.title})"
 
     def save(self, *args, **kwargs):
-        """Сохранение урока с автоматическим определением порядка."""
         if not self.order or self.order == 0:
             max_order = Lesson.objects.filter(course=self.course).aggregate(models.Max('order'))['order__max'] or 0
             self.order = max_order + 1
         super().save(*args, **kwargs)
 
     def synchronize_with_original(self):
-        """Синхронизация клона урока с оригиналом."""
         from courses.services import CloneService
         CloneService._sync_lesson_with_original(self)
 
     def synchronize_with_clone(self):
-        """Синхронизация копии урока с клоном."""
         from courses.services import CopyService
         CopyService._sync_lesson_with_clone(self)
 
     def delete(self, using=None, keep_parents=False):
-        """Удаление урока с удалением связанных секций."""
         with transaction.atomic():
             for section in self.sections.all():
                 section.delete()
@@ -247,8 +214,9 @@ class Lesson(models.Model):
 
 
 class Section(models.Model):
-    """Модель секции урока."""
-
+    """
+    Модель секции урока.
+    """
     id = models.BigAutoField(primary_key=True)
     lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name="sections")
     linked_to = models.ForeignKey(
@@ -270,24 +238,20 @@ class Section(models.Model):
         return f"{self.title} ({self.lesson.title})"
 
     def save(self, *args, **kwargs):
-        """Сохранение секции с автоматическим определением порядка."""
         if not self.order or self.order == 0:
             max_order = Section.objects.filter(lesson=self.lesson).aggregate(models.Max('order'))['order__max'] or 0
             self.order = max_order + 1
         super().save(*args, **kwargs)
 
     def synchronize_with_original(self):
-        """Синхронизация клона секции с оригиналом."""
         from courses.services import CloneService
         CloneService._sync_section_with_original(self)
 
     def synchronize_with_clone(self):
-        """Синхронизация копии секции с клоном."""
         from courses.services import CopyService
         CopyService._sync_section_with_clone(self)
 
     def delete(self, using=None, keep_parents=False):
-        """Удаление секции с удалением связанных задач."""
         with transaction.atomic():
             for task in self.tasks.all():
                 task.delete()
@@ -295,8 +259,9 @@ class Section(models.Model):
 
 
 class Task(models.Model):
-    """Модель задачи в секции с поддержкой различных типов контента."""
-
+    """
+    Модель задачи в секции с поддержкой различных типов контента.
+    """
     id = models.BigAutoField(primary_key=True)
     section = models.ForeignKey(Section, on_delete=models.CASCADE, related_name="tasks")
     linked_to = models.ForeignKey(
@@ -324,26 +289,18 @@ class Task(models.Model):
         return f"{self.get_task_type_display()}: {specific_title or 'Без названия'}"
 
     def get_specific(self):
-        """
-        Получение связанного специфического объекта.
-
-        Returns:
-            object or None: Связанный объект или None
-        """
         try:
             return self.specific
         except Exception:
             return None
 
     def save(self, *args, **kwargs):
-        """Сохранение задачи с автоматическим определением порядка."""
         if not self.order or self.order == 0:
             max_order = Task.objects.filter(section=self.section).aggregate(models.Max('order'))['order__max'] or 0
             self.order = max_order + 1
         super().save(*args, **kwargs)
 
     def delete(self, using=None, keep_parents=False):
-        """Удаление задачи с учетом типа контента."""
         if self.root_type in ["original", "clone"]:
             spec = self.get_specific()
             if spec is not None:
@@ -364,3 +321,16 @@ class Task(models.Model):
                     except Exception:
                         pass
         super().delete(using=using, keep_parents=keep_parents)
+
+    def get_serialized_data(self):
+        from courses.serializers import SERIALIZER_MAP
+
+        if self.root_type == 'copy' and self.edited_content:
+            return self.edited_content
+
+        serializer_class = SERIALIZER_MAP.get(self.task_type)
+        if not serializer_class or not self.specific:
+            return {}
+
+        serializer = serializer_class(self.specific)
+        return serializer.data

@@ -2,17 +2,9 @@ import random
 from django.conf import settings
 import os
 from django.db import models
-from django.contrib.auth import get_user_model
-
-
-User = get_user_model()
 
 
 class TestTask(models.Model):
-    """
-    Содержит несколько вопросов в формате:
-    [{"question": str, "options": [{"option": str, "is_correct": bool}]}]
-    """
     questions = models.JSONField(default=list)
     total_answers = models.PositiveIntegerField(default=10)
 
@@ -22,10 +14,6 @@ class TestTask(models.Model):
 
 
 class TrueFalseTask(models.Model):
-    """
-    Содержит список утверждений для задачи типа "Правда/Ложь":
-    [{"statement": str, "is_true": bool}]
-    """
     statements = models.JSONField(default=list)
     total_answers = models.PositiveIntegerField(default=10)
 
@@ -42,20 +30,6 @@ class NoteTask(models.Model):
 
 
 class FillGapsTask(models.Model):
-    """
-    Тип задания: заполнить пропуски.
-
-    Поддерживает два формата:
-        1) open     — ученик видит список ответов
-        2) hidden   — пропуски со скрытым списком слов
-
-    Пример текста:
-        "She has lived in [London] for [five] years."
-
-    answers сохраняет список правильных ответов:
-        ["London", "five"]
-    """
-
     LIST_TYPE_CHOICES = [
         ("open", "Открытый ввод"),
         ("hidden", "Скрытый список слов"),
@@ -76,10 +50,6 @@ class FillGapsTask(models.Model):
 
 
 class MatchCardsTask(models.Model):
-    """
-    Карточки в формате:
-    [{"card_left": "cat", "card_right": "кот"}]
-    """
     cards = models.JSONField(default=list)
     shuffled_cards = models.JSONField(default=list)
     total_answers = models.PositiveIntegerField(default=10)
@@ -119,10 +89,6 @@ class TextInputTask(models.Model):
 
 
 class IntegrationTask(models.Model):
-    """
-    Задание интеграции с внешними ресурсами.
-    embed_code - очищенный HTML код для встраивания
-    """
     embed_code = models.TextField(verbose_name="Встроенный код")
 
     def __str__(self):
@@ -130,16 +96,9 @@ class IntegrationTask(models.Model):
 
 
 class FileTask(models.Model):
-    """
-    Задача с файлом
-    """
     file_path = models.CharField(max_length=255)
 
     def save(self, *args, **kwargs):
-        """
-        При обновлении файла удаляет старый файл,
-        если file_path был изменён.
-        """
         if self.pk:
             try:
                 old = FileTask.objects.get(pk=self.pk)
@@ -168,19 +127,3 @@ class FileTask(models.Model):
 
     def __str__(self):
         return f"FileTask: {self.file_path}"
-
-
-class WordListTask(models.Model):
-    """
-    Список слов с переводом в формате:
-    [{"word": "cat", "translation": "кот"}]
-    """
-    words = models.JSONField(default=list)
-    total_words = models.PositiveIntegerField(default=0)
-
-    def save(self, *args, **kwargs):
-        source = self.words or []
-
-        self.total_words = len(source) if source else 0
-
-        super().save(*args, **kwargs)

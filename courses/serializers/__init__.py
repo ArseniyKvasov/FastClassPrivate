@@ -1,9 +1,9 @@
-from .common import TestTaskSerializer, NoteTaskSerializer, TrueFalseTaskSerializer, \
+from .tasks.common import TestTaskSerializer, NoteTaskSerializer, TrueFalseTaskSerializer, \
     FillGapsTaskSerializer, MatchCardsTaskSerializer, TextInputTaskSerializer, IntegrationTaskSerializer, \
     FileTaskSerializer
-from .languages import WordListTaskSerializer
+from .tasks.languages import WordListTaskSerializer
 
-TASK_SERIALIZER_MAP = {
+SERIALIZER_MAP = {
     "test": TestTaskSerializer,
     "note": NoteTaskSerializer,
     "true_false": TrueFalseTaskSerializer,
@@ -12,5 +12,6 @@ TASK_SERIALIZER_MAP = {
     "text_input": TextInputTaskSerializer,
     "integration": IntegrationTaskSerializer,
     "file": FileTaskSerializer,
+
     "word_list": WordListTaskSerializer,
 }
