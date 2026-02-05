@@ -20,6 +20,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . /app
 
+RUN mkdir -p /app/staticfiles /app/media && \
+    chown -R fastclass:fastclass /app/staticfiles /app/media && \
+    chmod -R 755 /app/staticfiles /app/media \
+
 RUN useradd -m -u 1000 fastclass && \
     chown -R fastclass:fastclass /app
 

@@ -14,15 +14,14 @@ from fastlesson import settings
 
 
 class TaskProcessor:
-    """
-    Единый обработчик создания/обновления задач.
-    """
+    """Единый обработчик создания/обновления задач."""
+
     def __init__(self, user, section_id, task_type, task_id=None, raw_data=None):
         self.user = user
         self.section_id = section_id
         self.task_type = task_type
         self.task_id = task_id
-        self.raw_data = raw_data or []
+        self.raw_data = raw_data or {}
         self.section = None
         self.task = None
 
@@ -43,15 +42,50 @@ class TaskProcessor:
 
     def _normalize_data(self):
         if self.task_type in ['test', 'true_false']:
+            if isinstance(self.raw_data, list):
+                if self.task_type == 'test':
+                    return {'questions': self.raw_data}
+                elif self.task_type == 'true_false':
+                    return {'statements': self.raw_data}
             return self.raw_data
+        if isinstance(self.raw_data, list) and self.raw_data:
+            return self.raw_data[0]
+        if isinstance(self.raw_data, dict):
+            return self.raw_data
+        return {}
 
-        if isinstance(self.raw_data, list):
-            return self.raw_data[0] if self.raw_data else {}
-        return self.raw_data
+    def _process_test_data(self, data):
+        if not isinstance(data, dict):
+            return data
+
+        if self.task_type == 'test':
+            if isinstance(data.get('questions'), list):
+                for question in data['questions']:
+                    if isinstance(question, dict):
+                        options = question.get('options', [])
+                        if options and isinstance(options[0], str):
+                            question['options'] = [
+                                {'option': opt, 'is_correct': False}
+                                for opt in options
+                            ]
+        elif self.task_type == 'true_false':
+            if isinstance(data.get('statements'), list):
+                for i, statement in enumerate(data['statements']):
+                    if isinstance(statement, str):
+                        data['statements'] = [
+                            {'statement': stmt, 'is_true': False}
+                            for stmt in data['statements']
+                        ]
+                        break
+
+        return data
 
     def _process_file_if_needed(self, data):
         if self.task_type != 'file':
             return data
+
+        if not isinstance(data, dict):
+            raise ValueError("Данные должны быть словарем для типа 'file'")
 
         file_obj = data.get('file')
         if not file_obj:
@@ -114,16 +148,22 @@ class TaskProcessor:
             SerializerClass = self._get_serializer_class()
 
             if self.task_id:
-                self.task = Task.objects.select_related('specific').get(id=self.task_id)
-                if self.task.section_id != self.section_id:
+                self.task = Task.objects.get(id=self.task_id)
+                if str(self.task.section_id) != str(self.section_id):
                     raise ValueError("Задача не принадлежит указанному разделу")
 
             data = self._normalize_data()
+            data = self._process_test_data(data)
+
             if self.task_type == 'file':
                 data = self._process_file_if_needed(data)
 
-            if self.task and hasattr(self.task, 'specific'):
-                serializer = SerializerClass(self.task.specific, data=data, partial=True)
+            if self.task:
+                specific_obj = self.task.specific
+                if specific_obj:
+                    serializer = SerializerClass(specific_obj, data=data, partial=True)
+                else:
+                    serializer = SerializerClass(data=data)
             else:
                 serializer = SerializerClass(data=data)
 
@@ -148,6 +188,7 @@ class TaskProcessor:
                 "errors": str(e)
             }, status=400)
         except Exception as e:
+            print(e)
             return JsonResponse({
                 "success": False,
                 "errors": "Внутренняя ошибка сервера"
@@ -155,9 +196,7 @@ class TaskProcessor:
 
 
 def serialize_task_data(task: Task):
-    """
-    Сериализация данных задачи.
-    """
+    """Сериализация данных задачи."""
     SerializerClass = SERIALIZER_MAP.get(task.task_type)
     if not SerializerClass:
         return {}

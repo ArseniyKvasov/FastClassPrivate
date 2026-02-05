@@ -1,10 +1,5 @@
 import { showNotification, escapeHtml, generateId } from "/static/js/tasks/utils.js";
 
-/**
- * Рендерит редактор тестового задания
- * @param {Object} taskData - Данные задания
- * @returns {HTMLElement} Элемент редактора
- */
 export function renderTestTaskEditor(taskData = null) {
     const card = document.createElement("div");
     card.className = "task-editor-card mb-4 p-3 bg-white border-0 rounded";
@@ -240,13 +235,6 @@ export function renderTestTaskEditor(taskData = null) {
     return card;
 }
 
-/**
- * Добавляет вариант ответа в контейнер
- * @param {HTMLElement} container - Контейнер для вариантов
- * @param {string} questionId - ID вопроса
- * @param {Object} answerData - Данные ответа
- * @returns {HTMLElement} Созданный элемент варианта
- */
 export function addAnswer(container, questionId, answerData = null) {
     const aId = generateId("answer");
     const originalText = answerData?.text || "";
@@ -293,11 +281,6 @@ export function addAnswer(container, questionId, answerData = null) {
     return row;
 }
 
-/**
- * Парсит вставленный текст для создания вопросов и ответов
- * @param {string} rawText - Сырой текст для парсинга
- * @returns {Array} Массив распарсенных вопросов
- */
 function parsePastedText(rawText) {
     const text = rawText.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
     const blocks = text.split(/\n\s*\n+/).map(b => b.trim()).filter(Boolean);
@@ -315,11 +298,6 @@ function parsePastedText(rawText) {
     return parsed;
 }
 
-/**
- * Парсит одиночный блок текста
- * @param {string} blockText - Текст блока
- * @returns {Array|Object} Распарсенные данные
- */
 function _parseSingleBlock(blockText) {
     const rawLines = blockText.split("\n");
     const lines = rawLines.map(l => l.replace(/\u00A0/g, " ").replace(/\t/g, " ").trim()).filter(Boolean);
@@ -337,14 +315,6 @@ function _parseSingleBlock(blockText) {
         if (!current) return;
         if (!current.question) current.question = "";
         if (!Array.isArray(current.options)) current.options = [];
-
-        current.options = current.options.map(opt => {
-            const parsed = parseAnswerTextForMarkers(opt.option);
-            return {
-                option: parsed.cleanText,
-                is_correct: parsed.hasCorrectMarker || false
-            };
-        });
 
         results.push(current);
         current = null;
@@ -364,13 +334,21 @@ function _parseSingleBlock(blockText) {
 
         if (oMatch) {
             if (!current) current = { question: "", options: [] };
-            current.options.push({ option: oMatch[2].trim() });
+            const parsedOption = parseAnswerTextForMarkers(oMatch[2].trim());
+            current.options.push({
+                option: parsedOption.cleanText,
+                is_correct: parsedOption.hasCorrectMarker
+            });
             continue;
         }
 
         if (bMatch) {
             if (!current) current = { question: "", options: [] };
-            current.options.push({ option: bMatch[1].trim() });
+            const parsedOption = parseAnswerTextForMarkers(bMatch[1].trim());
+            current.options.push({
+                option: parsedOption.cleanText,
+                is_correct: parsedOption.hasCorrectMarker
+            });
             continue;
         }
 
@@ -410,7 +388,9 @@ function _parseSingleBlock(blockText) {
 
         if (current.options.length > 0) {
             const last = current.options[current.options.length - 1];
-            last.option = (last.option + " " + line).trim();
+            const parsedOption = parseAnswerTextForMarkers((last.option + " " + line).trim());
+            last.option = parsedOption.cleanText;
+            last.is_correct = parsedOption.hasCorrectMarker || last.is_correct;
         } else {
             current.question = (current.question + " " + line).trim();
         }
@@ -420,11 +400,6 @@ function _parseSingleBlock(blockText) {
     return results;
 }
 
-/**
- * Парсит текст ответа для поиска маркеров верно/неверно
- * @param {string} text - Текст ответа
- * @returns {Object} Объект с очищенным текстом и флагами
- */
 function parseAnswerTextForMarkers(text) {
     const trimmed = text.trim();
 
@@ -433,7 +408,12 @@ function parseAnswerTextForMarkers(text) {
         /^\s*(.*?)\s*\[\s*(верно|правильный ответ|true|правильно|correct|✓|✔|✅)\s*\]\s*$/i,
         /^\s*(.*?)\s*-\s*(верно|правильный ответ|true|правильно|correct|✓|✔|✅)\s*$/i,
         /^\s*(.*?)\s*\(✓\)\s*$/i,
-        /^\s*(.*?)\s*\[✓\]\s*$/i
+        /^\s*(.*?)\s*\[✓\]\s*$/i,
+        /^\s*(.*?)\s*✓\s*$/,
+        /^\s*(.*?)\s*✔\s*$/,
+        /^\s*(.*?)\s*✅\s*$/,
+        /^\s*(✓|✔|✅)\s*(.*?)\s*$/,
+        /^\s*(.*?)\s*(✓|✔|✅)\s*$/
     ];
 
     const incorrectPatterns = [
@@ -441,7 +421,12 @@ function parseAnswerTextForMarkers(text) {
         /^\s*(.*?)\s*\[\s*(неверно|false|неправильно|incorrect|✗|✘|❌)\s*\]\s*$/i,
         /^\s*(.*?)\s*-\s*(неверно|false|неправильно|incorrect|✗|✘|❌)\s*$/i,
         /^\s*(.*?)\s*\(✗\)\s*$/i,
-        /^\s*(.*?)\s*\[✗\]\s*$/i
+        /^\s*(.*?)\s*\[✗\]\s*$/i,
+        /^\s*(.*?)\s*✗\s*$/,
+        /^\s*(.*?)\s*✘\s*$/,
+        /^\s*(.*?)\s*❌\s*$/,
+        /^\s*(✗|✘|❌)\s*(.*?)\s*$/,
+        /^\s*(.*?)\s*(✗|✘|❌)\s*$/
     ];
 
     for (const pattern of correctPatterns) {

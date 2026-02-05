@@ -1,6 +1,6 @@
 from django.contrib import admin
-from courses.models import Course, Lesson, FileTask
+from courses.models import Course, Lesson, TestTask
 
 admin.site.register(Course)
 admin.site.register(Lesson)
-admin.site.register(FileTask)
+admin.site.register(TestTask)

@@ -3,8 +3,6 @@
 
 {% block content %}
     <link rel="stylesheet" href="{% static 'css/tasks_styles.css' %}">
-    <link rel="stylesheet" href="/static/js/vendor/tldraw/tldraw.css">
-    <script src="/static/js/vendor/tldraw/tldraw.js"></script>
 
     <div id="info"
          data-is-teacher="{{ is_teacher|yesno:'true,false' }}"
@@ -121,6 +119,11 @@
             }
         </script>
     {% endif %}
+
+    <!-- Виртуальная доска -->
+    <link rel="stylesheet" href="{% static 'js/frontend.css' %}">
+    <script src="{% static 'js/excalidraw.bundle.js' %}"></script>
+
 
     <div class="row mt-4 d-flex justify-content-center">
         <div id="main-container" class="col-12 col-xl-9">

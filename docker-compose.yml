@@ -5,7 +5,7 @@ services:
     container_name: fastclass-web
     build: .
     ports:
-      - "${DOCKER_WEB_PORT:-8001}:8001"  # Изменено на 8001
+      - "${DOCKER_WEB_PORT:-8001}:8001"
     volumes:
       - .:/app
       - ./staticfiles:/app/staticfiles
@@ -30,10 +30,10 @@ services:
     command: >
       sh -c "
         echo 'Ожидание БД...' &&
-        while ! nc -z $${DB_HOST} $${DB_PORT}; do sleep 1; done &&
+        while ! nc -z db 5432; do sleep 1; done &&
         echo 'БД готова!' &&
         echo 'Ожидание Redis...' &&
-        while ! nc -z $${REDIS_HOST} $${REDIS_PORT}; do sleep 1; done &&
+        while ! nc -z redis 6379; do sleep 1; done &&
         echo 'Redis готов!' &&
         python manage.py migrate --noinput &&
         python manage.py collectstatic --noinput --clear &&
@@ -49,10 +49,8 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    env_file:
-      - .env
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-fastclass_user}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-fastclass_user} -d ${DB_NAME:-fastclass_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -66,8 +64,6 @@ services:
     command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
-    env_file:
-      - .env
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s

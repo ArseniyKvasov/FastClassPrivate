@@ -445,9 +445,6 @@ eventBus.on('taskCardRendered', ({ taskCard, task }) => {
     attachControlsToTaskCard(taskCard);
 });
 
-/**
- * @returns {void}
- */
 export function initEditTasks() {
     document.getElementById("add-task-btn")?.addEventListener("click", createTaskTypeSelector);
 }

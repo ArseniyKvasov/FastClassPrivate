@@ -44,9 +44,7 @@ def clean_text_style(text: str) -> str:
 
 
 class TestTaskSerializer(serializers.ModelSerializer):
-    """
-    Сериализатор для тестовых задач.
-    """
+    """Сериализатор для тестовых задач."""
     class Meta:
         model = TestTask
         fields = ["questions"]
@@ -73,9 +71,7 @@ class TestTaskSerializer(serializers.ModelSerializer):
 
 
 class TrueFalseTaskSerializer(serializers.ModelSerializer):
-    """
-    Сериализатор для задач "Правда/Ложь".
-    """
+    """Сериализатор для задач "Правда/Ложь"."""
     class Meta:
         model = TrueFalseTask
         fields = ["statements"]
@@ -94,9 +90,7 @@ class TrueFalseTaskSerializer(serializers.ModelSerializer):
 
 
 class FillGapsTaskSerializer(serializers.ModelSerializer):
-    """
-    Сериализатор для задач на заполнение пропусков.
-    """
+    """Сериализатор для задач на заполнение пропусков."""
     class Meta:
         model = FillGapsTask
         fields = ["text", "answers", "list_type"]
@@ -120,9 +114,7 @@ class FillGapsTaskSerializer(serializers.ModelSerializer):
 
 
 class MatchCardsTaskSerializer(serializers.ModelSerializer):
-    """
-    Сериализатор для задач на сопоставление карточек.
-    """
+    """Сериализатор для задач на сопоставление карточек."""
     class Meta:
         model = MatchCardsTask
         fields = ["cards"]
@@ -158,9 +150,7 @@ class MatchCardsTaskSerializer(serializers.ModelSerializer):
 
 
 class NoteTaskSerializer(serializers.ModelSerializer):
-    """
-    Сериализатор для задач-заметок.
-    """
+    """Сериализатор для задач-заметок."""
     class Meta:
         model = NoteTask
         fields = ["content"]
@@ -176,9 +166,7 @@ class NoteTaskSerializer(serializers.ModelSerializer):
 
 
 class TextInputTaskSerializer(serializers.ModelSerializer):
-    """
-    Сериализатор для задач на ввод текста.
-    """
+    """Сериализатор для задач на ввод текста."""
     class Meta:
         model = TextInputTask
         fields = ["prompt", "default_text"]
@@ -194,9 +182,7 @@ class TextInputTaskSerializer(serializers.ModelSerializer):
 
 
 class IntegrationTaskSerializer(serializers.ModelSerializer):
-    """
-    Сериализатор для задач интеграции с внешними ресурсами.
-    """
+    """Сериализатор для задач интеграции с внешними ресурсами."""
     class Meta:
         model = IntegrationTask
         fields = ["embed_code"]
@@ -261,9 +247,7 @@ class IntegrationTaskSerializer(serializers.ModelSerializer):
 
 
 class FileTaskSerializer(serializers.ModelSerializer):
-    """
-    Сериализатор для задач с файлами.
-    """
+    """Сериализатор для задач с файлами."""
     file = serializers.FileField(write_only=True, required=False)
 
     class Meta:

@@ -162,20 +162,80 @@ function parsePastedTrueFalse(rawText) {
     const lines = rawText.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n").map(l => l.trim()).filter(Boolean);
     const results = [];
 
+    const correctPatterns = [
+        /^\s*(.*?)\s*\(\s*(верно|правильный ответ|true|правильно|correct|✓|✔|✅)\s*\)\s*$/i,
+        /^\s*(.*?)\s*\[\s*(верно|правильный ответ|true|правильно|correct|✓|✔|✅)\s*\]\s*$/i,
+        /^\s*(.*?)\s*-\s*(верно|правильный ответ|true|правильно|correct|✓|✔|✅)\s*$/i,
+        /^\s*(.*?)\s*\(✓\)\s*$/i,
+        /^\s*(.*?)\s*\[✓\]\s*$/i,
+        /^\s*(.*?)\s*✓\s*$/,
+        /^\s*(.*?)\s*✔\s*$/,
+        /^\s*(.*?)\s*✅\s*$/,
+        /^\s*(✓|✔|✅)\s*(.*?)\s*$/,
+        /^\s*(.*?)\s*(✓|✔|✅)\s*$/
+    ];
+
+    const incorrectPatterns = [
+        /^\s*(.*?)\s*\(\s*(неверно|false|неправильно|incorrect|✗|✘|❌)\s*\)\s*$/i,
+        /^\s*(.*?)\s*\[\s*(неверно|false|неправильно|incorrect|✗|✘|❌)\s*\]\s*$/i,
+        /^\s*(.*?)\s*-\s*(неверно|false|неправильно|incorrect|✗|✘|❌)\s*$/i,
+        /^\s*(.*?)\s*\(✗\)\s*$/i,
+        /^\s*(.*?)\s*\[✗\]\s*$/i,
+        /^\s*(.*?)\s*✗\s*$/,
+        /^\s*(.*?)\s*✘\s*$/,
+        /^\s*(.*?)\s*❌\s*$/,
+        /^\s*(✗|✘|❌)\s*(.*?)\s*$/,
+        /^\s*(.*?)\s*(✗|✘|❌)\s*$/
+    ];
+
     lines.forEach(line => {
+        let text = line;
         let value = "false";
+        let matched = false;
 
-        if (/\(?\s*(Верно|True|Правда)\s*\)?/i.test(line)) {
-            value = "true";
+        for (const pattern of correctPatterns) {
+            const match = line.match(pattern);
+            if (match) {
+                text = match[1] || match[2] || match[3] || '';
+                value = "true";
+                matched = true;
+                break;
+            }
         }
 
-        if (/\(?\s*(Неверно|Ложь|False)\s*\)?/i.test(line)) {
-            value = "false";
+        if (!matched) {
+            for (const pattern of incorrectPatterns) {
+                const match = line.match(pattern);
+                if (match) {
+                    text = match[1] || match[2] || match[3] || '';
+                    value = "false";
+                    matched = true;
+                    break;
+                }
+            }
         }
 
-        line = line.replace(/\(\s*(Верно|Неверно|True|False|Правда|Ложь|True\s*\/\s*False|Правда\s*или\s*ложь)\s*\)/ig, "").trim();
+        if (!matched) {
+            if (/\(?\s*(Верно|True|Правда)\s*\)?/i.test(line)) {
+                value = "true";
+            }
 
-        if (line) results.push({ text: line, value });
+            if (/\(?\s*(Неверно|Ложь|False)\s*\)?/i.test(line)) {
+                value = "false";
+            }
+
+            text = line.replace(/\(\s*(Верно|Неверно|True|False|Правда|Ложь|True\s*\/\s*False|Правда\s*или\s*ложь)\s*\)/ig, "")
+                      .replace(/\[\s*(Верно|Неверно|True|False|Правда|Ложь)\s*\]/ig, "")
+                      .replace(/\s*-\s*(Верно|Неверно|True|False|Правда|Ложь)\s*$/ig, "")
+                      .replace(/[✓✔✅✗✘❌]/g, "")
+                      .trim();
+        }
+
+        text = text.replace(/^\s*[\.\-\*]\s*/, "").trim();
+
+        if (text) {
+            results.push({ text, value });
+        }
     });
 
     return results;
