@@ -5,7 +5,7 @@ services:
     container_name: fastclass-web
     build: .
     ports:
-      - "${DOCKER_WEB_PORT:-8001}:8000"
+      - "${DOCKER_WEB_PORT:-8002}:8000"
     volumes:
       - .:/app
       - ./staticfiles:/app/staticfiles
