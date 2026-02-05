@@ -115,11 +115,15 @@ class FillGapsTaskSerializer(serializers.ModelSerializer):
 
 class MatchCardsTaskSerializer(serializers.ModelSerializer):
     """Сериализатор для задач на сопоставление карточек."""
+
     class Meta:
         model = MatchCardsTask
-        fields = ["cards"]
+        fields = ["cards", "shuffled_cards", "total_answers"]
+        read_only_fields = ["shuffled_cards", "total_answers"]
 
     def _sanitize_text(self, text: str) -> str:
+        if not isinstance(text, str):
+            return ""
         text = strip_tags(text)
         text = re.sub(r"[<>/{}[\]();]", "", text)
         text = text.replace("\u2028", "").replace("\u2029", "")
@@ -132,8 +136,12 @@ class MatchCardsTaskSerializer(serializers.ModelSerializer):
         normalized, left_set, right_set = [], set(), set()
 
         for item in value:
+            if not isinstance(item, dict):
+                continue
+
             left = self._sanitize_text(item.get("card_left", ""))
             right = self._sanitize_text(item.get("card_right", ""))
+
             if left and right:
                 if left in left_set:
                     raise serializers.ValidationError("Найдены одинаковые левые карточки")
@@ -142,6 +150,8 @@ class MatchCardsTaskSerializer(serializers.ModelSerializer):
                 left_set.add(left)
                 right_set.add(right)
                 normalized.append({"card_left": left, "card_right": right})
+            elif left or right:
+                raise serializers.ValidationError("Обе части карточки должны быть заполнены")
 
         if len(normalized) < 2:
             raise serializers.ValidationError("Добавьте как минимум две заполненные пары карточек")

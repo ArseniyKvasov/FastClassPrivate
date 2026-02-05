@@ -60,8 +60,8 @@ class MatchCardsTask(models.Model):
         self.total_answers = len(source) if source else 0
 
         if len(source) > 1:
-            left_parts = [c["card_left"] for c in source]
-            right_parts = [c["card_right"] for c in source]
+            left_parts = [c.get("card_left", "") for c in source]
+            right_parts = [c.get("card_right", "") for c in source]
 
             random.shuffle(left_parts)
             random.shuffle(right_parts)

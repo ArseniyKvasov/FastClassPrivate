@@ -219,9 +219,7 @@ export function handleAutoPasteWordTranslations(e, container) {
         }, 50);
     }
 
-    if (inserted) {
-        showNotification("Слова успешно вставлены!");
-    } else {
+    if (!inserted) {
         showNotification("Не удалось распознать слова с переводом.");
     }
 }
