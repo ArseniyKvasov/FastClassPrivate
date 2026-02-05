@@ -3,10 +3,7 @@ export function renderNoteTask(task, container) {
 
     container.innerHTML = "";
 
-    const content =
-        task?.data?.content && typeof task.data.content === "string"
-            ? task.data.content
-            : "";
+    const content = task?.data?.content && typeof task.data.content === "string" ? task.data.content : "";
 
     const noteWrapper = document.createElement("div");
     noteWrapper.style.whiteSpace = "pre-wrap";
@@ -15,8 +12,9 @@ export function renderNoteTask(task, container) {
     noteWrapper.style.backgroundColor = "#f8f9fa";
     noteWrapper.style.padding = "0.5rem";
     noteWrapper.style.borderRadius = "0.25rem";
+    noteWrapper.style.lineHeight = "1.5";
 
-    const mathRegex = /(\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\])/g;
+    const mathRegex = /(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\])/g;
     const urlRegex = /(https?:\/\/[^\s<>"'()]+|www\.[^\s<>"'()]+)/gi;
 
     const escapeHtml = (str) =>
@@ -27,12 +25,10 @@ export function renderNoteTask(task, container) {
     const parseMarkdown = (text) => {
         let html = escapeHtml(text);
 
-        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g,
-            (match, linkText, url) => {
-                const fullUrl = url.startsWith('http') ? url : `https://${url}`;
-                return `<a href="${fullUrl}" target="_blank" rel="noopener noreferrer">${linkText}</a>`;
-            }
-        );
+        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, linkText, url) => {
+            const fullUrl = url.startsWith('http') ? url : `https://${url}`;
+            return `<a href="${fullUrl}" target="_blank" rel="noopener noreferrer">${linkText}</a>`;
+        });
 
         html = html.replace(urlRegex, (match) => {
             if (!/<a[^>]*>[^<]*<\/a>/i.test(match) && !/href=["'][^"']*/.test(match)) {
@@ -67,18 +63,15 @@ export function renderNoteTask(task, container) {
                 fragment.appendChild(span);
             }
 
-            const formulaWrapper = document.createElement("div");
-            formulaWrapper.style.display = "block";
-            formulaWrapper.style.overflowX = "auto";
-            formulaWrapper.style.whiteSpace = "nowrap";
-            formulaWrapper.style.maxWidth = "100%";
-            formulaWrapper.style.margin = "0.2em 0";
-
             const formulaSpan = document.createElement("span");
+            formulaSpan.style.display = "inline-block";
+            formulaSpan.style.verticalAlign = "middle";
+            formulaSpan.style.maxWidth = "100%";
+            formulaSpan.style.overflowX = "auto";
+            formulaSpan.style.overflowY = "hidden";
+            formulaSpan.style.lineHeight = "1";
             formulaSpan.textContent = match[0];
-            formulaWrapper.appendChild(formulaSpan);
-
-            fragment.appendChild(formulaWrapper);
+            fragment.appendChild(formulaSpan);
             lastIndex = match.index + match[0].length;
         }
 
@@ -100,21 +93,27 @@ export function renderNoteTask(task, container) {
                 },
                 output: {
                     displayOverflow: 'linebreak',
-                    linebreaks: { inline: true, width: '100%' }
+                    linebreaks: {
+                        automatic: true,
+                        width: '100%'
+                    }
+                },
+                options: {
+                    skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
                 }
             };
 
             const script = document.createElement("script");
             script.src = "https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js";
             script.defer = true;
-            script.onload = () => MathJax.typesetPromise([noteWrapper]).catch(err =>
-                console.error("MathJax render error:", err)
-            );
+            script.onload = () => {
+                if (MathJax.typesetPromise) {
+                    MathJax.typesetPromise([noteWrapper]).catch(err => console.error("MathJax render error:", err));
+                }
+            };
             document.head.appendChild(script);
         } else if (window.MathJax.typesetPromise) {
-            MathJax.typesetPromise([noteWrapper]).catch(err =>
-                console.error("MathJax render error:", err)
-            );
+            MathJax.typesetPromise([noteWrapper]).catch(err => console.error("MathJax render error:", err));
         }
     };
 

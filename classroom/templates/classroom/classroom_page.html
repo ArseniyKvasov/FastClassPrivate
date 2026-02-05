@@ -14,6 +14,9 @@
     >
     </div>
 
+    <!-- Загрузка панели управления классом и чата -->
+    {% include 'core/tasks/classroom_panel.html' %}
+
     <!-- Отображение заданий -->
     <script type="module">
         import { loadSectionTasks } from "{% static 'js/tasks/display/showTasks.js' %}";
@@ -27,9 +30,6 @@
             initRenderSections();
         });
     </script>
-
-    <!-- Загрузка панели управления классом и чата -->
-    {% include 'core/tasks/classroom_panel.html' %}
 
     <!-- Чат -->
     <script type="module">

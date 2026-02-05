@@ -1,11 +1,5 @@
 import { showNotification } from "/static/js/tasks/utils.js";
 
-/**
- * Рендерит редактор задания типа «Текстовая заметка» на Markdown.
- *
- * @param {{content?: string}|null} taskData
- * @returns {HTMLElement}
- */
 export function renderNoteTaskEditor(taskData = null) {
     const card = document.createElement("div");
     card.className = "task-editor-card mb-4 p-3 bg-white border-0 rounded";
@@ -39,6 +33,9 @@ export function renderNoteTaskEditor(taskData = null) {
             <button class="btn btn-sm btn-light border clear-format-btn" title="Очистить форматирование">
                 <i class="bi bi-eraser"></i>
             </button>
+            <button class="btn btn-sm btn-light border ai-prompt-btn" title="Скопировать промпт для ИИ">
+                <i class="bi bi-robot"></i>
+            </button>
         </div>
 
         <textarea
@@ -52,6 +49,59 @@ export function renderNoteTaskEditor(taskData = null) {
     `;
 
     const editor = card.querySelector(".note-editor");
+    const aiPromptBtn = card.querySelector(".ai-prompt-btn");
+
+    const aiPrompt = `Ты генерируешь текстовые заметки для системы, которая поддерживает Markdown и LaTeX. Внимательно следуй инструкциям:
+
+ФОРМАТИРОВАНИЕ
+- **Жирный текст**
+- *Курсив*
+- <u>Подчеркнутый</u>
+- Списки:
+  - Маркированный: - элемент
+  - Нумерованный: 1. элемент
+- HTML-теги НЕ использовать
+
+МАТЕМАТИЧЕСКИЕ ФОРМУЛЫ
+- Формулы оборачивай в LaTeX:
+  - Встроенные формулы: \`$формула$\`
+  - Отдельные формулы: \`$$формула$$\`
+  - Пример: \`$$\\frac{a}{b} + \\frac{c}{d} = \\frac{ad + bc}{bd}$$\`
+
+ОСОБЫЕ ПРАВИЛА
+- НЕ используй символ \`#\`
+- НЕ используй HTML теги
+
+Тема заметки - `;
+
+    aiPromptBtn.addEventListener("click", () => {
+        navigator.clipboard.writeText(aiPrompt).then(() => {
+            showNotification("Запрос для генерации в ИИ скопирован");
+        }).catch(() => {
+            showNotification("Не удалось скопировать промпт");
+        });
+    });
+
+    editor.addEventListener("paste", (e) => {
+        e.preventDefault();
+        const pastedText = e.clipboardData.getData("text");
+
+        let processedText = pastedText
+            .replace(/^#+/gm, '')
+            .replace(/—/g, '-')
+            .replace(/–/g, '-')
+            .replace(/―/g, '-')
+            .replace(/\//g, '/');
+
+        const start = editor.selectionStart;
+        const end = editor.selectionEnd;
+        const value = editor.value;
+
+        editor.value = value.slice(0, start) + processedText + value.slice(end);
+        const newPos = start + processedText.length;
+        editor.selectionStart = editor.selectionEnd = newPos;
+        editor.focus();
+    });
 
     function toggleWrapSelection(wrapper) {
         const start = editor.selectionStart;
