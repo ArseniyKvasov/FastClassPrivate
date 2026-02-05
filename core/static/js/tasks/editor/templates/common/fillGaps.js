@@ -35,6 +35,9 @@ export function renderFillGapsTaskEditor(taskData = null) {
             <button class="btn btn-sm btn-light border format-btn" data-cmd="insertOrderedList"><i class="bi bi-list-ol"></i></button>
             <button class="btn btn-sm btn-light border insert-gap-btn"><i class="bi bi-square"></i> Пропуск</button>
             <button class="btn btn-sm btn-light border clear-format-btn"><i class="bi bi-eraser"></i></button>
+            <button class="btn btn-sm btn-light border ai-prompt-btn" title="Скопировать запрос для ИИ">
+                <i class="bi bi-robot"></i>
+            </button>
         </div>
 
         <div class="mb-3">
@@ -56,6 +59,25 @@ export function renderFillGapsTaskEditor(taskData = null) {
 
     const editor = card.querySelector(".fill-text-editor");
     const gapsPreviewList = card.querySelector(".gaps-preview-list");
+    const aiPromptBtn = card.querySelector(".ai-prompt-btn");
+
+    const aiPrompt = `Ты генерируешь задания «Заполни пропуски» для системы обучения. Внимательно следуй инструкциям:
+
+КАК ФОРМИРОВАТЬ ПРОПУСКИ
+1. Выдели ключевые слова, термины или числа в тексте
+2. Замени каждое выделенное слово на: [слово]
+3. Пример: "Столица Франции - [Париж], а Германии - [Берлин]."
+
+Тема задания:
+`;
+
+    aiPromptBtn.addEventListener("click", () => {
+        navigator.clipboard.writeText(aiPrompt).then(() => {
+            showNotification("Запрос для генерации в ИИ скопирован");
+        }).catch(() => {
+            showNotification("Не удалось скопировать промпт");
+        });
+    });
 
     function updateGapsPreview() {
         const text = editor.innerHTML;

@@ -144,7 +144,6 @@ class TaskProcessor:
     def process(self):
         try:
             self._validate_access()
-
             SerializerClass = self._get_serializer_class()
 
             if self.task_id:
@@ -181,6 +180,32 @@ class TaskProcessor:
                 "task_type": self.task.task_type,
                 "data": self.task.get_serialized_data(),
             })
+
+        except serializers.ValidationError as e:
+            errors = {}
+            for field, error_list in e.detail.items():
+                if isinstance(error_list, list):
+                    errors[field] = [str(error) for error in error_list]
+                else:
+                    errors[field] = [str(error_list)]
+
+            return JsonResponse({
+                "success": False,
+                "errors": errors
+            }, status=400)
+
+        except (ValueError, PermissionError) as e:
+            return JsonResponse({
+                "success": False,
+                "errors": {"general": [str(e)]}
+            }, status=400)
+
+        except Exception as e:
+            print(e)
+            return JsonResponse({
+                "success": False,
+                "errors": {"general": ["Внутренняя ошибка сервера"]}
+            }, status=500)
 
         except (ValueError, PermissionError, serializers.ValidationError) as e:
             return JsonResponse({

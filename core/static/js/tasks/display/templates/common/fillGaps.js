@@ -35,7 +35,6 @@ export function renderFillGapsTask(task, container) {
     const textDiv = document.createElement("div");
     textDiv.className = "fill-gaps-text";
 
-    // Добавляем Bootstrap классы для переноса текста
     textDiv.classList.add("text-break", "overflow-wrap-break-word", "word-break-break-word");
 
     const updateInputWidth = (input) => {
@@ -57,7 +56,6 @@ export function renderFillGapsTask(task, container) {
         const measuredWidth = tempSpan.offsetWidth + 20;
         document.body.removeChild(tempSpan);
 
-        // Максимальная ширина = 60% от ширины контейнера
         const maxWidth = container.clientWidth * 0.6;
         const width = Math.min(Math.max(90, measuredWidth), maxWidth);
 
@@ -68,7 +66,7 @@ export function renderFillGapsTask(task, container) {
         const input = document.createElement("input");
         input.type = "text";
         input.id = `gap-${index}`;
-        input.className = "form-control d-inline-block gap-input mx-1";
+        input.className = "form-control d-inline-block gap-input m-1";
         input.style.minWidth = "90px";
         input.style.width = "90px";
         input.style.height = "34px";

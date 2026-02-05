@@ -9,12 +9,18 @@ import { eventBus } from "/static/js/tasks/events/eventBus.js";
 export const TaskValidators = {
     test: function(taskCard) {
         const blocks = [...taskCard.querySelectorAll(".question-container")];
-        if (!blocks.length) return null;
+        if (!blocks.length) {
+            showNotification("Добавьте хотя бы один вопрос");
+            return null;
+        }
 
         const tasks = [];
-        for (const block of blocks) {
+        for (const [index, block] of blocks.entries()) {
             const question = block.querySelector(".question-text")?.value.trim();
-            if (!question) return null;
+            if (!question) {
+                showNotification(`Вопрос #${index + 1}: введите текст вопроса`);
+                return null;
+            }
 
             const options = [...block.querySelectorAll(".answer-row")].map(row => {
                 const option = row.querySelector(".answer-text")?.value.trim();
@@ -22,7 +28,15 @@ export const TaskValidators = {
                 return option ? { option, is_correct } : null;
             }).filter(Boolean);
 
-            if (!options.length || !options.some(o => o.is_correct)) return null;
+            if (!options.length) {
+                showNotification(`Вопрос #${index + 1}: добавьте варианты ответов`);
+                return null;
+            }
+
+            if (!options.some(o => o.is_correct)) {
+                showNotification(`Вопрос #${index + 1}: отметьте хотя бы один правильный ответ`);
+                return null;
+            }
 
             tasks.push({ question, options });
         }
@@ -32,17 +46,27 @@ export const TaskValidators = {
     note: function(taskCard) {
         const editor = taskCard.querySelector(".note-editor");
         const content = editor?.value.trim() || "";
-        return content ? [{ content }] : null;
+        if (!content) {
+            showNotification("Введите текст заметки");
+            return null;
+        }
+        return [{ content }];
     },
 
     true_false: function(taskCard) {
         const rows = [...taskCard.querySelectorAll(".statement-row")];
-        if (!rows.length) return null;
+        if (!rows.length) {
+            showNotification("Добавьте хотя бы одно утверждение");
+            return null;
+        }
 
         const tasks = [];
-        for (const row of rows) {
+        for (const [index, row] of rows.entries()) {
             const statement = row.querySelector(".statement-text")?.value.trim();
-            if (!statement) return null;
+            if (!statement) {
+                showNotification(`Утверждение #${index + 1}: введите текст`);
+                return null;
+            }
             const is_true = row.querySelector(".statement-select")?.value === "true";
             tasks.push({ statement, is_true });
         }
@@ -54,30 +78,52 @@ export const TaskValidators = {
         const listType = taskCard.querySelector(".fill-gaps-type-select")?.value || "hidden";
         const text = editor?.innerHTML.trim() || "";
 
-        if (!text) return null;
+        if (!text) {
+            showNotification("Введите текст с пропусками");
+            return null;
+        }
 
         const answers = [];
         const regex = /\[([^\]]+)\]/g;
         let match;
         while ((match = regex.exec(text)) !== null) answers.push(match[1]);
 
-        return answers.length ? [{ text, answers, list_type: listType }] : null;
+        if (!answers.length) {
+            showNotification("Добавьте пропуски в тексте (например: [ответ])");
+            return null;
+        }
+
+        return [{ text, answers, list_type: listType }];
     },
 
     match_cards: function(taskCard) {
         const rows = [...taskCard.querySelectorAll(".match-card-row")];
-        if (rows.length < 2) return null;
+        if (rows.length < 2) {
+            showNotification("Добавьте как минимум 2 пары карточек");
+            return null;
+        }
 
         const cards = [];
         const leftCards = new Set();
         const rightCards = new Set();
 
-        for (const row of rows) {
+        for (const [index, row] of rows.entries()) {
             const card_left = row.querySelector(".card-left")?.value.trim();
             const card_right = row.querySelector(".card-right")?.value.trim();
 
-            if (!card_left || !card_right) return null;
-            if (leftCards.has(card_left) || rightCards.has(card_right)) return null;
+            if (!card_left || !card_right) {
+                showNotification(`Пара #${index + 1}: заполните обе карточки`);
+                return null;
+            }
+
+            if (leftCards.has(card_left)) {
+                showNotification(`Пара #${index + 1}: левая карточка "${card_left}" уже используется`);
+                return null;
+            }
+            if (rightCards.has(card_right)) {
+                showNotification(`Пара #${index + 1}: правая карточка "${card_right}" уже используется`);
+                return null;
+            }
 
             leftCards.add(card_left);
             rightCards.add(card_right);
@@ -90,34 +136,64 @@ export const TaskValidators = {
     text_input: function(taskCard) {
         const prompt = taskCard.querySelector(".task-prompt")?.value.trim() || "";
         const default_text = taskCard.querySelector(".task-default-text")?.value || "";
-        return prompt ? [{ prompt, default_text }] : null;
+
+        if (!prompt) {
+            showNotification("Введите заголовок задания");
+            return null;
+        }
+
+        return [{ prompt, default_text }];
     },
 
     integration: function(taskCard) {
         const embedCodeEl = taskCard.querySelector("textarea");
         const embedCode = embedCodeEl?.value.trim() || "";
-        return embedCode ? [{ embed_code: embedCode }] : null;
+
+        if (!embedCode) {
+            showNotification("Введите embed-код или ссылку");
+            return null;
+        }
+
+        return [{ embed_code: embedCode }];
     },
 
     file: function(taskCard) {
         const input = taskCard.querySelector(".file-input");
-        return input.files.length ? [{ file: input.files[0] }] : null;
+        if (!input.files.length) {
+            showNotification("Выберите файл");
+            return null;
+        }
+        return [{ file: input.files[0] }];
     },
 
     word_list: function(taskCard) {
         const rows = [...taskCard.querySelectorAll(".word-translation-row")];
-        if (rows.length < 2) return null;
+        if (rows.length < 2) {
+            showNotification("Добавьте как минимум 2 пары слов");
+            return null;
+        }
 
         const words = [];
         const wordSet = new Set();
         const translationSet = new Set();
 
-        for (const row of rows) {
+        for (const [index, row] of rows.entries()) {
             const word = row.querySelector(".word-input")?.value.trim();
             const translation = row.querySelector(".translation-input")?.value.trim();
 
-            if (!word || !translation) return null;
-            if (wordSet.has(word) || translationSet.has(translation)) return null;
+            if (!word || !translation) {
+                showNotification(`Пара #${index + 1}: заполните слово и перевод`);
+                return null;
+            }
+
+            if (wordSet.has(word)) {
+                showNotification(`Пара #${index + 1}: слово "${word}" уже используется`);
+                return null;
+            }
+            if (translationSet.has(translation)) {
+                showNotification(`Пара #${index + 1}: перевод "${translation}" уже используется`);
+                return null;
+            }
 
             wordSet.add(word);
             translationSet.add(translation);
@@ -192,8 +268,30 @@ export async function saveTask(taskType, taskCard, taskId = null) {
         }
 
         if (!result?.success) {
-            showNotification(`Ошибка сохранения: ${result?.errors || result}`);
-            console.error(result?.errors || result);
+            let errorMessage = "Ошибка сохранения";
+
+            if (result?.errors) {
+                if (typeof result.errors === 'string') {
+                    errorMessage = result.errors;
+                } else if (typeof result.errors === 'object') {
+                    const errorList = [];
+
+                    for (const [field, errors] of Object.entries(result.errors)) {
+                        if (Array.isArray(errors)) {
+                            errors.forEach(errorText => {
+                                errorList.push(`${errorText}`);
+                            });
+                        } else {
+                            errorList.push(`${String(errors)}`);
+                        }
+                    }
+
+                    errorMessage = errorList.join(', ');
+                }
+            }
+
+            showNotification(errorMessage);
+            console.error("Ошибка:", result?.errors);
 
             if (saveBtn) {
                 saveBtn.disabled = false;

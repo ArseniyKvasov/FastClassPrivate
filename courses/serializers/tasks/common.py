@@ -202,7 +202,7 @@ class IntegrationTaskSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Embed-код не может быть пустым")
 
         if '<iframe' not in value:
-            raise serializers.ValidationError("Код должен содержать iframe")
+            raise serializers.ValidationError("Код должен содержать iframe. Используйте кнопку со знаком вопроса.")
 
         match = re.search(r'src=["\']([^"\']+)["\']', value)
         if not match:

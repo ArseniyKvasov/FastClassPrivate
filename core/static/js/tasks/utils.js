@@ -193,13 +193,13 @@ export function confirmAction(message) {
  * Показывает в контейнере центрированный лоадер со спиннером и меняющимися фразами.
  *
  * Аргументы:
- * - container: HTMLElement — куда вставлять лоадер (у контейнера должен быть position: relative)
- * - phrases: string[] — список фраз, которые будут меняться каждые 5 секунд в случайном порядке
+ * - container: HTMLElement - куда вставлять лоадер (у контейнера должен быть position: relative)
+ * - phrases: string[] - список фраз, которые будут меняться каждые 5 секунд в случайном порядке
  *
  * Возвращает объект с методами:
- * - start() — запустить/перезапустить лоадер
- * - stop() — остановить и удалить лоадер
- * - showError(message, retryHandler) — показать ошибку с кнопкой "Попробовать снова" (retryHandler optional)
+ * - start() - запустить/перезапустить лоадер
+ * - stop() - остановить и удалить лоадер
+ * - showError(message, retryHandler) - показать ошибку с кнопкой "Попробовать снова" (retryHandler optional)
  */
 export function showLoaderWithPhrases(container, phrases = []) {
     if (!container) return;
