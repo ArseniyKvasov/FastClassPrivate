@@ -1,8 +1,3 @@
-/**
- * Рендерит задание "Заполни пропуски"
- * @param {Object} task
- * @param {HTMLElement} container
- */
 export function renderFillGapsTask(task, container) {
     if (!container) return;
     container.innerHTML = "";
@@ -40,18 +35,31 @@ export function renderFillGapsTask(task, container) {
     const textDiv = document.createElement("div");
     textDiv.className = "fill-gaps-text";
 
+    // Добавляем Bootstrap классы для переноса текста
+    textDiv.classList.add("text-break", "overflow-wrap-break-word", "word-break-break-word");
+
     const updateInputWidth = (input) => {
         const value = input.value.trim();
+        if (!value) {
+            input.style.width = "90px";
+            return;
+        }
+
         const tempSpan = document.createElement('span');
         tempSpan.style.visibility = 'hidden';
         tempSpan.style.position = 'absolute';
         tempSpan.style.whiteSpace = 'pre';
         tempSpan.style.font = window.getComputedStyle(input).font;
-        tempSpan.textContent = value || 'П';
+        tempSpan.style.left = '-9999px';
+        tempSpan.textContent = value;
 
         document.body.appendChild(tempSpan);
-        const width = Math.max(90, Math.min(tempSpan.offsetWidth + 20, 250));
+        const measuredWidth = tempSpan.offsetWidth + 20;
         document.body.removeChild(tempSpan);
+
+        // Максимальная ширина = 60% от ширины контейнера
+        const maxWidth = container.clientWidth * 0.6;
+        const width = Math.min(Math.max(90, measuredWidth), maxWidth);
 
         input.style.width = `${width}px`;
     };
@@ -60,14 +68,20 @@ export function renderFillGapsTask(task, container) {
         const input = document.createElement("input");
         input.type = "text";
         input.id = `gap-${index}`;
-        input.className = "form-control d-inline gap-input mx-1";
+        input.className = "form-control d-inline-block gap-input mx-1";
         input.style.minWidth = "90px";
-        input.style.maxWidth = "250px";
+        input.style.width = "90px";
         input.style.height = "34px";
-        input.style.padding = "0 8px";
+        input.style.maxWidth = "100%";
 
         input.addEventListener('input', () => {
             updateInputWidth(input);
+        });
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+            }
         });
 
         updateInputWidth(input);
@@ -75,30 +89,87 @@ export function renderFillGapsTask(task, container) {
     };
 
     const htmlText = task.data.text || "";
-    const textNodes = [];
-    let lastIndex = 0;
-    let inputIndex = 0;
-    const regex = /\[([^\]]+)\]/g;
-    let match;
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = htmlText;
 
-    while ((match = regex.exec(htmlText)) !== null) {
-        if (match.index > lastIndex) {
-            const textNode = document.createTextNode(htmlText.substring(lastIndex, match.index));
-            textNodes.push(textNode);
+    const processNode = (node) => {
+        if (node.nodeType === Node.TEXT_NODE) {
+            const text = node.textContent;
+            const parts = text.split(/(\[[^\]]+\])/g);
+
+            if (parts.length > 1) {
+                const fragment = document.createDocumentFragment();
+                let inputIndex = 0;
+
+                parts.forEach(part => {
+                    if (part.startsWith('[') && part.endsWith(']')) {
+                        fragment.appendChild(createInput(inputIndex++));
+                    } else if (part) {
+                        fragment.appendChild(document.createTextNode(part));
+                    }
+                });
+
+                return fragment;
+            }
+            return node.cloneNode(true);
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+            const processedNode = node.cloneNode(false);
+
+            // Добавляем классы для переноса к элементам
+            if (['p', 'div', 'span'].includes(processedNode.tagName.toLowerCase())) {
+                processedNode.classList.add("text-break", "overflow-wrap-break-word");
+            }
+
+            for (const child of node.childNodes) {
+                const processedChild = processNode(child);
+                if (processedChild) {
+                    if (processedChild.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
+                        processedNode.appendChild(processedChild);
+                    } else {
+                        processedNode.appendChild(processedChild);
+                    }
+                }
+            }
+
+            return processedNode;
         }
 
-        textNodes.push(createInput(inputIndex++));
-        lastIndex = match.index + match[0].length;
+        return node.cloneNode(true);
+    };
+
+    const processedContent = processNode(tempDiv);
+
+    if (processedContent.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
+        while (processedContent.firstChild) {
+            textDiv.appendChild(processedContent.firstChild);
+        }
+    } else {
+        textDiv.appendChild(processedContent);
     }
 
-    if (lastIndex < htmlText.length) {
-        const textNode = document.createTextNode(htmlText.substring(lastIndex));
-        textNodes.push(textNode);
-    }
-
-    textNodes.forEach(node => textDiv.appendChild(node));
     cardBody.appendChild(textDiv);
-
     card.appendChild(cardBody);
     container.appendChild(card);
+
+    const handleResize = () => {
+        textDiv.querySelectorAll('.gap-input').forEach(input => {
+            updateInputWidth(input);
+        });
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    setTimeout(() => {
+        textDiv.querySelectorAll('.gap-input').forEach(input => {
+            updateInputWidth(input);
+        });
+    }, 100);
+
+    const observer = new MutationObserver(() => {
+        if (!container.contains(card)) {
+            window.removeEventListener('resize', handleResize);
+            observer.disconnect();
+        }
+    });
+    observer.observe(container, { childList: true, subtree: true });
 }
