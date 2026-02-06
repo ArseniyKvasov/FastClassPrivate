@@ -1,12 +1,5 @@
-import { showNotification, escapeHtml } from "/static/js/tasks/utils.js";
+import { escapeHtml } from "/static/js/tasks/utils.js";
 
-/**
- * Рендер редактора текстового задания.
- *
- * Поддерживает inline-режим и режим редактирования в модальном окне.
- *
- * @param {{prompt?: string, default_text?: string}|null} taskData
- */
 export function renderTextInputTaskEditor(taskData = null) {
     const card = document.createElement("div");
     card.className = "task-editor-card mb-4 p-3 bg-white border-0 rounded";
@@ -31,7 +24,7 @@ export function renderTextInputTaskEditor(taskData = null) {
         <div class="mb-2">
             <textarea
                 class="form-control task-default-text"
-                rows="3"
+                rows="4"
                 placeholder="Текст по умолчанию (опционально)">${defaultTextValue}</textarea>
         </div>
 
@@ -41,8 +34,6 @@ export function renderTextInputTaskEditor(taskData = null) {
     `;
 
     const removeBtn = card.querySelector(".remove-task-btn");
-    const saveBtn = card.querySelector(".save-btn");
-
     removeBtn.addEventListener("click", () => card.remove());
 
     card.scrollIntoView({ behavior: "smooth", block: "center" });

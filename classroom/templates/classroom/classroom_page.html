@@ -138,17 +138,20 @@
             {% endif %}
         </div>
 
-        <div id="sidebar"
-             class="col-12 col-xl-3 my-4 my-xl-0 d-flex flex-column"
-             style="max-height: 50vh;">
-
-            <div class="card shadow-sm rounded p-2 d-flex flex-column"
-                 style="max-height: 80vh; overflow-y: hidden;">
+        <div id="sidebar" class="col-12 col-xl-3 my-4 my-xl-0">
+            <div class="card shadow-sm rounded p-2" style="max-height: 40vh; overflow-y: hidden;">
 
                 <ul id="section-list"
                     class="list-group list-group-flush py-1"
-                    style="overflow-y: auto; max-height: calc(80vh - 60px);">
+                    style="overflow-y: auto; max-height: calc(40vh - 60px);">
+                    <!-- элементы списка -->
                 </ul>
+
+                <div id="section-create-wrapper" class="d-flex justify-content-center mt-2">
+                    <button id="add-section-btn" type="button" class="btn btn-sm text-primary fw-bold border-0">
+                        <i class="bi bi-plus-circle me-1"></i>Добавить раздел
+                    </button>
+                </div>
             </div>
         </div>
     </div>

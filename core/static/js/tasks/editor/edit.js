@@ -6,6 +6,7 @@
  */
 
 import { showNotification, fetchSingleTask, TASK_MAP, confirmAction, getSectionId } from "/static/js/tasks/utils.js";
+import { getViewedUserId } from "/static/classroom/utils.js";
 import { saveTask, deleteTask } from "/static/js/tasks/editor/api.js";
 import { eventBus } from "/static/js/tasks/events/eventBus.js";
 import { clearTask } from "/static/classroom/answers/handlers/clearAnswers.js"
@@ -425,7 +426,14 @@ export function attachControlsToTaskCard(taskCard) {
         }
 
         if (ev.target.closest(".reset-answer-btn")) {
-            const confirmed = await confirmAction("Сбросить ответы всех учеников в этом задании?");
+            let confirmationMessage;
+            if (getViewedUserId() === "all") {
+                confirmationMessage = "Сбросить ответы всех учеников в этом задании?";
+            } else {
+                confirmationMessage = "Сбросить ответы одного ученика в этом задании?";
+            }
+
+            const confirmed = await confirmAction(confirmationMessage);
             if (!confirmed) return;
 
             try {

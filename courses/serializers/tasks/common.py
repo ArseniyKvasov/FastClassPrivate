@@ -32,72 +32,112 @@ CSS_SANITIZER = CSSSanitizer(
 
 
 def clean_text_style(text: str) -> str:
-    cleaned = bleach.clean(
-        text,
-        tags=SAFE_TAGS,
-        attributes=SAFE_ATTRIBUTES,
-        css_sanitizer=CSS_SANITIZER,
-        strip=True
-    )
-    lines = [line.strip() for line in cleaned.splitlines() if line.strip()]
-    return "".join(f"{line}" for line in lines)
+    if not isinstance(text, str):
+        return ""
+    return bleach.clean(text, tags=[], strip=True)
 
 
 class TestTaskSerializer(serializers.ModelSerializer):
-    """Сериализатор для тестовых задач."""
     class Meta:
         model = TestTask
         fields = ["questions"]
 
     def validate_questions(self, value):
         if not isinstance(value, list) or not value:
-            raise serializers.ValidationError("Нужно хотя бы один вопрос")
+            raise serializers.ValidationError("Должен быть хотя бы один вопрос")
+        if len(value) < 1:
+            raise serializers.ValidationError("Должен быть хотя бы один вопрос")
 
-        for q in value:
-            q["question"] = clean_text_style(q.get("question", "").strip())
+        for i, q in enumerate(value):
+            if not isinstance(q, dict):
+                raise serializers.ValidationError(f"Вопрос {i + 1} должен быть словарем")
+
+            question_text = q.get("question", "")
+            if not isinstance(question_text, str):
+                raise serializers.ValidationError(f"Текст вопроса {i + 1} должен быть строкой")
+
+            q["question"] = clean_text_style(question_text.strip())
             if not q["question"]:
-                raise serializers.ValidationError("Вопрос не может быть пустым")
+                raise serializers.ValidationError(f"Вопрос {i + 1} не может быть пустым")
 
-            options = [o for o in q.get("options", []) if o.get("option", "").strip()]
-            if not options:
-                raise serializers.ValidationError("Нужно хотя бы один вариант ответа")
-            if not any(o.get("is_correct") for o in options):
-                raise serializers.ValidationError("Хотя бы один вариант должен быть правильным")
-            for o in options:
-                o["option"] = clean_text_style(o.get("option", "").strip())
-            q["options"] = options
+            options = q.get("options", [])
+            if not isinstance(options, list):
+                raise serializers.ValidationError(f"Варианты ответа для вопроса {i + 1} должны быть списком")
+            if len(options) < 2:
+                raise serializers.ValidationError(f"В вопросе {i + 1} должно быть как минимум 2 варианта ответа")
+
+            valid_options = []
+            has_correct = False
+
+            for j, opt in enumerate(options):
+                if not isinstance(opt, dict):
+                    raise serializers.ValidationError(f"Вариант {j + 1} в вопросе {i + 1} должен быть словарем")
+
+                option_text = opt.get("option", "")
+                if not isinstance(option_text, str):
+                    raise serializers.ValidationError(f"Текст варианта {j + 1} в вопросе {i + 1} должен быть строкой")
+
+                cleaned_option = clean_text_style(option_text.strip())
+                if not cleaned_option:
+                    raise serializers.ValidationError(f"Вариант {j + 1} в вопросе {i + 1} не может быть пустым")
+
+                is_correct = bool(opt.get("is_correct", False))
+                if is_correct:
+                    has_correct = True
+
+                valid_options.append({
+                    "option": cleaned_option,
+                    "is_correct": is_correct
+                })
+
+            if not has_correct:
+                raise serializers.ValidationError(f"В вопросе {i + 1} должен быть хотя бы один правильный вариант")
+
+            q["options"] = valid_options
 
         return value
 
 
 class TrueFalseTaskSerializer(serializers.ModelSerializer):
-    """Сериализатор для задач "Правда/Ложь"."""
     class Meta:
         model = TrueFalseTask
         fields = ["statements"]
 
     def validate_statements(self, value):
         if not isinstance(value, list) or not value:
-            raise serializers.ValidationError("Нужно хотя бы одно утверждение")
+            raise serializers.ValidationError("Должно быть хотя бы одно утверждение")
+        if len(value) < 1:
+            raise serializers.ValidationError("Должно быть хотя бы одно утверждение")
 
-        for stmt in value:
-            stmt["statement"] = clean_text_style(stmt.get("statement", "").strip())
+        for i, stmt in enumerate(value):
+            if not isinstance(stmt, dict):
+                raise serializers.ValidationError(f"Утверждение {i + 1} должно быть словарем")
+
+            statement_text = stmt.get("statement", "")
+            if not isinstance(statement_text, str):
+                raise serializers.ValidationError(f"Текст утверждения {i + 1} должен быть строкой")
+
+            stmt["statement"] = clean_text_style(statement_text.strip())
             if not stmt["statement"]:
-                raise serializers.ValidationError("Утверждение не может быть пустым")
+                raise serializers.ValidationError(f"Утверждение {i + 1} не может быть пустым")
+
             stmt["is_true"] = bool(stmt.get("is_true", False))
 
         return value
 
 
 class FillGapsTaskSerializer(serializers.ModelSerializer):
-    """Сериализатор для задач на заполнение пропусков."""
     class Meta:
         model = FillGapsTask
         fields = ["text", "answers", "list_type"]
         read_only_fields = ["answers"]
 
     def validate(self, data):
-        text = clean_text_style(data.get("text", "").strip())
+        text = data.get("text", "")
+        if not isinstance(text, str):
+            raise serializers.ValidationError({"text": "Текст должен быть строкой"})
+
+        text = clean_text_style(text.strip())
         if not text:
             raise serializers.ValidationError({"text": "Текст не может быть пустым"})
 
@@ -107,6 +147,12 @@ class FillGapsTaskSerializer(serializers.ModelSerializer):
                 "text": "Текст должен содержать хотя бы один пропуск в формате [текст]"
             })
 
+        for blank in found_blanks:
+            if not blank.strip():
+                raise serializers.ValidationError({
+                    "text": "Пропуски не могут быть пустыми. Используйте формат [ваш_текст]"
+                })
+
         data["text"] = text
         data["answers"] = found_blanks
         data["list_type"] = data.get("list_type", "open")
@@ -114,8 +160,6 @@ class FillGapsTaskSerializer(serializers.ModelSerializer):
 
 
 class MatchCardsTaskSerializer(serializers.ModelSerializer):
-    """Сериализатор для задач на сопоставление карточек."""
-
     class Meta:
         model = MatchCardsTask
         fields = ["cards", "shuffled_cards", "total_answers"]
@@ -132,43 +176,55 @@ class MatchCardsTaskSerializer(serializers.ModelSerializer):
     def validate_cards(self, value):
         if not isinstance(value, list):
             raise serializers.ValidationError("Карточки должны быть списком")
+        if len(value) < 2:
+            raise serializers.ValidationError("Должно быть как минимум 2 пары карточек")
 
-        normalized, left_set, right_set = [], set(), set()
+        normalized = []
+        left_set = set()
+        right_set = set()
 
-        for item in value:
+        for i, item in enumerate(value):
             if not isinstance(item, dict):
-                continue
+                raise serializers.ValidationError(f"Карточка {i + 1} должна быть словарем")
 
-            left = self._sanitize_text(item.get("card_left", ""))
-            right = self._sanitize_text(item.get("card_right", ""))
+            left = item.get("card_left", "")
+            right = item.get("card_right", "")
 
-            if left and right:
-                if left in left_set:
-                    raise serializers.ValidationError("Найдены одинаковые левые карточки")
-                if right in right_set:
-                    raise serializers.ValidationError("Найдены одинаковые правые карточки")
-                left_set.add(left)
-                right_set.add(right)
-                normalized.append({"card_left": left, "card_right": right})
-            elif left or right:
-                raise serializers.ValidationError("Обе части карточки должны быть заполнены")
+            if not isinstance(left, str):
+                raise serializers.ValidationError(f"Левая часть карточки {i + 1} должна быть строкой")
+            if not isinstance(right, str):
+                raise serializers.ValidationError(f"Правая часть карточки {i + 1} должна быть строкой")
 
-        if len(normalized) < 2:
-            raise serializers.ValidationError("Добавьте как минимум две заполненные пары карточек")
+            left = self._sanitize_text(left)
+            right = self._sanitize_text(right)
+
+            if not left:
+                raise serializers.ValidationError(f"Левая часть карточки {i + 1} не может быть пустой")
+            if not right:
+                raise serializers.ValidationError(f"Правая часть карточки {i + 1} не может быть пустой")
+
+            if left in left_set:
+                raise serializers.ValidationError(f"Повторяющаяся левая карточка: '{left}'")
+            if right in right_set:
+                raise serializers.ValidationError(f"Повторяющаяся правая карточка: '{right}'")
+
+            left_set.add(left)
+            right_set.add(right)
+            normalized.append({"card_left": left, "card_right": right})
 
         return normalized
 
 
 class NoteTaskSerializer(serializers.ModelSerializer):
-    """Сериализатор для задач-заметок."""
     class Meta:
         model = NoteTask
         fields = ["content"]
 
     def validate_content(self, value):
-        value = value or ""
-        value = value.strip()
+        if not isinstance(value, str):
+            raise serializers.ValidationError("Содержимое должно быть строкой")
 
+        value = value.strip()
         if not value:
             raise serializers.ValidationError("Содержимое заметки не может быть пустым")
 
@@ -176,33 +232,40 @@ class NoteTaskSerializer(serializers.ModelSerializer):
 
 
 class TextInputTaskSerializer(serializers.ModelSerializer):
-    """Сериализатор для задач на ввод текста."""
     class Meta:
         model = TextInputTask
         fields = ["prompt", "default_text"]
 
     def validate_prompt(self, value):
+        if not isinstance(value, str):
+            raise serializers.ValidationError("Текст задания должен быть строкой")
+
         value = clean_text_style(value)
         if not value.strip():
             raise serializers.ValidationError("Текст задания не может быть пустым")
         return value
 
     def validate_default_text(self, value):
-        return clean_text_style(value)
+        if value and not isinstance(value, str):
+            raise serializers.ValidationError("Текст по умолчанию должен быть строкой")
+        return clean_text_style(value) if value else ""
 
 
 class IntegrationTaskSerializer(serializers.ModelSerializer):
-    """Сериализатор для задач интеграции с внешними ресурсами."""
     class Meta:
         model = IntegrationTask
         fields = ["embed_code"]
 
     def validate_embed_code(self, value):
+        if not isinstance(value, str):
+            raise serializers.ValidationError("Embed-код должен быть строкой")
+
+        value = value.strip()
         if not value:
             raise serializers.ValidationError("Embed-код не может быть пустым")
 
         if '<iframe' not in value:
-            raise serializers.ValidationError("Код должен содержать iframe. Используйте кнопку со знаком вопроса.")
+            raise serializers.ValidationError("Код должен содержать iframe")
 
         match = re.search(r'src=["\']([^"\']+)["\']', value)
         if not match:
@@ -225,13 +288,12 @@ class IntegrationTaskSerializer(serializers.ModelSerializer):
 
         if not any(hostname == domain or hostname == f"www.{domain}" for domain in allowed_domains):
             raise serializers.ValidationError(
-                f"Неподдерживаемый ресурс. Поддерживаются только основной домен и www-поддомен: {', '.join(allowed_domains)}"
+                f"Неподдерживаемый ресурс. Поддерживаются: {', '.join(allowed_domains)}"
             )
 
         return self._clean_embed_code(value)
 
     def _clean_embed_code(self, code: str) -> str:
-        import re
         iframe_match = re.search(r'<iframe[^>]*(?:/>|>.*?</iframe>)', code, re.DOTALL)
         if not iframe_match:
             raise serializers.ValidationError("Не удалось найти корректный iframe в коде")
@@ -257,12 +319,16 @@ class IntegrationTaskSerializer(serializers.ModelSerializer):
 
 
 class FileTaskSerializer(serializers.ModelSerializer):
-    """Сериализатор для задач с файлами."""
-    file = serializers.FileField(write_only=True, required=False)
+    file = serializers.FileField(write_only=True)
 
     class Meta:
         model = FileTask
         fields = ["file_path", "file"]
+
+    def validate(self, data):
+        if 'file' not in data:
+            raise serializers.ValidationError({"file": "Файл обязателен"})
+        return data
 
     def validate_file(self, value):
         if not value:
@@ -292,3 +358,11 @@ class FileTaskSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Максимальный размер файла: 50 МБ")
 
         return value
+
+    def create(self, validated_data):
+        validated_data.pop('file', None)
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        validated_data.pop('file', None)
+        return super().update(instance, validated_data)

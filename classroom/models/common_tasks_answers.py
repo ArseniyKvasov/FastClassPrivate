@@ -353,7 +353,6 @@ class TextInputTaskAnswer(BaseAnswer):
         1) Если есть answered_at (был ответ) - возвращаем current_text
         2) Если не было отвечено - возвращаем default_text из задания
         """
-        print(self.answered_at)
         if self.answered_at:
             return {"current_text": self.current_text}
         else:
@@ -362,12 +361,20 @@ class TextInputTaskAnswer(BaseAnswer):
     def delete_answers(self):
         """
         Сбрасывает ответы.
-        Сбрасывает current_text и answered_at, затем вызывает родительский метод.
+        Устанавливает current_text в default_text и сбрасывает answered_at.
         """
-        self.current_text = ""
-        self.answered_at = None
+        self.current_text = self._get_default_text()
         super().delete_answers()
-        self.save(update_fields=['current_text', 'answered_at', 'correct_answers', 'wrong_answers'])
+        self.save(update_fields=['current_text', 'correct_answers', 'wrong_answers'])
+
+    def save(self, *args, **kwargs):
+        """
+        Переопределяем save для установки current_text в default_text
+        при создании новой записи, если current_text не указан.
+        """
+        if not self.pk and not self.current_text:
+            self.current_text = self._get_default_text()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"TextInputAnswer {self.user} -> {self.task_id}"

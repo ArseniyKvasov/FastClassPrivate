@@ -18,7 +18,7 @@ let isSubmitting = false;
 
 function renderSectionItem(section) {
     const li = document.createElement("li");
-    li.className = "list-group-item d-flex justify-content-between align-items-center border-0 px-2 my-1";
+    li.className = "list-group-item d-flex justify-content-between align-items-center border-0 px-2 py-4 rounded my-1";
     li.dataset.sectionId = section.id;
     li.draggable = isTeacher;
 

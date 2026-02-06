@@ -26,6 +26,7 @@ def save_task(request):
                 "errors": "Неподдерживаемый Content-Type"
             }, status=400)
     except Exception as e:
+        print(e)
         return JsonResponse({
             "success": False,
             "errors": "Внутренняя ошибка сервера"
@@ -43,7 +44,6 @@ def _handle_multipart_request(request):
     if task_type == 'file':
         data = [{
             "file": request.FILES.get("file"),
-            "caption": request.POST.get("caption", "")
         }]
     else:
         try:

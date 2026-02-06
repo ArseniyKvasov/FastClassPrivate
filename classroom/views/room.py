@@ -319,7 +319,7 @@ def get_jitsi_token(request, classroom_id):
         return JsonResponse({
             "token": token,
             "room": room_name,
-            "display_name": request.user.username,
+            "display_name": get_display_name_from_username(request.user.username),
             "is_teacher": is_teacher,
             "jitsi_script_src": jitsi_script_src,
             "room_features": {

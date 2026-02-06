@@ -535,7 +535,6 @@ class CloneCourseTests(TestCase):
 
         image_task1 = FileTask.objects.create(
             file_path=settings.MEDIA_URL + 'test_images/test_image1.jpg',
-            caption='Первое изображение'
         )
 
         task1_path = os.path.join(settings.MEDIA_ROOT, 'test_images/test_image1.jpg')
@@ -545,7 +544,7 @@ class CloneCourseTests(TestCase):
         task = Task.objects.create(
             section=section,
             root_type='original',
-            task_type='image',
+            task_type='file',
             content_type=ContentType.objects.get_for_model(FileTask),
             object_id=image_task1.id,
             order=1
@@ -592,7 +591,6 @@ class CloneCourseTests(TestCase):
         self.assertIsNotNone(cloned_image2)
         self.assertNotEqual(cloned_image2.id, cloned_image1.id)
         self.assertNotEqual(cloned_image2.file_path, cloned_file_path1)
-        self.assertEqual(cloned_image2.caption, 'Второе изображение')
         self.assertFalse(os.path.exists(cloned_full_path1))
 
         new_full_path = os.path.join(

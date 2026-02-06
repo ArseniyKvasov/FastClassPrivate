@@ -1,3 +1,5 @@
+import { escapeHtml } from "/static/js/tasks/utils.js";
+
 /**
  * Рендерит задание со свободным текстовым вводом
  * @param {Object} task - Объект задания
@@ -27,6 +29,7 @@ export function renderTextInputTask(task, container) {
     textarea.rows = 2;
     textarea.style.resize = "none";
     textarea.style.overflowY = "auto";
+    textarea.dataset.defaultText = escapeHtml(task.data.default_text || "");
 
     const adjustHeight = () => {
         const lineHeight = parseInt(getComputedStyle(textarea).lineHeight) || 20;

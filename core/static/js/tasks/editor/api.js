@@ -244,7 +244,6 @@ export async function saveTask(taskType, taskCard, taskId = null) {
 
         if (["file"].includes(taskType)) {
             const fileObj = data[0];
-            console.log(data, fileObj);
             const body = new FormData();
             body.append("task_type", taskType);
             body.append("section_id", sectionId);

@@ -249,6 +249,7 @@ function setupModalForm() {
     const errorEl = document.getElementById('universalModalError');
     const modalEl = document.getElementById('universalModal');
     const submitBtn = document.getElementById('universalModalButton');
+    const lessonIdInput = document.getElementById('universalModalLessonId');
 
     let submitTimeout = null;
 
@@ -276,13 +277,6 @@ function setupModalForm() {
         const entity = entityInput.value || 'course';
         const csrfToken = getCsrfToken();
 
-        const form = new FormData();
-        form.append('title', title);
-        if (entity === 'course') {
-            form.append('description', descInput.value.trim());
-            form.append('subject', subjectSelect.value);
-        }
-
         let url = '';
         if (mode === 'create') {
             url = entity === 'course' ? '/courses/api/create/' : '/classroom/api/create/';
@@ -292,12 +286,26 @@ function setupModalForm() {
         }
 
         try {
+            const requestBody = {
+                title: title
+            };
+
+            if (entity === 'classroom' && lessonIdInput && lessonIdInput.value) {
+                requestBody.lesson_id = parseInt(lessonIdInput.value);
+            }
+
+            if (entity === 'course' && mode === 'create') {
+                requestBody.description = descInput.value.trim();
+                requestBody.subject = subjectSelect.value;
+            }
+
             const resp = await fetch(url, {
                 method: 'POST',
-                body: form,
+                body: JSON.stringify(requestBody),
                 headers: {
                     'X-CSRFToken': csrfToken,
-                    'X-Requested-With': 'XMLHttpRequest'
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/json'
                 }
             });
 
@@ -306,7 +314,8 @@ function setupModalForm() {
             submitBtn.innerHTML = mode === 'create' ? 'Создать' : 'Сохранить';
 
             if (!resp.ok) {
-                errorEl.textContent = 'Ошибка сервера';
+                const errorData = await resp.json().catch(() => ({}));
+                errorEl.textContent = errorData.error || 'Ошибка сервера';
                 errorEl.classList.remove('d-none');
                 return;
             }
@@ -316,6 +325,11 @@ function setupModalForm() {
             if (data.error) {
                 errorEl.textContent = data.error;
                 errorEl.classList.remove('d-none');
+                return;
+            }
+
+            if (data.redirect_url) {
+                window.location.href = data.redirect_url;
                 return;
             }
 

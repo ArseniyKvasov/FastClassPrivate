@@ -64,12 +64,11 @@ export function renderNoteTask(task, container) {
             }
 
             const formulaSpan = document.createElement("span");
-            formulaSpan.style.display = "inline-block";
-            formulaSpan.style.verticalAlign = "middle";
-            formulaSpan.style.maxWidth = "100%";
+            formulaSpan.style.display = "block";
+            formulaSpan.style.textAlign = "center";
+            formulaSpan.style.margin = "0.5rem 0";
             formulaSpan.style.overflowX = "auto";
             formulaSpan.style.overflowY = "hidden";
-            formulaSpan.style.lineHeight = "1";
             formulaSpan.textContent = match[0];
             fragment.appendChild(formulaSpan);
             lastIndex = match.index + match[0].length;

@@ -21,7 +21,7 @@ class TaskProcessor:
         self.section_id = section_id
         self.task_type = task_type
         self.task_id = task_id
-        self.raw_data = raw_data or {}
+        self.raw_data = raw_data or []
         self.section = None
         self.task = None
 
@@ -41,17 +41,28 @@ class TaskProcessor:
         return SERIALIZER_MAP[self.task_type]
 
     def _normalize_data(self):
-        if self.task_type in ['test', 'true_false']:
-            if isinstance(self.raw_data, list):
+        if isinstance(self.raw_data, list):
+            if not self.raw_data:
+                if self.task_type in ['test', 'true_false']:
+                    if self.task_type == 'test':
+                        return {'questions': []}
+                    elif self.task_type == 'true_false':
+                        return {'statements': []}
+                return {}
+
+            if self.task_type in ['test', 'true_false']:
                 if self.task_type == 'test':
                     return {'questions': self.raw_data}
                 elif self.task_type == 'true_false':
                     return {'statements': self.raw_data}
-            return self.raw_data
-        if isinstance(self.raw_data, list) and self.raw_data:
-            return self.raw_data[0]
+
+            if isinstance(self.raw_data[0], dict):
+                return self.raw_data[0]
+            return {}
+
         if isinstance(self.raw_data, dict):
             return self.raw_data
+
         return {}
 
     def _process_test_data(self, data):
@@ -59,8 +70,9 @@ class TaskProcessor:
             return data
 
         if self.task_type == 'test':
-            if isinstance(data.get('questions'), list):
-                for question in data['questions']:
+            questions = data.get('questions', [])
+            if isinstance(questions, list):
+                for question in questions:
                     if isinstance(question, dict):
                         options = question.get('options', [])
                         if options and isinstance(options[0], str):
@@ -69,14 +81,12 @@ class TaskProcessor:
                                 for opt in options
                             ]
         elif self.task_type == 'true_false':
-            if isinstance(data.get('statements'), list):
-                for i, statement in enumerate(data['statements']):
-                    if isinstance(statement, str):
-                        data['statements'] = [
-                            {'statement': stmt, 'is_true': False}
-                            for stmt in data['statements']
-                        ]
-                        break
+            statements = data.get('statements', [])
+            if isinstance(statements, list) and statements and isinstance(statements[0], str):
+                data['statements'] = [
+                    {'statement': stmt, 'is_true': False}
+                    for stmt in statements
+                ]
 
         return data
 
@@ -94,7 +104,6 @@ class TaskProcessor:
         try:
             file_path = self._save_file(file_obj)
             data['file_path'] = file_path
-            del data['file']
         except Exception as e:
             raise ValueError(f"Ошибка сохранения файла: {str(e)}")
 
@@ -112,6 +121,9 @@ class TaskProcessor:
         ModelClass = TASK_MODEL_MAP.get(self.task_type)
         if not ModelClass:
             raise ValueError(f"Неизвестная модель для типа {self.task_type}")
+
+        if self.task_type == 'file' and 'file' in validated_data:
+            validated_data.pop('file')
 
         specific_obj = ModelClass.objects.create(**validated_data)
 
@@ -134,6 +146,9 @@ class TaskProcessor:
 
         specific_obj = self.task.specific
         if specific_obj:
+            if self.task_type == 'file' and 'file' in validated_data:
+                validated_data.pop('file')
+
             for key, value in validated_data.items():
                 setattr(specific_obj, key, value)
             specific_obj.save()
@@ -205,18 +220,6 @@ class TaskProcessor:
             return JsonResponse({
                 "success": False,
                 "errors": {"general": ["Внутренняя ошибка сервера"]}
-            }, status=500)
-
-        except (ValueError, PermissionError, serializers.ValidationError) as e:
-            return JsonResponse({
-                "success": False,
-                "errors": str(e)
-            }, status=400)
-        except Exception as e:
-            print(e)
-            return JsonResponse({
-                "success": False,
-                "errors": "Внутренняя ошибка сервера"
             }, status=500)
 
 

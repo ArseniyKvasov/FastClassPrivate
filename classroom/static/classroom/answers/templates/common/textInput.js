@@ -32,6 +32,8 @@ export function bindAnswerSubmission(container, task) {
 export async function handleAnswer(data) {
     if (!data || data.task_type !== "text_input") return;
 
+    if (data.answer === null) return;
+
     const taskId = data.task_id;
     const serverText = data.answer?.current_text ?? "";
     const isChecked = data.answer?.is_checked ?? false;
@@ -97,7 +99,12 @@ export function clearTask(container) {
     const textarea = container.querySelector("textarea, input[type='text']");
     if (!textarea) return;
 
-    textarea.value = "";
+    if (textarea.tagName.toLowerCase() === "textarea" && textarea.hasAttribute("data-default-text")) {
+        textarea.value = textarea.getAttribute("data-default-text");
+    } else {
+        textarea.value = "";
+    }
+
     textarea.readOnly = false;
     textarea.disabled = false;
 

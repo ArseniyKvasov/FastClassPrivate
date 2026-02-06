@@ -44,6 +44,7 @@ def delete_user_task_answers(request, classroom_id, task_id, user_id):
             except answer_model.DoesNotExist:
                 continue
             except Exception as e:
+                print(e)
                 pass
 
         return JsonResponse({
