@@ -1,3 +1,5 @@
+import { formatLatex } from '/static/js/tasks/utils.js';
+
 export function renderFillGapsTask(task, container) {
     if (!container) return;
     container.innerHTML = "";
@@ -53,7 +55,7 @@ export function renderFillGapsTask(task, container) {
         tempSpan.textContent = value;
 
         document.body.appendChild(tempSpan);
-        const measuredWidth = tempSpan.offsetWidth + 20;
+        const measuredWidth = tempSpan.offsetWidth + 30;
         document.body.removeChild(tempSpan);
 
         const maxWidth = container.clientWidth * 0.6;
@@ -113,7 +115,6 @@ export function renderFillGapsTask(task, container) {
         } else if (node.nodeType === Node.ELEMENT_NODE) {
             const processedNode = node.cloneNode(false);
 
-            // Добавляем классы для переноса к элементам
             if (['p', 'div', 'span'].includes(processedNode.tagName.toLowerCase())) {
                 processedNode.classList.add("text-break", "overflow-wrap-break-word");
             }
@@ -149,10 +150,17 @@ export function renderFillGapsTask(task, container) {
     card.appendChild(cardBody);
     container.appendChild(card);
 
+    const renderMathJax = () => {
+        if (window.MathJax && window.MathJax.typesetPromise) {
+            MathJax.typesetPromise([textDiv]).catch(err => console.error("MathJax render error:", err));
+        }
+    };
+
     const handleResize = () => {
         textDiv.querySelectorAll('.gap-input').forEach(input => {
             updateInputWidth(input);
         });
+        renderMathJax();
     };
 
     window.addEventListener('resize', handleResize);
@@ -161,6 +169,7 @@ export function renderFillGapsTask(task, container) {
         textDiv.querySelectorAll('.gap-input').forEach(input => {
             updateInputWidth(input);
         });
+        renderMathJax();
     }, 100);
 
     const observer = new MutationObserver(() => {

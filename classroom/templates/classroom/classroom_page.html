@@ -124,6 +124,28 @@
     <link rel="stylesheet" href="{% static 'js/frontend.css' %}">
     <script src="{% static 'js/excalidraw.bundle.js' %}"></script>
 
+    <!-- Отображение LaTeX -->
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js" defer></script>
+    <script>
+        window.MathJax = {
+          tex: {
+            inlineMath: [['$', '$'], ['\\(', '\\)']],
+            displayMath: [['$$','$$'], ['\\[','\\]']],
+            packages: {'[+]': ['autoload']}
+          },
+          output: {
+            displayOverflow: 'linebreak',
+            linebreaks: {
+              automatic: true,
+              width: '100%'
+            }
+          },
+          options: {
+            skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+          }
+        };
+    </script>
+
 
     <div class="row mt-4 d-flex justify-content-center">
         <div id="main-container" class="col-12 col-xl-9">
