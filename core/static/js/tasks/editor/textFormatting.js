@@ -103,7 +103,28 @@ export function createRichTextEditor(initialHTML = "") {
     editor.className = "form-control rich-text-editor-area";
     editor.contentEditable = "true";
     editor.style.minHeight = "120px";
+    editor.style.overflow = "hidden";
+    editor.style.resize = "none";
     editor.innerHTML = sanitizeHTMLString(initialHTML);
+
+    function updateEditorHeight() {
+        editor.style.height = "auto";
+        const newHeight = Math.max(120, Math.min(400, editor.scrollHeight));
+        editor.style.height = newHeight + "px";
+        editor.style.overflowY = editor.scrollHeight > 400 ? "auto" : "hidden";
+    }
+
+    const observer = new MutationObserver(updateEditorHeight);
+    observer.observe(editor, {
+        childList: true,
+        subtree: true,
+        characterData: true
+    });
+
+    editor.addEventListener("input", updateEditorHeight);
+    editor.addEventListener("keydown", updateEditorHeight);
+    editor.addEventListener("paste", updateEditorHeight);
+    editor.addEventListener("cut", updateEditorHeight);
 
     editor.addEventListener("keydown", (event) => {
         if (!event.ctrlKey && !event.metaKey) return;
@@ -147,6 +168,8 @@ export function createRichTextEditor(initialHTML = "") {
         sanitizeInPlace(editor);
     });
 
+    const originalSetHTML = editor.setHTML;
+
     return {
         editor,
         toolbar,
@@ -155,6 +178,7 @@ export function createRichTextEditor(initialHTML = "") {
         },
         setHTML(html) {
             editor.innerHTML = sanitizeHTMLString(html);
+            updateEditorHeight();
         },
     };
 }

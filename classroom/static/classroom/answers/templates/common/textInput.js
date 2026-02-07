@@ -1,4 +1,4 @@
-import { debounce, adjustTextareaHeight } from "/static/classroom/answers/utils.js";
+import { debounce, adjustTextareaHeight, processTaskAnswer } from "/static/classroom/answers/utils.js";
 import { sendAnswer } from "/static/classroom/answers/api.js";
 
 let isApplyingServerUpdate = false;
@@ -92,7 +92,7 @@ export function clearTask(container) {
 
     editor.contentEditable = true;
     editor.disabled = false;
-    console.log('lol');
 
-    editor.innerHTML = editor.getAttribute("data-default-text") || "";
+    const taskId = container.getAttribute("data-task-id");
+    processTaskAnswer(taskId);
 }
