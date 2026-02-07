@@ -25,6 +25,8 @@ export function renderTextInputTaskEditor(taskData = null) {
 
     const { editor, toolbar, getHTML, setHTML } = createRichTextEditor(defaultTextValue);
 
+    editor.setAttribute("data-default-text", defaultTextValue);
+
     const titleInput = document.createElement("input");
     titleInput.type = "text";
     titleInput.className = "form-control task-prompt mb-3";

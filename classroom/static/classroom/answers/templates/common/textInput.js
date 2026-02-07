@@ -87,11 +87,12 @@ export async function handleAnswer(data) {
 }
 
 export function clearTask(container) {
-    const editor = container.querySelector("div[contenteditable='true']");
+    const editor = container.querySelector(".rich-text-editor-area");
     if (!editor) return;
 
     editor.contentEditable = true;
     editor.disabled = false;
+    console.log('lol');
 
     editor.innerHTML = editor.getAttribute("data-default-text") || "";
 }

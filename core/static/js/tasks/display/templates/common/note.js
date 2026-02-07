@@ -15,7 +15,6 @@ export function renderNoteTask(task, container) {
     noteWrapper.style.backgroundColor = "#f8f9fa";
     noteWrapper.style.padding = "1rem";
     noteWrapper.style.borderRadius = "0.375rem";
-    noteWrapper.style.lineHeight = "1.6";
 
     const renderContent = () => {
         noteWrapper.innerHTML = content;

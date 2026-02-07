@@ -105,6 +105,4 @@ export async function refreshClassroom() {
         await selectSection(sectionToSelect);
     }
     await refreshChat();
-
-    showNotification("Соединение восстановлено");
 }

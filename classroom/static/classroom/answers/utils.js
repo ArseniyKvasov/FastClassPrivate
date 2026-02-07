@@ -37,7 +37,7 @@ export function debounce(fn, delay) {
 
 export function adjustTextareaHeight(textarea) {
     textarea.rows = 2;
-    const lineHeight = parseInt(getComputedStyle(textarea).lineHeight) || 20;
+    const lineHeight = parseInt(getComputedStyle(textarea).lineHeight) || 16;
     const lines = Math.ceil(textarea.scrollHeight / lineHeight);
     textarea.rows = Math.min(Math.max(lines, 2), 8);
 }

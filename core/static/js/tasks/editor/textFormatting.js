@@ -1,27 +1,12 @@
 export function createRichTextEditor(initialHTML = "") {
-    const allowedTags = new Set([
-        "STRONG",
-        "B",
-        "I",
-        "U",
-        "UL",
-        "OL",
-        "LI",
-        "DIV",
-        "P",
-        "BR",
-        "SPAN",
-    ]);
+    const allowedTags = new Set(["STRONG", "B", "I", "U", "UL", "OL", "LI", "DIV", "P", "BR", "SPAN"]);
 
-    /**
-     * Выполняет in-place очистку DOM внутри переданного корневого узла.
-     *
-     * Убирает атрибуты у разрешённых тегов и разворачивает (unwrap) запрещённые теги,
-     * перемещая их детей на место тега. Изменения делаются без полной перезаписи
-     * innerHTML — это помогает сохранить Selection/курсор.
-     *
-     * @param {HTMLElement} root
-     */
+    function decodeHTMLEntities(text) {
+        const textarea = document.createElement("textarea");
+        textarea.innerHTML = text;
+        return textarea.value;
+    }
+
     function sanitizeInPlace(root) {
         const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, null);
         const toUnwrap = [];
@@ -50,8 +35,9 @@ export function createRichTextEditor(initialHTML = "") {
     }
 
     function sanitizeHTMLString(html) {
+        const decodedHTML = decodeHTMLEntities(html);
         const container = document.createElement("div");
-        container.innerHTML = html;
+        container.innerHTML = decodedHTML;
 
         const walker = document.createTreeWalker(container, NodeFilter.SHOW_ELEMENT, null);
         const toUnwrap = [];
@@ -138,17 +124,23 @@ export function createRichTextEditor(initialHTML = "") {
         }
     });
 
-    editor.addEventListener("beforeinput", (event) => {
-        if (event.inputType !== "insertFromPaste") return;
-
+    editor.addEventListener("paste", (event) => {
         event.preventDefault();
 
-        let text = event.dataTransfer.getData("text/plain");
-        text = text.replace(/\*/g, "");
-        text = text.replace(/\#/g, "");
-        text = text.replace(/\—/g, "-");
+        const clipboardData = event.clipboardData || window.clipboardData;
+        let html = clipboardData.getData("text/html");
+        const text = clipboardData.getData("text/plain");
 
-        document.execCommand("insertText", false, text);
+        if (html) {
+            const sanitizedHTML = sanitizeHTMLString(html);
+            document.execCommand("insertHTML", false, sanitizedHTML);
+        } else {
+            let cleanedText = text
+                .replace(/\*/g, "")
+                .replace(/\#/g, "")
+                .replace(/\—/g, "-");
+            document.execCommand("insertText", false, cleanedText);
+        }
     });
 
     editor.addEventListener("blur", () => {

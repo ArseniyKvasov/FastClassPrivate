@@ -23,7 +23,7 @@ export function renderTextInputTask(task, container) {
     editor.style.minHeight = "120px";
 
     const adjustHeight = () => {
-        const lineHeight = parseInt(getComputedStyle(editor).lineHeight) || 20;
+        const lineHeight = parseInt(getComputedStyle(editor).lineHeight) || 16;
         const paddingTop = parseInt(getComputedStyle(editor).paddingTop) || 6;
         const paddingBottom = parseInt(getComputedStyle(editor).paddingBottom) || 6;
 

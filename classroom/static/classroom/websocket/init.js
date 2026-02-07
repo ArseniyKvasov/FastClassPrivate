@@ -37,6 +37,7 @@ export function initVirtualClassWebSocket() {
         if (hasEverConnected) {
             try {
                 await refreshClassroom();
+                showNotification("Соединение восстановлено");
             } catch (e) {
                 console.error("Failed to restore data after reconnect", e);
             }
