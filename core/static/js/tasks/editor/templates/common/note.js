@@ -30,7 +30,7 @@ export function renderNoteTaskEditor(taskData = null) {
     aiPromptBtn.innerHTML = '<i class="bi bi-robot"></i>';
     aiPromptBtn.title = "Скопировать промпт для ИИ";
 
-    const aiPrompt = `Ты генерируешь текстовые заметки для системы, которая поддерживает LaTeX. Внимательно следуй инструкций:
+    const aiPrompt = `Ты генерируешь текстовые заметки для системы, которая поддерживает базовый HTML и LaTeX. Внимательно следуй инструкций:
 
 ФОРМАТИРОВАНИЕ
 - <b>

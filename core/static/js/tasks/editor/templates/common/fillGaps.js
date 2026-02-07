@@ -49,8 +49,7 @@ export function renderFillGapsTaskEditor(taskData = null) {
 2. Замени каждое выделенное слово на: [слово]
 3. Пример: "Столица Франции - [Париж], а Германии - [Берлин]."
 
-Тема задания:
-`;
+Тема задания: `;
 
     aiPromptBtn.addEventListener("click", () => {
         navigator.clipboard.writeText(aiPrompt).then(() => {
