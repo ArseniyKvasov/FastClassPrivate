@@ -1,11 +1,11 @@
-import { escapeHtml } from "/static/js/tasks/utils.js";
+import { showNotification, createRichTextEditor } from "/static/js/tasks/utils.js";
 
 export function renderTextInputTaskEditor(taskData = null) {
     const card = document.createElement("div");
     card.className = "task-editor-card mb-4 p-3 bg-white border-0 rounded";
 
-    const promptValue = escapeHtml(taskData?.prompt || "");
-    const defaultTextValue = escapeHtml(taskData?.default_text || "");
+    const promptValue = taskData?.prompt || "";
+    const defaultTextValue = taskData?.default_text || "";
 
     card.innerHTML = `
         <div class="d-flex justify-content-between align-items-center mb-3">
@@ -13,28 +13,32 @@ export function renderTextInputTaskEditor(taskData = null) {
             <button class="btn-close remove-task-btn small" title="Удалить задание"></button>
         </div>
 
-        <div class="mb-2">
-            <input
-                type="text"
-                class="form-control task-prompt"
-                placeholder="Введите заголовок"
-                value="${promptValue}" autofocus>
-        </div>
-
-        <div class="mb-2">
-            <textarea
-                class="form-control task-default-text"
-                rows="4"
-                placeholder="Текст по умолчанию (опционально)">${defaultTextValue}</textarea>
-        </div>
+        <div class="editor-container mb-3"></div>
 
         <button class="btn btn-success mt-3 w-100 fw-semibold save-btn">
             Сохранить
         </button>
     `;
 
-    const removeBtn = card.querySelector(".remove-task-btn");
-    removeBtn.addEventListener("click", () => card.remove());
+    const editorContainer = card.querySelector(".editor-container");
+
+    const { editor, toolbar, getHTML, setHTML } = createRichTextEditor(defaultTextValue);
+
+    const titleInput = document.createElement("input");
+    titleInput.type = "text";
+    titleInput.className = "form-control task-prompt mb-3";
+    titleInput.placeholder = "Введите заголовок";
+    titleInput.value = promptValue;
+    titleInput.autofocus = true;
+
+    editorContainer.appendChild(titleInput);
+    editorContainer.appendChild(toolbar);
+    editorContainer.appendChild(editor);
+
+    const originalGetHTML = getHTML;
+    const originalSetHTML = setHTML;
+
+    card.querySelector(".remove-task-btn").addEventListener("click", () => card.remove());
 
     card.scrollIntoView({ behavior: "smooth", block: "center" });
 

@@ -5,7 +5,7 @@
  *  - Редактор при редактировании всегда в модалке.
  */
 
-import { showNotification, fetchSingleTask, TASK_MAP, confirmAction, getSectionId } from "/static/js/tasks/utils.js";
+import { showNotification, fetchSingleTask, TASK_MAP, confirmAction, getSectionId, getIsTeacher } from "/static/js/tasks/utils.js";
 import { getViewedUserId } from "/static/classroom/utils.js";
 import { saveTask, deleteTask } from "/static/js/tasks/editor/api.js";
 import { eventBus } from "/static/js/tasks/events/eventBus.js";
@@ -341,7 +341,7 @@ export function closeTaskEditor() {
  * @param {HTMLElement} taskCard
  */
 export function attachControlsToTaskCard(taskCard) {
-    if (!taskCard || taskCard.querySelector(".task-card-controls")) return;
+    if (!taskCard || taskCard.querySelector(".task-card-controls") || !getIsTeacher()) return;
 
     const controls = document.createElement("div");
     controls.className = "task-card-controls position-absolute top-0 end-0 m-2 d-flex gap-1";

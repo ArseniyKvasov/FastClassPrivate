@@ -1,5 +1,6 @@
 import re
 import time
+import bleach
 from django.db import models
 from django.utils import timezone
 from django.core.exceptions import ValidationError
@@ -182,9 +183,40 @@ class FillGapsTaskAnswer(BaseAnswer):
             models.UniqueConstraint(fields=["task", "user"], name="unique_fillgaps_answer_per_user_task")
         ]
 
+    ALLOWED_TAGS = ['strong', 'b', 'i', 'u', 'ul', 'ol', 'li', 'div', 'p', 'br', 'span']
+    ALLOWED_ATTRIBUTES = {}
+
+    def _clean_html(self, html):
+        """Очищает HTML от неразрешенных тегов, атрибутов и стилей"""
+        if not html:
+            return html
+
+        cleaned_html = bleach.clean(
+            html,
+            tags=self.ALLOWED_TAGS,
+            attributes=self.ALLOWED_ATTRIBUTES,
+            strip=True
+        )
+
+        return cleaned_html
+
+    def _clean_text_content(self, text):
+        """Очищает текстовое содержимое от HTML"""
+        if not text:
+            return text
+
+        return bleach.clean(text, tags=[], strip=True)
+
     def save_answer_data(self, data):
         task_data = get_task_effective_data(self.task)
-        correct_answers = task_data.get("answers", [])
+
+        if 'text' in task_data:
+            task_data['text'] = self._clean_html(task_data.get('text', ''))
+
+        correct_answers = []
+        for answer in task_data.get("answers", []):
+            cleaned_answer = self._clean_text_content(str(answer))
+            correct_answers.append(cleaned_answer)
 
         current_answers = dict(self.answers or {})
 
@@ -192,7 +224,7 @@ class FillGapsTaskAnswer(BaseAnswer):
             match = re.match(r"^gap-(\d+)$", key)
             if match:
                 gap_id = match.group(1)
-                user_value = str(value)
+                user_value = self._clean_text_content(str(value))
 
                 old_answer = current_answers.get(gap_id, {}).get("value")
                 if old_answer != user_value:
@@ -321,6 +353,23 @@ class TextInputTaskAnswer(BaseAnswer):
             models.UniqueConstraint(fields=["task", "user"], name="unique_textinput_answer_per_user_task")
         ]
 
+    ALLOWED_TAGS = ['strong', 'b', 'i', 'u', 'ul', 'ol', 'li', 'div', 'p', 'br', 'span']
+    ALLOWED_ATTRIBUTES = {}
+
+    def _clean_html(self, html):
+        """Очищает HTML от неразрешенных тегов, атрибутов и стилей"""
+        if not html:
+            return html
+
+        cleaned_html = bleach.clean(
+            html,
+            tags=self.ALLOWED_TAGS,
+            attributes=self.ALLOWED_ATTRIBUTES,
+            strip=True
+        )
+
+        return cleaned_html
+
     def _get_default_text(self):
         """
         Вспомогательный метод для получения default_text из задания.
@@ -330,7 +379,8 @@ class TextInputTaskAnswer(BaseAnswer):
             if hasattr(self.task, 'specific'):
                 task_specific = self.task.specific
                 if hasattr(task_specific, 'default_text'):
-                    return task_specific.default_text or ""
+                    default_text = task_specific.default_text or ""
+                    return self._clean_html(default_text)
         except Exception:
             pass
         return ""
@@ -341,7 +391,7 @@ class TextInputTaskAnswer(BaseAnswer):
         Если передается текст (даже пустая строка), устанавливаем answered_at.
         """
         new_text = data.get("current_text", "")
-        self.current_text = new_text
+        self.current_text = self._clean_html(new_text)
 
         self.answered_at = timezone.now()
 
@@ -374,6 +424,8 @@ class TextInputTaskAnswer(BaseAnswer):
         """
         if not self.pk and not self.current_text:
             self.current_text = self._get_default_text()
+        elif self.current_text:
+            self.current_text = self._clean_html(self.current_text)
         super().save(*args, **kwargs)
 
     def __str__(self):

@@ -1,12 +1,5 @@
-import { showNotification } from "/static/js/tasks/utils.js";
+import { showNotification, createRichTextEditor } from "/static/js/tasks/utils.js";
 
-/**
- * Рендерит редактор задания типа «Заполни пропуски».
- *
- * @param {Object|null} taskData
- * @param {string} [taskData.text]
- * @param {string} [taskData.list_type]
- */
 export function renderFillGapsTaskEditor(taskData = null) {
     const card = document.createElement("div");
     card.className = "task-editor-card mb-4 p-3 bg-white border-0 rounded";
@@ -27,24 +20,7 @@ export function renderFillGapsTaskEditor(taskData = null) {
             </select>
         </div>
 
-        <div class="toolbar mb-2 d-flex flex-wrap gap-2">
-            <button class="btn btn-sm btn-light border format-btn" data-cmd="bold"><i class="bi bi-type-bold"></i></button>
-            <button class="btn btn-sm btn-light border format-btn" data-cmd="italic"><i class="bi bi-type-italic"></i></button>
-            <button class="btn btn-sm btn-light border format-btn" data-cmd="underline"><i class="bi bi-type-underline"></i></button>
-            <button class="btn btn-sm btn-light border format-btn" data-cmd="insertUnorderedList"><i class="bi bi-list-ul"></i></button>
-            <button class="btn btn-sm btn-light border format-btn" data-cmd="insertOrderedList"><i class="bi bi-list-ol"></i></button>
-            <button class="btn btn-sm btn-light border insert-gap-btn"><i class="bi bi-square"></i> Пропуск</button>
-            <button class="btn btn-sm btn-light border clear-format-btn"><i class="bi bi-eraser"></i></button>
-            <button class="btn btn-sm btn-light border ai-prompt-btn" title="Скопировать запрос для ИИ">
-                <i class="bi bi-robot"></i>
-            </button>
-        </div>
-
-        <div class="mb-3">
-            <div class="fill-text-editor border rounded p-2"
-                 contenteditable="true"
-                 style="min-height: 120px; outline: none;" autofocus>${htmlContent}</div>
-        </div>
+        <div class="editor-container mb-3"></div>
 
         <div class="mb-3">
             <div class="border rounded p-2 bg-light">
@@ -57,9 +33,13 @@ export function renderFillGapsTaskEditor(taskData = null) {
         </button>
     `;
 
-    const editor = card.querySelector(".fill-text-editor");
+    const editorContainer = card.querySelector(".editor-container");
     const gapsPreviewList = card.querySelector(".gaps-preview-list");
-    const aiPromptBtn = card.querySelector(".ai-prompt-btn");
+
+    const aiPromptBtn = document.createElement("button");
+    aiPromptBtn.className = "btn btn-sm btn-outline-secondary";
+    aiPromptBtn.innerHTML = '<i class="bi bi-robot"></i>';
+    aiPromptBtn.title = "Скопировать запрос для ИИ";
 
     const aiPrompt = `Ты генерируешь задания «Заполни пропуски» для системы обучения. Внимательно следуй инструкциям:
 
@@ -79,13 +59,30 @@ export function renderFillGapsTaskEditor(taskData = null) {
         });
     });
 
+    const { editor, toolbar, getHTML, setHTML } = createRichTextEditor(htmlContent);
+
+    const insertGapBtn = document.createElement("button");
+    insertGapBtn.className = "btn btn-sm btn-outline-secondary";
+    insertGapBtn.innerHTML = '<i class="bi bi-square me-1"></i>Пропуск';
+    insertGapBtn.title = "Вставить пропуск";
+
+    toolbar.appendChild(insertGapBtn);
+    toolbar.appendChild(aiPromptBtn);
+
+    editorContainer.appendChild(toolbar);
+    editorContainer.appendChild(editor);
+
     function updateGapsPreview() {
-        const text = editor.innerHTML;
+        const text = getHTML();
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = text;
+        const plainText = tempDiv.textContent || "";
+
         const answers = [];
         const regex = /\[([^\]]*)\]/g;
         let match;
 
-        while ((match = regex.exec(text)) !== null) {
+        while ((match = regex.exec(plainText)) !== null) {
             let answer = match[1]
                 .replace(/—/g, '-')
                 .replace(/–/g, '-')
@@ -93,7 +90,9 @@ export function renderFillGapsTaskEditor(taskData = null) {
                 .replace(/⁄/g, '/')
                 .trim();
 
-            answers.push(answer);
+            if (answer) {
+                answers.push(answer);
+            }
         }
 
         gapsPreviewList.innerHTML = answers.length
@@ -101,18 +100,7 @@ export function renderFillGapsTaskEditor(taskData = null) {
             : '<span class="text-muted">Пропуски не найдены</span>';
     }
 
-    editor.addEventListener("input", updateGapsPreview);
-    editor.addEventListener("paste", () => setTimeout(updateGapsPreview, 50));
-
-    card.querySelectorAll(".format-btn").forEach(btn => {
-        btn.addEventListener("click", () => {
-            document.execCommand(btn.dataset.cmd, false, null);
-            editor.focus();
-            updateGapsPreview();
-        });
-    });
-
-    card.querySelector(".insert-gap-btn").addEventListener("click", () => {
+    insertGapBtn.addEventListener("click", () => {
         editor.focus();
         const selection = window.getSelection();
         if (!selection || selection.rangeCount === 0) return;
@@ -133,16 +121,15 @@ export function renderFillGapsTaskEditor(taskData = null) {
 
         selection.removeAllRanges();
         selection.addRange(range);
-        updateGapsPreview();
+
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
-    card.querySelector(".clear-format-btn").addEventListener("click", () => {
-        editor.innerHTML = editor.innerText.replace(/\n/g, "<br>");
-        editor.focus();
-        updateGapsPreview();
-    });
+    editor.addEventListener('input', updateGapsPreview);
 
-    card.querySelector(".remove-task-btn").addEventListener("click", () => card.remove());
+    card.querySelector(".remove-task-btn").addEventListener("click", () => {
+        card.remove();
+    });
 
     updateGapsPreview();
 

@@ -10,31 +10,26 @@ from courses.models import (
     WordListTask
 )
 
-SAFE_TAGS = ["b", "i", "u", "em", "strong", "ul", "ol", "li",
-             "p", "br", "h1", "h2", "h3", "h4", "h5", "h6",
-             "blockquote", "code", "pre", "table", "thead", "tbody", "tr", "th", "td",
-             "a", "img", "div", "span"]
 
-SAFE_ATTRIBUTES = {
-    "*": ["class", "id"],
-    "a": ["href", "title", "target"],
-    "img": ["src", "alt", "title", "width", "height"],
-}
+ALLOWED_TAGS = ["strong", "b", "i", "u", "ul", "ol", "li", "div", "p", "br", "span"]
 
-CSS_SANITIZER = CSSSanitizer(
-    allowed_css_properties=[
-        "font-weight", "font-style", "text-decoration",
-        "color", "background-color",
-        "width", "height", "border", "max-width", "max-height",
-        "display", "margin", "padding"
-    ]
-)
+ALLOWED_ATTRIBUTES = {}
+ALLOWED_STYLES = []
 
 
-def clean_text_style(text: str) -> str:
-    if not isinstance(text, str):
+def clean_text_style(html: str) -> str:
+    """Очищает HTML, оставляя только разрешенные теги без атрибутов и стилей"""
+    if not isinstance(html, str):
         return ""
-    return bleach.clean(text, tags=[], strip=True)
+
+    cleaned_html = bleach.clean(
+        html,
+        tags=ALLOWED_TAGS,
+        attributes=ALLOWED_ATTRIBUTES,
+        strip=True
+    )
+
+    return cleaned_html
 
 
 class TestTaskSerializer(serializers.ModelSerializer):

@@ -471,70 +471,234 @@ export function getCurrentUserId() {
     return infoEl?.dataset?.currentUserId || null;
 }
 
-export function formatLatex(content) {
-    const mathRegex = /(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\])/g;
-    const urlRegex = /(https?:\/\/[^\s<>"'()]+|www\.[^\s<>"'()]+)/gi;
+export function createRichTextEditor(initialHTML = "") {
+    const allowedTags = new Set([
+        "STRONG",
+        "B",
+        "I",
+        "U",
+        "UL",
+        "OL",
+        "LI",
+        "DIV",
+        "P",
+        "BR",
+        "SPAN",
+    ]);
 
-    const escapeHtml = (str) =>
-        str.replace(/&/g, "&amp;")
-           .replace(/</g, "&lt;")
-           .replace(/>/g, "&gt;");
+    /**
+     * Выполняет in-place очистку DOM внутри переданного корневого узла.
+     *
+     * Убирает атрибуты у разрешённых тегов и разворачивает (unwrap) запрещённые теги,
+     * перемещая их детей на место тега. Изменения делаются без полной перезаписи
+     * innerHTML — это помогает сохранить Selection/курсор.
+     *
+     * @param {HTMLElement} root
+     */
+    function sanitizeInPlace(root) {
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, null);
+        const toUnwrap = [];
 
-    const parseMarkdown = (text) => {
-        let html = escapeHtml(text);
+        while (walker.nextNode()) {
+            const node = walker.currentNode;
 
-        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, linkText, url) => {
-            const fullUrl = url.startsWith('http') ? url : `https://${url}`;
-            return `<a href="${fullUrl}" target="_blank" rel="noopener noreferrer">${linkText}</a>`;
-        });
-
-        html = html.replace(urlRegex, (match) => {
-            if (!/<a[^>]*>[^<]*<\/a>/i.test(match) && !/href=["'][^"']*/.test(match)) {
-                const fullUrl = match.startsWith('http') ? match : `https://${match}`;
-                return `<a href="${fullUrl}" target="_blank" rel="noopener noreferrer">${match}</a>`;
+            if (!allowedTags.has(node.tagName)) {
+                toUnwrap.push(node);
+                continue;
             }
-            return match;
+
+            for (let i = node.attributes.length - 1; i >= 0; i--) {
+                node.removeAttribute(node.attributes[i].name);
+            }
+        }
+
+        toUnwrap.forEach(node => {
+            const parent = node.parentNode;
+            if (!parent) return;
+            while (node.firstChild) {
+                parent.insertBefore(node.firstChild, node);
+            }
+            parent.removeChild(node);
+        });
+    }
+
+    function sanitizeHTMLString(html) {
+        const container = document.createElement("div");
+        container.innerHTML = html;
+
+        const walker = document.createTreeWalker(container, NodeFilter.SHOW_ELEMENT, null);
+        const toUnwrap = [];
+
+        while (walker.nextNode()) {
+            const node = walker.currentNode;
+            if (!allowedTags.has(node.tagName)) {
+                toUnwrap.push(node);
+                continue;
+            }
+            for (let i = node.attributes.length - 1; i >= 0; i--) {
+                node.removeAttribute(node.attributes[i].name);
+            }
+        }
+
+        toUnwrap.forEach(node => {
+            const parent = node.parentNode;
+            if (!parent) return;
+            while (node.firstChild) {
+                parent.insertBefore(node.firstChild, node);
+            }
+            parent.removeChild(node);
         });
 
-        html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-        html = html.replace(/\*(.+?)\*/g, "<em>$1</em>");
-        html = html.replace(/__(.+?)__/g, "<u>$1</u>");
-        html = html.replace(/^(?:- )(.*)$/gm, "<li>$1</li>");
-        if (/<li>/.test(html)) html = html.replace(/(<li>[\s\S]+<\/li>)/g, "<ul>$1</ul>");
-        html = html.replace(/^\d+\. (.*)$/gm, "<li>$1</li>");
-        if (/<li>/.test(html) && !/<ul>/.test(html)) html = html.replace(/(<li>[\s\S]+<\/li>)/g, "<ol>$1</ol>");
-        html = html.replace(/\n/g, "<br>");
-        return html;
+        return container.innerHTML;
+    }
+
+    function exec(command) {
+        document.execCommand(command, false, null);
+        sanitizeInPlace(editor);
+    }
+
+    const toolbar = document.createElement("div");
+    toolbar.className = "btn-toolbar gap-1 mb-2";
+
+    const buttons = [
+        { label: "B", cmd: "bold" },
+        { label: "I", cmd: "italic" },
+        { label: "U", cmd: "underline" },
+        { label: "•", cmd: "insertUnorderedList" },
+        { label: "1.", cmd: "insertOrderedList" },
+    ];
+
+    buttons.forEach(({ label, cmd }) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "btn btn-sm btn-outline-secondary";
+        btn.innerHTML = label;
+
+        btn.addEventListener("mousedown", (e) => {
+            e.preventDefault();
+        });
+
+        btn.addEventListener("click", () => {
+            exec(cmd);
+            editor.focus();
+        });
+
+        toolbar.appendChild(btn);
+    });
+
+    const editor = document.createElement("div");
+    editor.className = "form-control rich-text-editor-area";
+    editor.contentEditable = "true";
+    editor.style.minHeight = "120px";
+    editor.innerHTML = sanitizeHTMLString(initialHTML);
+
+    editor.addEventListener("keydown", (event) => {
+        if (!event.ctrlKey && !event.metaKey) return;
+
+        switch (event.key.toLowerCase()) {
+            case "b":
+                event.preventDefault();
+                exec("bold");
+                break;
+            case "i":
+                event.preventDefault();
+                exec("italic");
+                break;
+            case "u":
+                event.preventDefault();
+                exec("underline");
+                break;
+        }
+    });
+
+    editor.addEventListener("beforeinput", (event) => {
+        if (event.inputType !== "insertFromPaste") return;
+
+        event.preventDefault();
+
+        let text = event.dataTransfer.getData("text/plain");
+        text = text.replace(/\*/g, "");
+        text = text.replace(/\#/g, "");
+        text = text.replace(/\—/g, "");
+
+        document.execCommand("insertText", false, text);
+    });
+
+    editor.addEventListener("blur", () => {
+        sanitizeInPlace(editor);
+    });
+
+    return {
+        editor,
+        toolbar,
+        getHTML() {
+            return sanitizeHTMLString(editor.innerHTML);
+        },
+        setHTML(html) {
+            editor.innerHTML = sanitizeHTMLString(html);
+        },
     };
+}
+
+export function formatLatex(content) {
+    if (!content) {
+        const fragment = document.createDocumentFragment();
+        return fragment;
+    }
+
+    const mathRegex = /(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\$[^$]+\$)/g;
 
     const fragment = document.createDocumentFragment();
     let lastIndex = 0;
     let match;
 
-    while ((match = mathRegex.exec(content)) !== null) {
+    const processHtmlSegment = (html) => {
+        const div = document.createElement('div');
+        div.innerHTML = html;
+        return div;
+    };
+
+    const plainText = content;
+
+    while ((match = mathRegex.exec(plainText)) !== null) {
         if (match.index > lastIndex) {
-            const mdText = content.substring(lastIndex, match.index);
-            const span = document.createElement("span");
-            span.innerHTML = parseMarkdown(mdText);
-            fragment.appendChild(span);
+            const htmlBefore = plainText.substring(lastIndex, match.index);
+            if (htmlBefore.trim()) {
+                const segment = processHtmlSegment(htmlBefore);
+                while (segment.firstChild) {
+                    fragment.appendChild(segment.firstChild);
+                }
+            }
         }
 
         const formulaSpan = document.createElement("span");
-        formulaSpan.style.display = "block";
-        formulaSpan.style.textAlign = "center";
-        formulaSpan.style.margin = "0.5rem 0";
-        formulaSpan.style.overflowX = "auto";
-        formulaSpan.style.overflowY = "hidden";
+        formulaSpan.className = "latex-formula";
+        formulaSpan.style.display = "inline-block";
         formulaSpan.textContent = match[0];
         fragment.appendChild(formulaSpan);
+
         lastIndex = match.index + match[0].length;
     }
 
-    if (lastIndex < content.length) {
-        const mdText = content.substring(lastIndex);
-        const span = document.createElement("span");
-        span.innerHTML = parseMarkdown(mdText);
-        fragment.appendChild(span);
+    if (lastIndex < plainText.length) {
+        const remainingHtml = plainText.substring(lastIndex);
+        if (remainingHtml.trim()) {
+            const segment = processHtmlSegment(remainingHtml);
+            while (segment.firstChild) {
+                fragment.appendChild(segment.firstChild);
+            }
+        }
+    }
+
+    const hasMath = mathRegex.test(plainText);
+    mathRegex.lastIndex = 0;
+
+    if (!hasMath) {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = content;
+        while (wrapper.firstChild) {
+            fragment.appendChild(wrapper.firstChild);
+        }
     }
 
     return fragment;

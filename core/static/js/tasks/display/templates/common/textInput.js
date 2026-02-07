@@ -1,16 +1,7 @@
-import { escapeHtml } from "/static/js/tasks/utils.js";
+import { escapeHtml, createRichTextEditor } from "/static/js/tasks/utils.js";
 
-/**
- * Рендерит задание со свободным текстовым вводом
- * @param {Object} task - Объект задания
- * @param {Object} task.data - Данные задания
- * @param {string} [task.data.prompt] - Текст задания
- * @param {string} [task.data.default_text] - Текст по умолчанию
- * @param {HTMLElement} container - Контейнер для рендеринга
- */
 export function renderTextInputTask(task, container) {
     if (!container) return;
-
     container.innerHTML = "";
 
     const wrapper = document.createElement("div");
@@ -23,39 +14,36 @@ export function renderTextInputTask(task, container) {
         wrapper.appendChild(promptLabel);
     }
 
-    const textarea = document.createElement("textarea");
-    textarea.className = "form-control";
-    textarea.value = task.data.default_text || "";
-    textarea.rows = 2;
-    textarea.style.resize = "none";
-    textarea.style.overflowY = "auto";
-    textarea.dataset.defaultText = escapeHtml(task.data.default_text || "");
+    const { editor, getHTML, setHTML } = createRichTextEditor(task.data.default_text || "");
+
+    editor.classList.add("form-control");
+    editor.style.resize = "none";
+    editor.style.overflowY = "auto";
+    editor.style.minHeight = "120px";
 
     const adjustHeight = () => {
-        const lineHeight = parseInt(getComputedStyle(textarea).lineHeight) || 20;
-        const paddingTop = parseInt(getComputedStyle(textarea).paddingTop) || 6;
-        const paddingBottom = parseInt(getComputedStyle(textarea).paddingBottom) || 6;
+        const lineHeight = parseInt(getComputedStyle(editor).lineHeight) || 20;
+        const paddingTop = parseInt(getComputedStyle(editor).paddingTop) || 6;
+        const paddingBottom = parseInt(getComputedStyle(editor).paddingBottom) || 6;
 
-        const minHeight = lineHeight * 2 + paddingTop + paddingBottom;
-        const maxHeight = lineHeight * 8 + paddingTop + paddingBottom;
+        const minHeight = lineHeight * 7 + paddingTop + paddingBottom;
+        const maxHeight = lineHeight * 15 + paddingTop + paddingBottom;
 
-        textarea.style.height = "auto";
-        const scrollHeight = textarea.scrollHeight;
+        editor.style.height = "auto";
+        const scrollHeight = editor.scrollHeight;
 
         if (scrollHeight <= maxHeight) {
-            textarea.style.height = Math.max(scrollHeight, minHeight) + "px";
-            textarea.style.overflowY = "hidden";
+            editor.style.height = Math.max(scrollHeight, minHeight) + "px";
+            editor.style.overflowY = "scroll";
         } else {
-            textarea.style.height = maxHeight + "px";
-            textarea.style.overflowY = "auto";
-
-            textarea.style.scrollbarWidth = "thin";
-            textarea.style.scrollbarColor = "#adb5bd #f8f9fa";
+            editor.style.height = maxHeight + "px";
+            editor.style.overflowY = "auto";
+            editor.style.scrollbarWidth = "thin";
+            editor.style.scrollbarColor = "#adb5bd #f8f9fa";
         }
     };
 
-    textarea.addEventListener("input", adjustHeight);
-
+    editor.addEventListener("input", adjustHeight);
     window.addEventListener("resize", adjustHeight);
 
     const cleanup = () => {
@@ -64,7 +52,7 @@ export function renderTextInputTask(task, container) {
 
     requestAnimationFrame(adjustHeight);
 
-    wrapper.appendChild(textarea);
+    wrapper.appendChild(editor);
     container.appendChild(wrapper);
 
     return cleanup;

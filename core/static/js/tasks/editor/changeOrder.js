@@ -140,14 +140,12 @@ function addDragHandle(card) {
     const handle = document.createElement('button');
     handle.type = 'button';
 
-    // используем стиль в духе существующей кнопки edit-task-btn, но на 25% меньше
     handle.className = 'task-drag-handle btn btn-sm btn-light border-0 edit-task-btn';
     handle.setAttribute('aria-label', 'Переместить задание');
     handle.setAttribute('title', 'Перетаскивать');
     handle.setAttribute('draggable', 'true');
     handle.innerHTML = '<i class="bi bi-grip-vertical" aria-hidden="true"></i>';
 
-    // 34px * 0.75 = 25.5 -> округляем до 26px
     Object.assign(handle.style, {
         position: 'absolute',
         top: '8px',

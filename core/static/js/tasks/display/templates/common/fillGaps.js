@@ -36,6 +36,8 @@ export function renderFillGapsTask(task, container) {
 
     const textDiv = document.createElement("div");
     textDiv.className = "fill-gaps-text";
+    textDiv.style.whiteSpace = "pre-wrap";
+    textDiv.style.wordWrap = "break-word";
 
     textDiv.classList.add("text-break", "overflow-wrap-break-word", "word-break-break-word");
 
@@ -73,6 +75,12 @@ export function renderFillGapsTask(task, container) {
         input.style.width = "90px";
         input.style.height = "34px";
         input.style.maxWidth = "100%";
+        input.setAttribute("autocomplete", "off");
+        input.setAttribute("autocapitalize", "off");
+        input.setAttribute("autocorrect", "off");
+        input.setAttribute("spellcheck", "false");
+        input.name = `field_${index}_${Math.random().toString(36).substr(2, 9)}`;
+
 
         input.addEventListener('input', () => {
             updateInputWidth(input);
@@ -88,6 +96,7 @@ export function renderFillGapsTask(task, container) {
         return input;
     };
 
+    // Берем HTML напрямую из task.data.text
     const htmlText = task.data.text || "";
     const tempDiv = document.createElement("div");
     tempDiv.innerHTML = htmlText;
@@ -105,28 +114,60 @@ export function renderFillGapsTask(task, container) {
                     if (part.startsWith('[') && part.endsWith(']')) {
                         fragment.appendChild(createInput(inputIndex++));
                     } else if (part) {
-                        fragment.appendChild(document.createTextNode(part));
+                        const lines = part.split('\n');
+                        lines.forEach((line, index) => {
+                            if (line.trim()) {
+                                fragment.appendChild(document.createTextNode(line));
+                            }
+                            if (index < lines.length - 1) {
+                                fragment.appendChild(document.createElement('br'));
+                            }
+                        });
                     }
                 });
 
                 return fragment;
             }
+
+            const lines = text.split('\n');
+            if (lines.length > 1) {
+                const fragment = document.createDocumentFragment();
+                lines.forEach((line, index) => {
+                    if (line.trim() || line === '') {
+                        fragment.appendChild(document.createTextNode(line));
+                    }
+                    if (index < lines.length - 1) {
+                        fragment.appendChild(document.createElement('br'));
+                    }
+                });
+                return fragment;
+            }
             return node.cloneNode(true);
         } else if (node.nodeType === Node.ELEMENT_NODE) {
-            const processedNode = node.cloneNode(false);
+            const tagName = node.tagName.toLowerCase();
+            let processedNode;
 
-            if (['p', 'div', 'span'].includes(processedNode.tagName.toLowerCase())) {
-                processedNode.classList.add("text-break", "overflow-wrap-break-word");
+            if (tagName === 'p') {
+                processedNode = document.createElement('div');
+                processedNode.style.marginBottom = '0.5rem';
+                processedNode.style.minHeight = '1.2em';
+            } else if (tagName === 'br') {
+                return document.createElement('br');
+            } else if (tagName === 'strong' || tagName === 'b') {
+                processedNode = document.createElement('strong');
+            } else if (tagName === 'em' || tagName === 'i') {
+                processedNode = document.createElement('em');
+            } else if (tagName === 'u') {
+                processedNode = document.createElement('span');
+                processedNode.style.textDecoration = 'underline';
+            } else {
+                processedNode = node.cloneNode(false);
             }
 
             for (const child of node.childNodes) {
                 const processedChild = processNode(child);
                 if (processedChild) {
-                    if (processedChild.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
-                        processedNode.appendChild(processedChild);
-                    } else {
-                        processedNode.appendChild(processedChild);
-                    }
+                    processedNode.appendChild(processedChild);
                 }
             }
 

@@ -44,8 +44,8 @@ export const TaskValidators = {
     },
 
     note: function(taskCard) {
-        const editor = taskCard.querySelector(".note-editor");
-        const content = editor?.value.trim() || "";
+        const editor = taskCard.querySelector(".rich-text-editor-area");
+        const content = editor?.innerHTML.trim() || "";
         if (!content) {
             showNotification("Введите текст заметки");
             return null;
@@ -74,7 +74,7 @@ export const TaskValidators = {
     },
 
     fill_gaps: function(taskCard) {
-        const editor = taskCard.querySelector(".fill-text-editor");
+        const editor = taskCard.querySelector(".rich-text-editor-area");
         const listType = taskCard.querySelector(".fill-gaps-type-select")?.value || "hidden";
         const text = editor?.innerHTML.trim() || "";
 
@@ -135,7 +135,7 @@ export const TaskValidators = {
 
     text_input: function(taskCard) {
         const prompt = taskCard.querySelector(".task-prompt")?.value.trim() || "";
-        const default_text = taskCard.querySelector(".task-default-text")?.value || "";
+        const default_text = taskCard.querySelector(".rich-text-editor-area")?.innerHTML.trim() || "";
 
         if (!prompt) {
             showNotification("Введите заголовок задания");
