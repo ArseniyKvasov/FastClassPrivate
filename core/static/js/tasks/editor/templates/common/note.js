@@ -1,4 +1,5 @@
-import { showNotification, createRichTextEditor } from "/static/js/tasks/utils.js";
+import { showNotification } from "/static/js/tasks/utils.js";
+import { createRichTextEditor } from "/static/js/tasks/editor/textFormatting.js";
 
 export function renderNoteTaskEditor(taskData = null) {
     const card = document.createElement("div");

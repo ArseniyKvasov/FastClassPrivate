@@ -1,4 +1,5 @@
-import { escapeHtml, createRichTextEditor } from "/static/js/tasks/utils.js";
+import { escapeHtml } from "/static/js/tasks/utils.js";
+import { createRichTextEditor } from "/static/js/tasks/editor/textFormatting.js";
 
 export function renderTextInputTask(task, container) {
     if (!container) return;

@@ -18,22 +18,26 @@ let isSubmitting = false;
 
 function renderSectionItem(section) {
     const li = document.createElement("li");
-    li.className = "list-group-item d-flex justify-content-between align-items-center border-0 px-2 py-4 rounded my-1";
+    li.className = "list-group-item d-flex justify-content-between align-items-start border-0 p-2 rounded my-1";
     li.dataset.sectionId = section.id;
     li.draggable = isTeacher;
+    li.style.flexShrink = "0";
 
     const teacherHandle = isTeacher
-        ? `<span class="drag-handle me-1" role="button">☰</span>`
+        ? `<span class="drag-handle me-1" style="cursor:move;" role="button">☰</span>`
         : "";
 
+    const isActive = section.id === getSectionId();
+    const activeClass = isActive ? "fw-bold text-primary" : "";
+
     li.innerHTML = `
-        <div class="d-flex align-items-center gap-2" style="flex:1; min-width:0; overflow:hidden;">
+        <div class="d-flex align-items-center gap-2" style="flex:1; min-width:0;">
             ${teacherHandle}
             <button type="button"
-                    class="btn btn-link section-link text-decoration-none text-truncate p-0"
-                    style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"
+                    class="btn btn-link section-link text-decoration-none text-truncate p-0 ${activeClass}"
+                    style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left;"
                     data-section-id="${section.id}">
-                ${section.title}
+                ${section.title || "Без названия"}
             </button>
         </div>
         ${isTeacher ? `
@@ -49,10 +53,6 @@ function renderSectionItem(section) {
     `;
 
     sectionList?.appendChild(li);
-
-    if (section.id === getSectionId()) {
-        li.querySelector(".section-link")?.classList.add("fw-bold", "text-primary");
-    }
 
     if (isTeacher) {
         initDragHandlers(li);

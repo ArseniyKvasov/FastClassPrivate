@@ -1,4 +1,4 @@
-import { getSectionId, getInfoElement, getCsrfToken, getIsTeacher } from "/static/js/tasks/utils.js";
+import { getSectionId, getInfoElement, getCsrfToken, getIsTeacher, showNotification } from "/static/js/tasks/utils.js";
 import { fetchSections, renderSectionsList, selectSection } from "/static/js/tasks/display/renderSections.js";
 import { refreshChat } from "/static/classroom/integrations/chat.js";
 import { refreshStudentsList } from "/static/classroom/answers/classroomPanel.js";
@@ -105,4 +105,6 @@ export async function refreshClassroom() {
         await selectSection(sectionToSelect);
     }
     await refreshChat();
+
+    showNotification("Соединение восстановлено");
 }
