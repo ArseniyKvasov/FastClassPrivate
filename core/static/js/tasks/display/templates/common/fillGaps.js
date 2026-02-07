@@ -24,7 +24,14 @@ export function renderFillGapsTask(task, container) {
 
         task.data.answers.forEach(answer => {
             const badge = document.createElement("span");
-            badge.className = "badge bg-primary me-1 mb-1";
+            badge.className = "badge bg-primary mb-1";
+            badge.style.maxWidth = "60%";
+            badge.style.overflow = "hidden";
+            badge.style.textOverflow = "ellipsis";
+            badge.style.whiteSpace = "nowrap";
+            badge.style.display = "inline-block";
+            badge.style.verticalAlign = "middle";
+            badge.title = answer;
             badge.textContent = answer;
 
             list.appendChild(badge);
@@ -81,7 +88,6 @@ export function renderFillGapsTask(task, container) {
         input.setAttribute("spellcheck", "false");
         input.name = `field_${index}_${Math.random().toString(36).substr(2, 9)}`;
 
-
         input.addEventListener('input', () => {
             updateInputWidth(input);
         });
@@ -96,12 +102,15 @@ export function renderFillGapsTask(task, container) {
         return input;
     };
 
-    // Берем HTML напрямую из task.data.text
     const htmlText = task.data.text || "";
-    const tempDiv = document.createElement("div");
-    tempDiv.innerHTML = htmlText;
 
-    const processNode = (node) => {
+    // Создаем временный контейнер для обработки
+    const tempContainer = document.createElement("div");
+    const fragment = formatLatex(htmlText);
+    tempContainer.appendChild(fragment);
+
+    // Теперь обрабатываем структуру с учетом пропусков [текст]
+    const processNodeWithGaps = (node) => {
         if (node.nodeType === Node.TEXT_NODE) {
             const text = node.textContent;
             const parts = text.split(/(\[[^\]]+\])/g);
@@ -114,35 +123,15 @@ export function renderFillGapsTask(task, container) {
                     if (part.startsWith('[') && part.endsWith(']')) {
                         fragment.appendChild(createInput(inputIndex++));
                     } else if (part) {
-                        const lines = part.split('\n');
-                        lines.forEach((line, index) => {
-                            if (line.trim()) {
-                                fragment.appendChild(document.createTextNode(line));
-                            }
-                            if (index < lines.length - 1) {
-                                fragment.appendChild(document.createElement('br'));
-                            }
-                        });
+                        const span = document.createElement("span");
+                        span.textContent = part;
+                        fragment.appendChild(span);
                     }
                 });
 
                 return fragment;
             }
-
-            const lines = text.split('\n');
-            if (lines.length > 1) {
-                const fragment = document.createDocumentFragment();
-                lines.forEach((line, index) => {
-                    if (line.trim() || line === '') {
-                        fragment.appendChild(document.createTextNode(line));
-                    }
-                    if (index < lines.length - 1) {
-                        fragment.appendChild(document.createElement('br'));
-                    }
-                });
-                return fragment;
-            }
-            return node.cloneNode(true);
+            return document.createTextNode(text);
         } else if (node.nodeType === Node.ELEMENT_NODE) {
             const tagName = node.tagName.toLowerCase();
             let processedNode;
@@ -160,12 +149,18 @@ export function renderFillGapsTask(task, container) {
             } else if (tagName === 'u') {
                 processedNode = document.createElement('span');
                 processedNode.style.textDecoration = 'underline';
+            } else if (tagName === 'div' && node.classList.contains('latex-formula-wrapper')) {
+                // Это обертка формулы из formatLatex - копируем как есть
+                return node.cloneNode(true);
+            } else if (tagName === 'span' && node.classList.contains('latex-formula')) {
+                // Это формула из formatLatex - копируем как есть
+                return node.cloneNode(true);
             } else {
                 processedNode = node.cloneNode(false);
             }
 
             for (const child of node.childNodes) {
-                const processedChild = processNode(child);
+                const processedChild = processNodeWithGaps(child);
                 if (processedChild) {
                     processedNode.appendChild(processedChild);
                 }
@@ -177,16 +172,17 @@ export function renderFillGapsTask(task, container) {
         return node.cloneNode(true);
     };
 
-    const processedContent = processNode(tempDiv);
+    // Обрабатываем все узлы в tempContainer
+    const processedFragment = document.createDocumentFragment();
 
-    if (processedContent.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
-        while (processedContent.firstChild) {
-            textDiv.appendChild(processedContent.firstChild);
+    for (const child of tempContainer.childNodes) {
+        const processedChild = processNodeWithGaps(child);
+        if (processedChild) {
+            processedFragment.appendChild(processedChild);
         }
-    } else {
-        textDiv.appendChild(processedContent);
     }
 
+    textDiv.appendChild(processedFragment);
     cardBody.appendChild(textDiv);
     card.appendChild(cardBody);
     container.appendChild(card);
@@ -201,6 +197,14 @@ export function renderFillGapsTask(task, container) {
         textDiv.querySelectorAll('.gap-input').forEach(input => {
             updateInputWidth(input);
         });
+
+        if (task.data.list_type === "open" && hintBlock) {
+            const badges = hintBlock.querySelectorAll('.badge');
+            badges.forEach(badge => {
+                badge.style.maxWidth = "60%";
+            });
+        }
+
         renderMathJax();
     };
 

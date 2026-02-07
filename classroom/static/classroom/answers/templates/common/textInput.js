@@ -2,6 +2,8 @@ import { debounce, adjustTextareaHeight, processTaskAnswer } from "/static/class
 import { sendAnswer } from "/static/classroom/answers/api.js";
 
 let isApplyingServerUpdate = false;
+let pendingChanges = new Map();
+let userTypingTimeouts = new Map();
 
 export function bindAnswerSubmission(container, task) {
     if (!container) return;
@@ -12,13 +14,43 @@ export function bindAnswerSubmission(container, task) {
     const sendEditorAnswer = debounce(() => {
         if (isApplyingServerUpdate) return;
 
+        const content = editor.innerHTML;
+
         sendAnswer({
             taskId: task.task_id,
-            data: { current_text: editor.innerHTML }
+            data: { current_text: content }
         });
     }, 400);
 
-    editor.addEventListener("input", sendEditorAnswer);
+    editor.addEventListener("input", (e) => {
+        if (isApplyingServerUpdate) return;
+
+        sendEditorAnswer();
+
+        const taskId = task.task_id;
+        clearTimeout(userTypingTimeouts.get(taskId));
+        userTypingTimeouts.set(taskId, setTimeout(() => {
+            userTypingTimeouts.delete(taskId);
+        }, 1000));
+    });
+
+    editor.addEventListener("keydown", (e) => {
+        if (isApplyingServerUpdate) return;
+
+        const taskId = task.task_id;
+        if (e.key === "Enter") {
+            setTimeout(sendEditorAnswer, 50);
+        } else if (e.key.length === 1) {
+            const timeout = userTypingTimeouts.get(taskId);
+            if (timeout) {
+                clearTimeout(timeout);
+            }
+            userTypingTimeouts.set(taskId, setTimeout(() => {
+                userTypingTimeouts.delete(taskId);
+                sendEditorAnswer();
+            }, 200));
+        }
+    });
 }
 
 export async function handleAnswer(data) {
@@ -35,6 +67,11 @@ export async function handleAnswer(data) {
     const editor = container.querySelector("div[contenteditable='true']");
     if (!editor) return;
 
+    if (userTypingTimeouts.has(taskId)) {
+        pendingChanges.set(taskId, { serverHTML, isChecked });
+        return;
+    }
+
     const currentHTML = editor.innerHTML;
 
     if (currentHTML === serverHTML) {
@@ -49,39 +86,106 @@ export async function handleAnswer(data) {
 
         if (userIsTyping) {
             const selection = window.getSelection();
-            if (selection.rangeCount > 0) {
+            if (selection.rangeCount > 0 && selection.anchorNode) {
                 const range = selection.getRangeAt(0);
-                const rangeClone = range.cloneRange();
-                rangeClone.selectNodeContents(editor);
-                rangeClone.setEnd(range.endContainer, range.endOffset);
-                const cursorPosition = rangeClone.toString().length;
+
+                const isInEditor = editor.contains(selection.anchorNode);
+                if (!isInEditor) {
+                    editor.innerHTML = serverHTML;
+                    editor.contentEditable = !isChecked;
+                    return;
+                }
+
+                const anchorNode = selection.anchorNode;
+                const anchorOffset = selection.anchorOffset;
+                const focusNode = selection.focusNode;
+                const focusOffset = selection.focusOffset;
 
                 const tempDiv = document.createElement('div');
                 tempDiv.innerHTML = currentHTML;
-                const currentText = tempDiv.textContent;
-                const serverText = document.createElement('div');
-                serverText.innerHTML = serverHTML;
-                const serverPlainText = serverText.textContent;
+                const serverDiv = document.createElement('div');
+                serverDiv.innerHTML = serverHTML;
 
-                if (cursorPosition > 0) {
-                    const prefix = currentText.substring(0, cursorPosition);
-                    const serverPrefix = serverPlainText.substring(0, cursorPosition);
+                const editorRect = editor.getBoundingClientRect();
+                const cursorTop = range.getBoundingClientRect().top;
 
-                    if (prefix !== serverPrefix) {
-                        isApplyingServerUpdate = false;
-                        return;
+                editor.innerHTML = serverHTML;
+
+                if (cursorTop >= editorRect.top && cursorTop <= editorRect.bottom) {
+                    try {
+                        const nodes = [];
+                        const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null);
+                        let node;
+                        let position = 0;
+
+                        while ((node = walker.nextNode())) {
+                            nodes.push({ node, start: position, end: position + node.length });
+                            position += node.length;
+                        }
+
+                        const originalRange = document.createRange();
+                        originalRange.setStart(anchorNode, Math.min(anchorOffset, anchorNode.length || 0));
+                        originalRange.setEnd(focusNode, Math.min(focusOffset, focusNode.length || 0));
+                        const originalText = originalRange.toString();
+
+                        let bestMatch = { node: null, offset: 0, distance: Infinity };
+
+                        for (const { node: textNode, start } of nodes) {
+                            const nodeText = textNode.textContent || '';
+                            for (let i = 0; i <= nodeText.length; i++) {
+                                const range = document.createRange();
+                                range.setStart(textNode, i);
+                                range.setEnd(textNode, i);
+                                const rect = range.getBoundingClientRect();
+
+                                if (rect.height > 0) {
+                                    const distance = Math.abs(rect.top - cursorTop);
+                                    if (distance < bestMatch.distance) {
+                                        bestMatch = { node: textNode, offset: i, distance };
+                                    }
+                                }
+                            }
+                        }
+
+                        if (bestMatch.node) {
+                            const newRange = document.createRange();
+                            newRange.setStart(bestMatch.node, bestMatch.offset);
+                            newRange.setEnd(bestMatch.node, bestMatch.offset);
+                            selection.removeAllRanges();
+                            selection.addRange(newRange);
+                        }
+                    } catch (e) {
+                        console.warn("Could not restore cursor position:", e);
                     }
                 }
+            } else {
+                editor.innerHTML = serverHTML;
             }
+        } else {
+            editor.innerHTML = serverHTML;
         }
-
-        editor.innerHTML = serverHTML;
 
         editor.contentEditable = !isChecked;
 
+    } catch (error) {
+        console.error("Error handling answer update:", error);
+        editor.innerHTML = serverHTML;
+        editor.contentEditable = !isChecked;
     } finally {
         setTimeout(() => {
             isApplyingServerUpdate = false;
+
+            const pending = pendingChanges.get(taskId);
+            if (pending) {
+                pendingChanges.delete(taskId);
+                setTimeout(() => handleAnswer({
+                    ...data,
+                    answer: {
+                        current_text: pending.serverHTML,
+                        is_checked: pending.isChecked
+                    }
+                }), 100);
+            }
         }, 50);
     }
 }
@@ -94,5 +198,9 @@ export function clearTask(container) {
     editor.disabled = false;
 
     const taskId = container.getAttribute("data-task-id");
-    processTaskAnswer(taskId);
+    if (taskId) {
+        userTypingTimeouts.delete(taskId);
+        pendingChanges.delete(taskId);
+        processTaskAnswer(taskId);
+    }
 }

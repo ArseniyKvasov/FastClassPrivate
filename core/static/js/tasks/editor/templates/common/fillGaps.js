@@ -38,7 +38,7 @@ export function renderFillGapsTaskEditor(taskData = null) {
     const gapsPreviewList = card.querySelector(".gaps-preview-list");
 
     const aiPromptBtn = document.createElement("button");
-    aiPromptBtn.className = "btn btn-sm btn-outline-secondary";
+    aiPromptBtn.className = "btn btn-light btn-sm border";
     aiPromptBtn.innerHTML = '<i class="bi bi-robot"></i>';
     aiPromptBtn.title = "Скопировать запрос для ИИ";
 
@@ -62,7 +62,7 @@ export function renderFillGapsTaskEditor(taskData = null) {
     const { editor, toolbar, getHTML, setHTML } = createRichTextEditor(htmlContent);
 
     const insertGapBtn = document.createElement("button");
-    insertGapBtn.className = "btn btn-sm btn-outline-secondary";
+    insertGapBtn.className = "btn btn-light btn-sm border";
     insertGapBtn.innerHTML = '<i class="bi bi-square me-1"></i>Пропуск';
     insertGapBtn.title = "Вставить пропуск";
 

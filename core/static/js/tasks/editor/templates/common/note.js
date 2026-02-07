@@ -24,21 +24,23 @@ export function renderNoteTaskEditor(taskData = null) {
 
     const editorWrapper = card.querySelector(".editor-wrapper");
 
+    const { editor, toolbar } = createRichTextEditor(content);
+
     const aiPromptBtn = document.createElement("button");
     aiPromptBtn.type = "button";
-    aiPromptBtn.className = "btn btn-sm btn-outline-secondary";
+    aiPromptBtn.className = "btn btn-light btn-sm border";
     aiPromptBtn.innerHTML = '<i class="bi bi-robot"></i>';
     aiPromptBtn.title = "Скопировать промпт для ИИ";
 
     const aiPrompt = `Ты генерируешь текстовые заметки для системы, которая поддерживает базовый HTML и LaTeX. Внимательно следуй инструкций:
 
-ФОРМАТИРОВАНИЕ
+Форматирование
 - <b>
 - <i>
 - <u>
 - не используй другие html теги или стили
 
-МАТЕМАТИЧЕСКИЕ ФОРМУЛЫ
+Формулы
 - Формулы оборачивай в LaTeX:
   - Встроенные формулы: $формула$
   - Отдельные формулы: $$формула$$
@@ -53,8 +55,6 @@ export function renderNoteTaskEditor(taskData = null) {
             .then(() => showNotification("Запрос для генерации в ИИ скопирован"))
             .catch(() => showNotification("Не удалось скопировать промпт"));
     });
-
-    const { editor, toolbar } = createRichTextEditor(content);
 
     toolbar.appendChild(aiPromptBtn);
     editorWrapper.appendChild(toolbar);

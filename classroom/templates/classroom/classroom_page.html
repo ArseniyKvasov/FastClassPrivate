@@ -133,16 +133,10 @@
             displayMath: [['$$','$$'], ['\\[','\\]']],
             packages: {'[+]': ['autoload']}
           },
-          output: {
+        output: {
             displayOverflow: 'linebreak',
-            linebreaks: {
-              automatic: true,
-              width: '100%'
-            }
-          },
-          options: {
-            skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
-          }
+            linebreaks: { inline: true, width: '100%' }
+        }
         };
     </script>
 

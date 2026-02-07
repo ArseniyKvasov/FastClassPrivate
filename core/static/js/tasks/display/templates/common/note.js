@@ -17,16 +17,9 @@ export function renderNoteTask(task, container) {
     noteWrapper.style.borderRadius = "0.375rem";
 
     const renderContent = () => {
-        noteWrapper.innerHTML = content;
-
-        const latexElements = noteWrapper.querySelectorAll('span.latex-formula, [class*="latex"], [class*="math"]');
-        latexElements.forEach(el => {
-            const latexContent = el.textContent || '';
-            if (latexContent.includes('$') || latexContent.includes('\\[')) {
-                const fragment = formatLatex(latexContent);
-                el.replaceWith(fragment);
-            }
-        });
+        noteWrapper.innerHTML = "";
+        const fragment = formatLatex(content);
+        noteWrapper.appendChild(fragment);
 
         if (window.MathJax && window.MathJax.typesetPromise) {
             MathJax.typesetPromise([noteWrapper]).catch(err => console.error("MathJax render error:", err));

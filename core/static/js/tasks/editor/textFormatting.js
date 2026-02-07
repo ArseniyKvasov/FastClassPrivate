@@ -7,6 +7,60 @@ export function createRichTextEditor(initialHTML = "") {
         return textarea.value;
     }
 
+    function preprocessText(text) {
+        const lines = text.split('\n');
+        let inLatexBlock = false;
+        let latexBuffer = [];
+        let processedLines = [];
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+
+            if (line.startsWith('\\[')) {
+                inLatexBlock = true;
+                latexBuffer.push(line);
+            } else if (line.endsWith('\\]')) {
+                latexBuffer.push(line);
+                processedLines.push(latexBuffer.join(' '));
+                inLatexBlock = false;
+                latexBuffer = [];
+            } else if (inLatexBlock) {
+                latexBuffer.push(line);
+            } else {
+                processedLines.push(lines[i]);
+            }
+        }
+
+        if (latexBuffer.length > 0) {
+            processedLines.push(latexBuffer.join(' '));
+        }
+
+        return processedLines.join('\n');
+    }
+
+    function markdownToHTML(text) {
+        return text
+            .replace(/^###### (.*$)/gim, '<p>$1</p>')
+            .replace(/^##### (.*$)/gim, '<p>$1</p>')
+            .replace(/^#### (.*$)/gim, '<p>$1</p>')
+            .replace(/^### (.*$)/gim, '<p>$1</p>')
+            .replace(/^## (.*$)/gim, '<p>$1</p>')
+            .replace(/^# (.*$)/gim, '<p>$1</p>')
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/__(.*?)__/g, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+            .replace(/_(.*?)_/g, '<em>$1</em>')
+            .replace(/^\* (.*$)/gim, '<li>$1</li>')
+            .replace(/^- (.*$)/gim, '<li>$1</li>')
+            .replace(/^\d\. (.*$)/gim, '<li>$1</li>')
+            .replace(/<li>.*<\/li>/gim, (match) => {
+                const lines = match.split('\n').filter(l => l.includes('<li>'));
+                return `<ul>${lines.join('')}</ul>`;
+            })
+            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
+            .replace(/\n/g, '<br>');
+    }
+
     function sanitizeInPlace(root) {
         const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, null);
         const toUnwrap = [];
@@ -35,6 +89,10 @@ export function createRichTextEditor(initialHTML = "") {
     }
 
     function sanitizeHTMLString(html) {
+        const cleanedText = html
+                .replace(/\*/g, "")
+                .replace(/\#/g, "")
+                .replace(/\—/g, "-");
         const decodedHTML = decodeHTMLEntities(html);
         const container = document.createElement("div");
         container.innerHTML = decodedHTML;
@@ -71,21 +129,22 @@ export function createRichTextEditor(initialHTML = "") {
     }
 
     const toolbar = document.createElement("div");
-    toolbar.className = "btn-toolbar gap-1 mb-2";
+    toolbar.className = "btn-toolbar gap-2 mb-1";
 
     const buttons = [
-        { label: "B", cmd: "bold" },
-        { label: "I", cmd: "italic" },
-        { label: "U", cmd: "underline" },
-        { label: "•", cmd: "insertUnorderedList" },
-        { label: "1.", cmd: "insertOrderedList" },
+        { icon: "bi bi-type-bold", cmd: "bold", title: "Жирный" },
+        { icon: "bi bi-type-italic", cmd: "italic", title: "Курсив" },
+        { icon: "bi bi-type-underline", cmd: "underline", title: "Подчеркнутый" },
+        { icon: "bi bi-list-ul", cmd: "insertUnorderedList", title: "Маркированный список" },
+        { icon: "bi bi-list-ol", cmd: "insertOrderedList", title: "Нумерованный список" },
     ];
 
-    buttons.forEach(({ label, cmd }) => {
+    buttons.forEach(({ icon, cmd, title }) => {
         const btn = document.createElement("button");
         btn.type = "button";
-        btn.className = "btn btn-sm btn-outline-secondary";
-        btn.innerHTML = label;
+        btn.className = "btn btn-light btn-sm border";
+        btn.innerHTML = `<i class="${icon}"></i>`;
+        btn.title = title;
 
         btn.addEventListener("mousedown", (e) => {
             e.preventDefault();
@@ -156,19 +215,25 @@ export function createRichTextEditor(initialHTML = "") {
             const sanitizedHTML = sanitizeHTMLString(html);
             document.execCommand("insertHTML", false, sanitizedHTML);
         } else {
-            let cleanedText = text
-                .replace(/\*/g, "")
-                .replace(/\#/g, "")
-                .replace(/\—/g, "-");
-            document.execCommand("insertText", false, cleanedText);
+            let cleanedText = text.replace(/\—/g, "-");
+
+            cleanedText = preprocessText(cleanedText);
+
+            const hasMarkdown = /(\*\*|__|\*|_|^[#\-*] |\[.*\]\(.*\))/.test(cleanedText);
+
+            if (hasMarkdown) {
+                const htmlContent = markdownToHTML(cleanedText);
+                const sanitizedHTML = sanitizeHTMLString(htmlContent);
+                document.execCommand("insertHTML", false, sanitizedHTML);
+            } else {
+                document.execCommand("insertText", false, cleanedText);
+            }
         }
     });
 
     editor.addEventListener("blur", () => {
         sanitizeInPlace(editor);
     });
-
-    const originalSetHTML = editor.setHTML;
 
     return {
         editor,
@@ -214,11 +279,23 @@ export function formatLatex(content) {
             }
         }
 
+        const formulaWrapper = document.createElement("div");
+        formulaWrapper.style.display = "block";
+        formulaWrapper.style.overflowX = "auto";
+        formulaWrapper.style.whiteSpace = "nowrap";
+        formulaWrapper.style.maxWidth = "100%";
+        formulaWrapper.style.margin = "0.5em 0";
+        formulaWrapper.style.lineHeight = "1.8";
+        formulaWrapper.style.padding = "0.3em 0";
+
         const formulaSpan = document.createElement("span");
         formulaSpan.className = "latex-formula";
-        formulaSpan.style.display = "inline-block";
         formulaSpan.textContent = match[0];
-        fragment.appendChild(formulaSpan);
+        formulaSpan.style.fontSize = "1em";
+        formulaSpan.style.verticalAlign = "middle";
+
+        formulaWrapper.appendChild(formulaSpan);
+        fragment.appendChild(formulaWrapper);
 
         lastIndex = match.index + match[0].length;
     }
