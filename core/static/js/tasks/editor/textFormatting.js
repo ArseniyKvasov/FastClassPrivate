@@ -54,13 +54,27 @@ export function createRichTextEditor(initialHTML = "") {
 
     function sanitizeHTMLString(html) {
         const decoded = decodeHTMLEntities(html);
-
         const container = document.createElement("div");
         container.innerHTML = decoded;
-
         sanitizeInPlace(container);
-
         return container.innerHTML;
+    }
+
+    function markdownToHTML(text) {
+        let result = text;
+
+        result = result.replace(/^#{1,6}\s*(.+)$/gm, "<strong><u>$1</u></strong>");
+
+        result = result.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+        result = result.replace(/__(.+?)__/g, "<u>$1</u>");
+        result = result.replace(/\*(.+?)\*/g, "<i>$1</i>");
+        result = result.replace(/_(.+?)_/g, "<i>$1</i>");
+
+        result = result.replace(/\n/g, "<br>");
+
+        result = result.replace(/[—–]/g, "-");
+
+        return result;
     }
 
     function exec(command) {
@@ -107,7 +121,7 @@ export function createRichTextEditor(initialHTML = "") {
         editor.style.overflowY = editor.scrollHeight > 400 ? "auto" : "hidden";
     }
 
-    new MutationObserver(mutations => {
+    new MutationObserver(() => {
         updateHeight();
     }).observe(editor, {
         childList: true,
@@ -115,7 +129,7 @@ export function createRichTextEditor(initialHTML = "") {
         characterData: true
     });
 
-    editor.addEventListener("input", e => {
+    editor.addEventListener("input", () => {
         updateHeight();
     });
 
@@ -151,7 +165,9 @@ export function createRichTextEditor(initialHTML = "") {
             return;
         }
 
-        document.execCommand("insertText", false, text);
+        const markdownHTML = markdownToHTML(text);
+        const sanitized = sanitizeHTMLString(markdownHTML);
+        document.execCommand("insertHTML", false, sanitized);
     });
 
     editor.addEventListener("blur", () => {
@@ -164,8 +180,7 @@ export function createRichTextEditor(initialHTML = "") {
         editor,
         toolbar,
         getHTML() {
-            const html = sanitizeHTMLString(editor.innerHTML);
-            return html;
+            return sanitizeHTMLString(editor.innerHTML);
         },
         setHTML(html) {
             editor.innerHTML = sanitizeHTMLString(html);
