@@ -1,11 +1,14 @@
-import { formatLatex } from '/static/js/tasks/editor/textFormatting.js';
+import { formatLatex } from "/static/js/tasks/editor/textFormatting.js";
 
 export function renderNoteTask(task, container) {
     if (!container) return;
 
     container.innerHTML = "";
 
-    const content = task?.data?.content && typeof task.data.content === "string" ? task.data.content : "";
+    const content =
+        task?.data?.content && typeof task.data.content === "string"
+            ? task.data.content
+            : "";
 
     const noteWrapper = document.createElement("div");
     noteWrapper.className = "note-task-content";
@@ -16,28 +19,8 @@ export function renderNoteTask(task, container) {
     noteWrapper.style.padding = "1rem";
     noteWrapper.style.borderRadius = "0.375rem";
 
-    const renderContent = () => {
-        noteWrapper.innerHTML = "";
-        const fragment = formatLatex(content);
-        noteWrapper.appendChild(fragment);
+    const fragment = formatLatex(content);
 
-        if (window.MathJax && window.MathJax.typesetPromise) {
-            MathJax.typesetPromise([noteWrapper]).catch(err => console.error("MathJax render error:", err));
-        }
-    };
-
-    renderContent();
+    noteWrapper.appendChild(fragment);
     container.appendChild(noteWrapper);
-
-    let resizeTimeout;
-    const onResize = () => {
-        clearTimeout(resizeTimeout);
-        resizeTimeout = setTimeout(() => {
-            if (window.MathJax && window.MathJax.typesetPromise) {
-                MathJax.typesetPromise([noteWrapper]).catch(err => console.error("MathJax render error:", err));
-            }
-        }, 250);
-    };
-
-    window.addEventListener("resize", onResize);
 }
