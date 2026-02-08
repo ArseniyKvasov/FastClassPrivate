@@ -101,10 +101,8 @@ def reorder_sections(request, lesson_id):
     if lesson.course.creator != request.user:
         return JsonResponse({"error": "Ошибка доступа."}, status=403)
 
-    qs = lesson.sections.select_for_update()
-
     with transaction.atomic():
-        sections = {str(s.id): s for s in qs}
+        sections = {str(s.id): s for s in lesson.sections.select_for_update()}
 
         for index, section_id in enumerate(order):
             section = sections.get(str(section_id))

@@ -1,3 +1,4 @@
+import json
 from django.urls import reverse
 from django.shortcuts import render, get_object_or_404
 from django.db.models import ProtectedError
@@ -8,20 +9,9 @@ from django.db.models import Prefetch, Case, When, Value, IntegerField
 from courses.models import Course, Lesson
 from classroom.models import Classroom
 
-
 @login_required
 @require_POST
 def course_edit_meta_view(request, course_id):
-    """
-    Обновляет метаданные курса (title, description, subject).
-
-    Доступ разрешён только создателю курса.
-    Ожидает POST-параметры:
-        - title (обязательный)
-        - description (необязательный)
-        - subject (необязательный)
-    Возвращает JSON с обновлёнными данными.
-    """
     try:
         course = Course.objects.get(id=course_id)
     except Course.DoesNotExist:
@@ -33,7 +23,15 @@ def course_edit_meta_view(request, course_id):
             status=403
         )
 
-    title = request.POST.get("title", "").strip()
+    try:
+        data = json.loads(request.body)
+        title = data.get("title", "").strip()
+    except json.JSONDecodeError:
+        return JsonResponse(
+            {"error": "Неверный формат JSON"},
+            status=400
+        )
+
     if not title:
         return JsonResponse(
             {"error": "Название не может быть пустым"},
@@ -46,10 +44,10 @@ def course_edit_meta_view(request, course_id):
             status=400
         )
 
-    description = request.POST.get("description", "")
+    description = data.get("description", "")
     description = description.strip() if description is not None else ""
 
-    subject = request.POST.get("subject")
+    subject = data.get("subject")
     if subject is not None:
         subject = subject.strip()
         if subject not in {"math", "english", "other"}:

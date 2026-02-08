@@ -10,7 +10,6 @@ export function createRichTextEditor(initialHTML = "") {
         "DIV",
         "P",
         "BR",
-        "SPAN"
     ]);
 
     function decodeHTMLEntities(html) {
@@ -20,6 +19,7 @@ export function createRichTextEditor(initialHTML = "") {
     }
 
     function sanitizeInPlace(root) {
+        "Функция очищает DOM-ветку root: удаляет теги, не входящие в allowedTags, и убирает все атрибуты у разрешённых элементов. Реализовано через TreeWalker."
         const walker = document.createTreeWalker(
             root,
             NodeFilter.SHOW_ELEMENT,
@@ -61,17 +61,15 @@ export function createRichTextEditor(initialHTML = "") {
     }
 
     function markdownToHTML(text) {
+        "Преобразует Markdown в упрощённый HTML: заголовки в <strong><u>, ** -> <strong>, __ -> <u>, */_ -> <i>, переносы строк в <br>, длинные тире в короткие. Не трогает LaTeX-блоки."
         let result = text;
 
         result = result.replace(/^#{1,6}\s*(.+)$/gm, "<strong><u>$1</u></strong>");
-
         result = result.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
         result = result.replace(/__(.+?)__/g, "<u>$1</u>");
         result = result.replace(/\*(.+?)\*/g, "<i>$1</i>");
         result = result.replace(/_(.+?)_/g, "<i>$1</i>");
-
         result = result.replace(/\n/g, "<br>");
-
         result = result.replace(/[—–]/g, "-");
 
         return result;
@@ -80,6 +78,55 @@ export function createRichTextEditor(initialHTML = "") {
     function exec(command) {
         document.execCommand(command, false, null);
         sanitizeInPlace(editor);
+    }
+
+    function clearFormatting() {
+        document.execCommand("removeFormat", false, null);
+        document.execCommand("unlink", false, null);
+        sanitizeInPlace(editor);
+    }
+
+    function getCaretOffsetWithin(container) {
+        const sel = window.getSelection();
+        if (!sel || !sel.rangeCount) return null;
+        const range = sel.getRangeAt(0).cloneRange();
+        range.selectNodeContents(container);
+        range.setEnd(sel.anchorNode, sel.anchorOffset);
+        return range.toString().length;
+    }
+
+    function isCaretInsideMath(container) {
+        const offset = getCaretOffsetWithin(container);
+        if (offset === null) return false;
+        const text = container.textContent || "";
+        let start = -1;
+        while (true) {
+            const i = text.indexOf("$$", start + 1);
+            if (i === -1) break;
+            const j = text.indexOf("$$", i + 2);
+            if (j === -1) break;
+            if (i < offset && offset < j) return true;
+            start = j;
+        }
+        return false;
+    }
+
+    function processTextForPaste(text, insideMath) {
+        if (insideMath) {
+            return text.replace(/\$\$\s*([\s\S]*?)\s*\$\$/g, (m, inner) => {
+                const collapsed = inner.replace(/\r?\n/g, "");
+                return "$$" + collapsed + "$$";
+            });
+        }
+
+        const parts = text.split(/(\$\$[\s\S]*?\$\$)/g);
+        return parts.map(part => {
+            if (/^\$\$[\s\S]*\$\$$/.test(part)) {
+                const inner = part.slice(2, -2).replace(/\r?\n/g, "");
+                return "$$" + inner + "$$";
+            }
+            return markdownToHTML(part);
+        }).join("");
     }
 
     const toolbar = document.createElement("div");
@@ -96,29 +143,37 @@ export function createRichTextEditor(initialHTML = "") {
         btn.type = "button";
         btn.className = "btn btn-light btn-sm border";
         btn.innerHTML = `<i class="${icon}"></i>`;
-
         btn.addEventListener("mousedown", e => e.preventDefault());
         btn.addEventListener("click", () => {
             exec(cmd);
             editor.focus();
         });
-
         toolbar.appendChild(btn);
     });
+
+    const eraserBtn = document.createElement("button");
+    eraserBtn.type = "button";
+    eraserBtn.className = "btn btn-light btn-sm border";
+    eraserBtn.innerHTML = `<i class="bi bi-eraser"></i>`;
+    eraserBtn.addEventListener("mousedown", e => e.preventDefault());
+    eraserBtn.addEventListener("click", () => {
+        clearFormatting();
+        editor.focus();
+    });
+    toolbar.appendChild(eraserBtn);
 
     const editor = document.createElement("div");
     editor.className = "form-control rich-text-editor-area";
     editor.contentEditable = "true";
-    editor.style.minHeight = "120px";
-    editor.style.overflow = "hidden";
+    editor.style.minHeight = "200px";
+    editor.style.overflowY = "scroll";
 
     editor.innerHTML = sanitizeHTMLString(initialHTML);
 
     function updateHeight() {
         editor.style.height = "auto";
-        const h = Math.min(400, Math.max(120, editor.scrollHeight));
+        const h = Math.min(400, Math.max(200, editor.scrollHeight));
         editor.style.height = h + "px";
-        editor.style.overflowY = editor.scrollHeight > 400 ? "auto" : "hidden";
     }
 
     new MutationObserver(() => {
@@ -135,17 +190,14 @@ export function createRichTextEditor(initialHTML = "") {
 
     editor.addEventListener("keydown", e => {
         if (!e.ctrlKey && !e.metaKey) return;
-
         if (e.key === "b") {
             e.preventDefault();
             exec("bold");
         }
-
         if (e.key === "i") {
             e.preventDefault();
             exec("italic");
         }
-
         if (e.key === "u") {
             e.preventDefault();
             exec("underline");
@@ -154,20 +206,26 @@ export function createRichTextEditor(initialHTML = "") {
 
     editor.addEventListener("paste", e => {
         e.preventDefault();
-
         const data = e.clipboardData || window.clipboardData;
         const html = data.getData("text/html");
         const text = data.getData("text/plain");
+        const insideMath = isCaretInsideMath(editor);
 
-        if (html) {
+        if (html && !insideMath) {
             const sanitized = sanitizeHTMLString(html);
             document.execCommand("insertHTML", false, sanitized);
+            sanitizeInPlace(editor);
             return;
         }
 
-        const markdownHTML = markdownToHTML(text);
-        const sanitized = sanitizeHTMLString(markdownHTML);
-        document.execCommand("insertHTML", false, sanitized);
+        const processed = processTextForPaste(text || html || "", insideMath);
+        if (insideMath) {
+            document.execCommand("insertText", false, processed);
+        } else {
+            const sanitized = sanitizeHTMLString(processed);
+            document.execCommand("insertHTML", false, sanitized);
+        }
+        sanitizeInPlace(editor);
     });
 
     editor.addEventListener("blur", () => {

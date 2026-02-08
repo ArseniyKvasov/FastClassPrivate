@@ -294,9 +294,13 @@ function setupModalForm() {
                 requestBody.lesson_id = parseInt(lessonIdInput.value);
             }
 
-            if (entity === 'course' && mode === 'create') {
-                requestBody.description = descInput.value.trim();
-                requestBody.subject = subjectSelect.value;
+            if (entity === 'course') {
+                if (mode === 'create') {
+                    requestBody.subject = subjectSelect.value;
+                } else {
+                    requestBody.subject = subjectSelect.value;
+                    requestBody.description = descInput.value.trim();
+                }
             }
 
             const resp = await fetch(url, {

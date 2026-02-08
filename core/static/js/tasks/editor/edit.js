@@ -88,7 +88,7 @@ function ensureEditorModal() {
     el.innerHTML = `
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content">
-                <div class="modal-body editor-modal-body"></div>
+                <div class="modal-body editor-modal-body overflow-auto" style="max-height: 80vh;"></div>
             </div>
         </div>
     `;

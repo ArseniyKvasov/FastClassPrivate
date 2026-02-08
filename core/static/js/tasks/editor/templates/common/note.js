@@ -5,8 +5,6 @@ export function renderNoteTaskEditor(taskData = null) {
     const card = document.createElement("div");
     card.className = "task-editor-card mb-4 p-3 bg-white border-0 rounded";
 
-    const content = taskData?.content || "";
-
     card.innerHTML = `
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h6 class="fw-semibold text-dark mb-0">
@@ -24,7 +22,10 @@ export function renderNoteTaskEditor(taskData = null) {
 
     const editorWrapper = card.querySelector(".editor-wrapper");
 
-    const { editor, toolbar } = createRichTextEditor(content);
+    const { editor, toolbar, setHTML } = createRichTextEditor("");
+    if (taskData?.content) {
+        setHTML(taskData.content);
+    }
 
     const aiPromptBtn = document.createElement("button");
     aiPromptBtn.type = "button";
@@ -36,7 +37,6 @@ export function renderNoteTaskEditor(taskData = null) {
 
 Форматирование
 - <b>
-- <i>
 - <u>
 - не используй другие html теги или стили
 

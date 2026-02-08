@@ -1,11 +1,85 @@
 import { sendAnswer } from "/static/classroom/answers/api.js";
-import { updateBadgesStrikethrough } from "/static/classroom/answers/utils.js";
 
-/**
- * Навешивает обработчики на поля задания fill-gaps
- * @param {HTMLElement} container
- * @param {Object} task
- */
+function normalizeAnswerString(text) {
+    if (typeof text !== 'string') return "";
+
+    let normalized = text.toLowerCase();
+
+    normalized = normalized.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+    const replacements = {
+        '—': '-', '–': '-', '−': '-', '―': '-',
+        '’': "'", '‘': "'", '´': "'", '`': "'",
+        '"': "'", '“': "'", '”': "'", '«': "'", '»': "'"
+    };
+
+    Object.entries(replacements).forEach(([from, to]) => {
+        normalized = normalized.replace(new RegExp(from, 'g'), to);
+    });
+
+    normalized = normalized.replace(/[^\w\s\'-]/g, '');
+
+    normalized = normalized.replace(/\s+/g, ' ').trim();
+
+    const contractions = [
+        ['i\\s+am', "i'm"],
+        ['was\\s+not', "wasn't"],
+        ['were\\s+not', "weren't"],
+        ['do\\s+not', "don't"],
+        ['does\\s+not', "doesn't"],
+        ['did\\s+not', "didn't"],
+        ['have\\s+not', "haven't"],
+        ['has\\s+not', "hasn't"],
+        ['had\\s+not', "hadn't"],
+        ['will\\s+not', "won't"],
+        ['would\\s+not', "wouldn't"],
+        ['should\\s+not', "shouldn't"],
+        ['could\\s+not', "couldn't"],
+        ['can\\s+not', "can't"],
+        ['cannot', "can't"],
+        ['must\\s+not', "mustn't"]
+    ];
+
+    contractions.forEach(([pattern, replacement]) => {
+        const regex = new RegExp(`\\b${pattern}\\b`, 'g');
+        normalized = normalized.replace(regex, replacement);
+    });
+
+    normalized = normalized.replace(/\s*-\s*/g, '-');
+
+    return normalized;
+}
+
+function compareNormalizedAnswers(answer1, answer2) {
+    return normalizeAnswerString(answer1) === normalizeAnswerString(answer2);
+}
+
+export function updateBadgesStrikethrough(container, answers) {
+    const badges = container.querySelectorAll(".badge.bg-primary");
+    const usedBadges = new Set();
+
+    badges.forEach(badge => {
+        badge.classList.remove("text-decoration-line-through", "bg-secondary");
+    });
+
+    Object.values(answers).forEach(answerData => {
+        if (answerData?.value && answerData?.is_correct === true) {
+            const userAnswerNormalized = normalizeAnswerString(answerData.value);
+
+            const matchingBadge = Array.from(badges).find(badge => {
+                const badgeTextNormalized = normalizeAnswerString(badge.textContent);
+                const isMatch = badgeTextNormalized === userAnswerNormalized;
+                return isMatch && !usedBadges.has(badge);
+            });
+
+            if (matchingBadge) {
+                matchingBadge.classList.add("text-decoration-line-through", "bg-secondary");
+                usedBadges.add(matchingBadge);
+            }
+        }
+    });
+}
+
 export function bindAnswerSubmission(container, task) {
     if (!container) return;
 

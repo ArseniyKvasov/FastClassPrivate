@@ -238,7 +238,7 @@ class Section(models.Model):
         return f"{self.title} ({self.lesson.title})"
 
     def save(self, *args, **kwargs):
-        if not self.order or self.order == 0:
+        if self.pk is None and (not self.order or self.order == 0):
             max_order = Section.objects.filter(lesson=self.lesson).aggregate(models.Max('order'))['order__max'] or 0
             self.order = max_order + 1
         super().save(*args, **kwargs)

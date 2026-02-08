@@ -88,8 +88,8 @@ export async function handleWSMessage(ev) {
             break;
 
         case "copying:changed":
-            if (typeof data.allowed === "boolean") {
-                if (data.allowed) {
+            if (typeof data?.payload?.allowed === "boolean") {
+                if (data?.payload?.allowed) {
                     enableCopying();
                 } else {
                     disableCopying();

@@ -544,7 +544,6 @@ async function createClassroomAndRedirect() {
     const timeoutId = setTimeout(() => controller.abort(), 5000);
 
     try {
-        console.log(title, selectedLessonId);
         const resp = await fetch('/classroom/api/create/', {
             method: 'POST',
             headers: {

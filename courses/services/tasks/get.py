@@ -1,8 +1,9 @@
-from courses.models import Task, TestTask, TrueFalseTask, FillGapsTask, MatchCardsTask, TextInputTask, WordListTask, \
+import random
+from courses.models import Task, TestTask, NoteTask, TrueFalseTask, FillGapsTask, MatchCardsTask, TextInputTask, WordListTask, \
     FileTask
 
 
-def get_effective_data(task: Task) -> dict:
+def get_effective_data(task: Task, to_frontend = True) -> dict:
     """
     Возвращает данные задачи с учётом edited_content.
     Если есть edited_content, оно накладывается поверх данных specific.
@@ -20,10 +21,16 @@ def get_effective_data(task: Task) -> dict:
         data["questions"] = getattr(specific_obj, "questions", [])
     elif task.task_type == "true_false" and isinstance(specific_obj, TrueFalseTask):
         data["statements"] = getattr(specific_obj, "statements", [])
+    elif task.task_type == "note" and isinstance(specific_obj, NoteTask):
+        data["content"] = getattr(specific_obj, "content", "")
     elif task.task_type == "fill_gaps" and isinstance(specific_obj, FillGapsTask):
         data["text"] = getattr(specific_obj, "text", "")
         data["list_type"] = getattr(specific_obj, "list_type", "open")
-        data["answers"] = getattr(specific_obj, "answers", [])
+        answers = getattr(specific_obj, "answers", [])
+        if to_frontend and isinstance(answers, list):
+            data["answers"] = random.sample(answers, len(answers)) if answers else []
+        else:
+            data["answers"] = answers
     elif task.task_type == "match_cards" and isinstance(specific_obj, MatchCardsTask):
         data["cards"] = getattr(specific_obj, "cards", [])
         data["shuffled_cards"] = getattr(specific_obj, "shuffled_cards", [])

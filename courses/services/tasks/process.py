@@ -221,18 +221,3 @@ class TaskProcessor:
                 "success": False,
                 "errors": {"general": ["Внутренняя ошибка сервера"]}
             }, status=500)
-
-
-def serialize_task_data(task: Task):
-    """Сериализация данных задачи."""
-    SerializerClass = SERIALIZER_MAP.get(task.task_type)
-    if not SerializerClass:
-        return {}
-
-    if task.root_type == 'copy' and task.edited_content:
-        data = task.edited_content
-    else:
-        data = task.specific
-
-    serializer = SerializerClass(data)
-    return serializer.data

@@ -94,13 +94,6 @@ def delete_classroom_view(request, classroom_id):
 @login_required
 @require_POST
 def classroom_edit_title_view(request, classroom_id):
-    """
-    Обновляет название класса.
-
-    Доступ разрешён только пользователю с ролью teacher в данном классе.
-    Ожидает POST-параметр `title`.
-    Возвращает JSON с новым названием или ошибкой.
-    """
     try:
         classroom = Classroom.objects.get(id=classroom_id)
     except Classroom.DoesNotExist:
@@ -112,10 +105,24 @@ def classroom_edit_title_view(request, classroom_id):
             status=403
         )
 
-    title = request.POST.get("title", "").strip()
+    try:
+        data = json.loads(request.body)
+        title = data.get("title", "").strip()
+    except json.JSONDecodeError:
+        return JsonResponse(
+            {"error": "Неверный формат JSON"},
+            status=400
+        )
+
     if not title:
         return JsonResponse(
             {"error": "Название не может быть пустым"},
+            status=400
+        )
+
+    if len(title) > 30:
+        return JsonResponse(
+            {"error": "Название класса не должно превышать 30 символов"},
             status=400
         )
 

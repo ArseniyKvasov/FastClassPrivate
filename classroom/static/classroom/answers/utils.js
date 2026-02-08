@@ -47,30 +47,6 @@ export function getTaskTypeFromContainer(taskId) {
     return container?.dataset?.taskType;
 }
 
-export function updateBadgesStrikethrough(container, answers) {
-    const badges = container.querySelectorAll(".badge.bg-primary");
-    const usedBadges = new Set();
-
-    badges.forEach(badge => {
-        badge.classList.remove("text-decoration-line-through", "bg-secondary");
-    });
-
-    Object.values(answers).forEach(answerData => {
-        if (answerData?.value && answerData?.is_correct === true) {
-            const answerValue = answerData.value.trim().toLowerCase();
-            const matchingBadge = Array.from(badges).find(badge =>
-                badge.textContent.trim().toLowerCase() === answerValue &&
-                !usedBadges.has(badge)
-            );
-
-            if (matchingBadge) {
-                matchingBadge.classList.add("text-decoration-line-through", "bg-secondary");
-                usedBadges.add(matchingBadge);
-            }
-        }
-    });
-}
-
 export async function initCheckButton(task, container) {
     const classroomId = getClassroomId();
     const userId = getViewedUserId();

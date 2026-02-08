@@ -12,7 +12,7 @@ from rest_framework import serializers
 
 from courses.models import Section, Lesson, Course, Task, TestTask, NoteTask, TrueFalseTask, FillGapsTask, \
     MatchCardsTask, TextInputTask, IntegrationTask, FileTask, WordListTask
-from courses.services import TaskProcessor, serialize_task_data
+from courses.services import TaskProcessor, get_task_effective_data
 
 
 def parse_json_response(response):
@@ -650,7 +650,7 @@ class TaskProcessorTests(TestCase):
             response = processor.process()
             self.assertEqual(response.status_code, 500)
 
-    def test_serialize_task_data_original_task(self):
+    def test_get_task_effective_data_original_task(self):
         """Тест сериализации данных для оригинальной задачи."""
         processor = TaskProcessor(
             user=self.user,
@@ -663,10 +663,10 @@ class TaskProcessorTests(TestCase):
         task_id = response_data['task_id']
 
         task = Task.objects.get(id=task_id)
-        result = serialize_task_data(task)
+        result = get_task_effective_data(task)
         self.assertEqual(result['content'], "Test content")
 
-    def test_serialize_task_data_copy_task(self):
+    def test_get_task_effective_data_copy_task(self):
         """Тест сериализации данных для копии задачи."""
         note_task = NoteTask.objects.create(content="Original note")
         content_type = ContentType.objects.get_for_model(NoteTask)
@@ -680,10 +680,10 @@ class TaskProcessorTests(TestCase):
             edited_content={"content": "Edited content"}
         )
 
-        result = serialize_task_data(task)
+        result = get_task_effective_data(task)
         self.assertEqual(result['content'], "Edited content")
 
-    def test_serialize_task_data_unknown_type(self):
+    def test_get_task_effective_data_unknown_type(self):
         """Тест сериализации данных для неизвестного типа задачи."""
         note_task = NoteTask.objects.create(content="Test")
         content_type = ContentType.objects.get_for_model(NoteTask)
@@ -696,7 +696,7 @@ class TaskProcessorTests(TestCase):
             object_id=note_task.id
         )
 
-        result = serialize_task_data(task)
+        result = get_task_effective_data(task)
         self.assertEqual(result, {})
 
     def test_task_belongs_to_different_section(self):

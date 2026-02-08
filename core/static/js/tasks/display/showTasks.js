@@ -65,7 +65,7 @@ export async function renderTaskCard(task, replaceExisting = false) {
     loader.style.top = "0";
     loader.style.left = "0";
     loader.style.backgroundColor = "rgba(255, 255, 255, 0.8)";
-    loader.style.zIndex = "100";
+    loader.style.zIndex = "3";
     loader.innerHTML = `
         <div class="spinner-border text-primary" role="status">
             <span class="visually-hidden">Загрузка...</span>
