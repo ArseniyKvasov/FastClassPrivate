@@ -1,6 +1,6 @@
 import random
 from courses.models import Task, TestTask, NoteTask, TrueFalseTask, FillGapsTask, MatchCardsTask, TextInputTask, WordListTask, \
-    FileTask
+    FileTask, IntegrationTask
 
 
 def get_effective_data(task: Task, to_frontend = True) -> dict:
@@ -37,6 +37,8 @@ def get_effective_data(task: Task, to_frontend = True) -> dict:
     elif task.task_type == "text_input" and isinstance(specific_obj, TextInputTask):
         data["prompt"] = getattr(specific_obj, "prompt", "")
         data["default_text"] = getattr(specific_obj, "default_text", "")
+    elif task.task_type == "integration" and isinstance(specific_obj, IntegrationTask):
+        data["embed_code"] = getattr(specific_obj, "embed_code", "")
     elif task.task_type == "file" and isinstance(specific_obj, FileTask):
         data["file_path"] = getattr(specific_obj, "file_path", None)
     elif task.task_type == "word_list" and isinstance(specific_obj, WordListTask):
