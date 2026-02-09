@@ -24,9 +24,9 @@ def create_lesson(request, course_id):
     if not title:
         return JsonResponse({"error": "title обязательное поле"}, status=400)
 
-    if len(title) > 30:
+    if len(title) > 40:
         return JsonResponse(
-            {"error": "Название класса не должно превышать 30 символов"},
+            {"error": "Название класса не должно превышать 40 символов"},
             status=400
         )
 

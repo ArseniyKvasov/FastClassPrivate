@@ -261,14 +261,14 @@ function addLessonToDOM(created) {
             </button>
             <ul class="dropdown-menu">
                 <li>
-                    <a class="dropdown-item" href="#" data-action="edit" data-lesson-id="${created.id}"
+                    <a class="dropdown-item text-dark bg-white" href="#" data-action="edit" data-lesson-id="${created.id}"
                        data-title="${escapeHtml(created.title)}"
                        data-description="${escapeHtml(created.description || '')}">
                         Редактировать
                     </a>
                 </li>
                 <li>
-                    <a class="dropdown-item text-danger" href="#" data-action="delete" data-lesson-id="${created.id}">
+                    <a class="dropdown-item text-danger bg-white" href="#" data-action="delete" data-lesson-id="${created.id}">
                         Удалить
                     </a>
                 </li>
@@ -515,8 +515,8 @@ async function createClassroomAndRedirect() {
         return;
     }
 
-    if (title.length > 30) {
-        errorEl.textContent = 'Название класса не должно превышать 30 символов';
+    if (title.length > 40) {
+        errorEl.textContent = 'Название класса не должно превышать 40 символов';
         errorEl.classList.remove('d-none');
         return;
     }

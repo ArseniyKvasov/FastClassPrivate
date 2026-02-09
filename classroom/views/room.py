@@ -41,9 +41,9 @@ def create_classroom_view(request):
             status=400
         )
 
-    if len(title) > 30:
+    if len(title) > 40:
         return JsonResponse(
-            {"error": "Название класса не должно превышать 30 символов"},
+            {"error": "Название класса не должно превышать 40 символов"},
             status=400
         )
 
@@ -120,9 +120,9 @@ def classroom_edit_title_view(request, classroom_id):
             status=400
         )
 
-    if len(title) > 30:
+    if len(title) > 40:
         return JsonResponse(
-            {"error": "Название класса не должно превышать 30 символов"},
+            {"error": "Название класса не должно превышать 40 символов"},
             status=400
         )
 

@@ -7,7 +7,7 @@ urlpatterns = [
     path("api/create/", views.create_course, name="create_course"),
     path("api/<int:course_id>/delete/", views.delete_course, name="delete_course"),
     path("api/course/<int:course_id>/lesson/create/", views.create_lesson, name="create_lesson"),
-    path("course/<int:course_id>/", views.course_detail, name="course_detail"),
+    path("lessons/<int:course_id>/", views.lessons_list, name="lessons_list"),
     path("api/get/all/", views.get_all_courses_for_selection, name="get_all_courses_for_selection"),
 
     path("course/<int:course_id>/lesson/create/", views.create_lesson, name="create_lesson"),

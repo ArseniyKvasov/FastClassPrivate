@@ -21,7 +21,7 @@ export function renderIntegrationTask(task, container) {
         if (task.data.embed_code) {
             const button = document.createElement("button");
             button.className = "btn btn-primary btn-lg w-100 mb-3 d-flex justify-content-between align-items-center";
-            button.innerHTML = '<span>Перейти</span><i class="bi bi-arrow-right-circle-fill fs-4"></i>';
+            button.innerHTML = '<span>Открыть</span><i class="bi bi-arrow-right-circle-fill fs-4"></i>';
 
             const tempDiv = document.createElement("div");
             tempDiv.innerHTML = task.data.embed_code;

@@ -46,7 +46,7 @@
              data-priority-subject="{{ priority_subject|default:'' }}"
              data-create-course-url="{% url 'create_course' %}"
              data-edit-meta-url-template="{% url 'course_edit_meta_view' 0 %}"
-             data-course-detail-url-template="{% url 'course_detail' 0 %}"
+             data-course-detail-url-template="{% url 'lessons_list' 0 %}"
              data-classroom-view-url-template="{% url 'classroom_view' 0 %}">
 
             {% for classroom in user_classrooms %}
@@ -126,7 +126,7 @@
 
                     <div class="card-footer bg-transparent border-0 pt-0">
                         <div class="d-flex justify-content-between align-items-center">
-                            <a href="{% url 'course_detail' course.id %}" class="btn btn-sm btn-outline-white border-0 fw-bold text-primary">Перейти</a>
+                            <a href="{% url 'lessons_list' course.id %}" class="btn btn-sm btn-outline-white border-0 fw-bold text-primary">Перейти</a>
 
                             <div class="dropdown">
                                 <button class="btn btn-sm btn-link text-muted p-0" data-bs-toggle="dropdown" aria-expanded="false">
@@ -178,7 +178,7 @@
                         </div>
                     </div>
                     <div class="card-footer bg-transparent border-0 pt-0">
-                        <a href="{% url 'course_detail' course.id %}" class="btn btn-sm btn-outline-white border-0 fw-bold text-primary">Перейти</a>
+                        <a href="{% url 'lessons_list' course.id %}" class="btn btn-sm btn-outline-white border-0 fw-bold text-primary">Перейти</a>
                     </div>
                 </div>
             </div>
@@ -196,7 +196,7 @@
                         </div>
                     </div>
                     <div class="card-footer bg-transparent border-0 pt-0">
-                        <a href="{% url 'course_detail' course.id %}" class="btn btn-sm btn-outline-white border-0 fw-bold text-primary">Перейти</a>
+                        <a href="{% url 'lessons_list' course.id %}" class="btn btn-sm btn-outline-white border-0 fw-bold text-primary">Перейти</a>
                     </div>
                 </div>
             </div>
@@ -214,7 +214,7 @@
                         </div>
                     </div>
                     <div class="card-footer bg-transparent border-0 pt-0">
-                        <a href="{% url 'course_detail' course.id %}" class="btn btn-sm btn-outline-white border-0 fw-bold text-primary">Перейти</a>
+                        <a href="{% url 'lessons_list' course.id %}" class="btn btn-sm btn-outline-white border-0 fw-bold text-primary">Перейти</a>
                     </div>
                 </div>
             </div>

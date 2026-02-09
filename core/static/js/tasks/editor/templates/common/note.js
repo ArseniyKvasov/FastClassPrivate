@@ -36,8 +36,9 @@ export function renderNoteTaskEditor(taskData = null) {
     const aiPrompt = `Ты генерируешь текстовые заметки для системы, которая поддерживает базовый HTML и LaTeX. Внимательно следуй инструкций:
 
 Форматирование
-- <b>
+- <strong>
 - <u>
+- <br>
 - не используй другие html теги или стили
 
 Формулы

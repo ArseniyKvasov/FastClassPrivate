@@ -38,9 +38,9 @@ def course_edit_meta_view(request, course_id):
             status=400
         )
 
-    if len(title) > 30:
+    if len(title) > 40:
         return JsonResponse(
-            {"error": "Название класса не должно превышать 30 символов"},
+            {"error": "Название класса не должно превышать 40 символов"},
             status=400
         )
 
@@ -97,7 +97,7 @@ def create_course(request):
         is_public=False,
     )
 
-    course_url = reverse("course_detail", args=[course.id])
+    course_url = reverse("lessons_list", args=[course.id])
 
     return JsonResponse({
         "id": course.id,
@@ -173,7 +173,7 @@ def create_lesson(request, course_id):
 
 
 @login_required
-def course_detail(request, course_id):
+def lessons_list(request, course_id):
     """
     Детальная страница курса.
     Открывает копию курса, если она есть у пользователя
@@ -210,7 +210,7 @@ def course_detail(request, course_id):
         "original_course_id": course.id if user_copy_courses.exists() else None,
     }
 
-    return render(request, "courses/details.html", context)
+    return render(request, "courses/lessons_list.html", context)
 
 
 @login_required
