@@ -77,9 +77,14 @@ def course_edit_meta_view(request, course_id):
 @login_required
 @require_POST
 def create_course(request):
-    title = request.POST.get("title")
-    description = request.POST.get("description", "")
-    subject = request.POST.get("subject", "other")
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Невалидный JSON"}, status=400)
+
+    title = data.get("title")
+    description = data.get("description", "")
+    subject = data.get("subject", "other")
 
     if not title:
         return JsonResponse({"error": "title обязательное поле"}, status=400)
