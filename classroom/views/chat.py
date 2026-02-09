@@ -2,7 +2,6 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 from django.contrib.auth.decorators import login_required
 
-from core.services import get_display_name_from_username
 from classroom.services import (send_chat_message, get_last_chat_messages, edit_chat_message,
                                 delete_chat_message)
 
@@ -18,7 +17,7 @@ def chat_messages(request, classroom_id):
         {
             "id": m.id,
             "sender_id": m.sender_id,
-            "sender_name": get_display_name_from_username(m.sender.username),
+            "sender_name": m.sender.display_name,
             "text": m.text,
             "created_at": m.created_at.isoformat(),
         }
@@ -42,7 +41,7 @@ def chat_send(request, classroom_id):
         "message": {
             "id": message.id,
             "sender_id": message.sender_id,
-            "sender_name": get_display_name_from_username(message.sender.username),
+            "sender_name": message.sender.display_name,
             "text": message.text,
             "created_at": message.created_at.isoformat(),
         }

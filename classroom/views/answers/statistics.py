@@ -3,7 +3,6 @@ from django.db.models import Sum
 from django.http import JsonResponse
 
 from courses.models import Section, Task
-from core.services import get_display_name_from_username
 from classroom.models import Classroom
 
 from classroom.registry import get_all_answer_models
@@ -71,7 +70,7 @@ def get_classroom_section_statistics(request, classroom_id, section_id):
                 success_percentage = min(round((correct / (total + wrong)) * 100) if total + wrong > 0 else 0, 100)
 
                 task_stats.append({
-                    'user': {'id': student.id, 'username': get_display_name_from_username(student.username)},
+                    'user': {'id': student.id, 'username': student.display_name},
                     'correct_answers': correct,
                     'wrong_answers': wrong,
                     'success_percentage': success_percentage
@@ -143,7 +142,7 @@ def get_classroom_task_statistics(request, classroom_id, task_id):
             success_percentage = round((correct / (total + wrong)) * 100) if total + wrong > 0 else 0
 
             statistics.append({
-                'user': {'id': student.id, 'username': get_display_name_from_username(student.username)},
+                'user': {'id': student.id, 'username': student.display_name},
                 'correct_answers': correct,
                 'wrong_answers': wrong,
                 'success_percentage': success_percentage

@@ -419,7 +419,6 @@ class VirtualClassConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def _get_user_name(self) -> str:
-        from core.services import get_display_name_from_username
-        if self.user.username:
-            return get_display_name_from_username(self.user.username)
+        if self.user:
+            return self.user.display_name
         return "Anonymous"

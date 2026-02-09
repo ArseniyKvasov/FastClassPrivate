@@ -191,8 +191,10 @@ submitNameBtn.addEventListener("click", async () => {
 
         const data = await response.json();
 
-        submitNameBtn.disabled = false;
-        submitNameBtn.innerHTML = originalText;
+        setTimeout(() => {
+            submitNameBtn.disabled = false;
+            submitNameBtn.innerHTML = originalText;
+        }, 5000);
 
         if (!data.ok) {
             showNotification(data.error || "Ошибка сервера");

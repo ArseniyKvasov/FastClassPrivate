@@ -10,11 +10,10 @@ from django.urls import reverse
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 
-from core.services import get_display_name_from_username
 from courses.models import Lesson
 from classroom.models import Classroom
 from classroom.services import set_copying, attach_lesson_and_notify
-from .session_utils import clear_verified_in_session
+from .sessions import clear_verified_in_session
 
 User = get_user_model()
 
@@ -200,11 +199,10 @@ def get_classroom_students_list(request, classroom_id):
 
     students_list = []
     for user in participants:
-        display_name = get_display_name_from_username(user.username)
         students_list.append({
             "id": user.id,
             "username": user.username,
-            "display_name": display_name,
+            "display_name": user.display_name,
             "is_teacher": user == classroom.teacher
         })
 
@@ -326,7 +324,7 @@ def get_jitsi_token(request, classroom_id):
         return JsonResponse({
             "token": token,
             "room": room_name,
-            "display_name": get_display_name_from_username(request.user.username),
+            "display_name": request.user.display_name,
             "is_teacher": is_teacher,
             "jitsi_script_src": jitsi_script_src,
             "room_features": {

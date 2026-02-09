@@ -32,13 +32,31 @@ export function renderIntegrationTaskEditor(taskData = null) {
 
         <div class="mb-3">
             <small class="text-muted">
-                <span class="badge bg-light text-dark me-1">YouTube</span>
-                <span class="badge bg-light text-dark me-1">Wordwall</span>
-                <span class="badge bg-light text-dark me-1">Miro</span>
-                <span class="badge bg-light text-dark me-1">Quizlet</span>
-                <span class="badge bg-light text-dark me-1">LearningApps</span>
-                <span class="badge bg-light text-dark me-1">Rutube</span>
-                <span class="badge bg-light text-dark me-1">Sboard</span>
+                Поддерживаются:
+                <span class="badge bg-light text-dark me-1">
+                    <i class="bi bi-youtube me-1 text-danger"></i>YouTube
+                </span>
+                <span class="badge bg-light text-dark me-1">
+                    <i class="bi bi-grid-3x3-gap-fill me-1 text-success"></i>Wordwall
+                </span>
+                <span class="badge bg-light text-dark me-1">
+                    <i class="bi bi-columns-gap me-1 text-info"></i>Miro
+                </span>
+                <span class="badge bg-light text-dark me-1">
+                    <i class="bi bi-lightbulb me-1 text-warning"></i>Quizlet
+                </span>
+                <span class="badge bg-light text-dark me-1">
+                    <i class="bi bi-app-indicator me-1 text-primary"></i>LearningApps
+                </span>
+                <span class="badge bg-light text-dark me-1">
+                    <i class="bi bi-film me-1 text-secondary"></i>Rutube
+                </span>
+                <span class="badge bg-light text-dark me-1">
+                    <i class="bi bi-pencil me-1 text-dark"></i>Sboard
+                </span>
+                <span class="badge bg-light text-dark me-1">
+                    <i class="bi bi-calculator me-1 text-info"></i>GeoGebra
+                </span>
             </small>
         </div>
 
