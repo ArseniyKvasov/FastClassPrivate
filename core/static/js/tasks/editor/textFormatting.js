@@ -57,6 +57,7 @@ export function createRichTextEditor(initialHTML = "") {
         const container = document.createElement("div");
         container.innerHTML = decoded;
         sanitizeInPlace(container);
+
         return container.innerHTML;
     }
 
@@ -70,7 +71,6 @@ export function createRichTextEditor(initialHTML = "") {
         result = result.replace(/\*(.+?)\*/g, "<i>$1</i>");
         result = result.replace(/_(.+?)_/g, "<i>$1</i>");
         result = result.replace(/\n/g, "<br>");
-        result = result.replace(/[—–]/g, "-");
 
         return result;
     }
@@ -125,7 +125,11 @@ export function createRichTextEditor(initialHTML = "") {
                 const inner = part.slice(2, -2).replace(/\r?\n/g, "");
                 return "$$" + inner + "$$";
             }
-            return markdownToHTML(part);
+
+            let normalizedPart = part;
+            normalizedPart = normalizedPart.replace(/[—–]/g, "-");
+
+            return markdownToHTML(normalizedPart);
         }).join("");
     }
 
@@ -255,6 +259,60 @@ export function formatLatex(content) {
     let wrapper = document.createElement("div");
     wrapper.innerHTML = content;
 
+    const processLinks = (node) => {
+        const walker = document.createTreeWalker(
+            node,
+            NodeFilter.SHOW_TEXT,
+            null
+        );
+
+        const textNodes = [];
+        while (walker.nextNode()) {
+            textNodes.push(walker.currentNode);
+        }
+
+        textNodes.forEach(textNode => {
+            const text = textNode.textContent;
+            const parent = textNode.parentNode;
+
+            if (parent.closest('.MathJax, .math, [class*="math"]')) {
+                return;
+            }
+
+            const urlRegex = /(https?:\/\/[^\s<>"']+)/gi;
+            let lastIndex = 0;
+            const parts = [];
+            let match;
+
+            while ((match = urlRegex.exec(text)) !== null) {
+                if (match.index > lastIndex) {
+                    parts.push(document.createTextNode(text.substring(lastIndex, match.index)));
+                }
+
+                const link = document.createElement('a');
+                link.href = match[0];
+                link.textContent = match[0];
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                parts.push(link);
+
+                lastIndex = match.index + match[0].length;
+            }
+
+            if (parts.length === 0) return;
+
+            if (lastIndex < text.length) {
+                parts.push(document.createTextNode(text.substring(lastIndex)));
+            }
+
+            const fragment = document.createDocumentFragment();
+            parts.forEach(part => fragment.appendChild(part));
+            parent.replaceChild(fragment, textNode);
+        });
+    };
+
+    processLinks(wrapper);
+
     const fragment = document.createDocumentFragment();
     fragment.appendChild(wrapper);
 
@@ -277,6 +335,7 @@ export function formatLatex(content) {
 
             const newWrapper = document.createElement("div");
             newWrapper.innerHTML = content;
+            processLinks(newWrapper);
 
             parent.replaceChild(newWrapper, wrapper);
             wrapper = newWrapper;

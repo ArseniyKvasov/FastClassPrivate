@@ -1,6 +1,8 @@
 html, body {
     height: 100%;
     margin: 0;
+    overflow-wrap: break-word;
+    word-break: break-word;
 }
 
 .navbar {

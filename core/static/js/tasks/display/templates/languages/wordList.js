@@ -58,7 +58,7 @@ export function renderWordListTask(task, container) {
                     ? `<div class="text-muted small text-end translation" style="min-width:120px;">${t}</div>`
                     : `<div class="text-muted small text-end translation d-none" style="min-width:120px;"></div>`;
                 li.innerHTML = `
-                    <div class="fw-medium">${w}</div>
+                    <div class="fw-medium me-2">${w}</div>
                     ${rightHtml}
                 `;
                 list.appendChild(li);

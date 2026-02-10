@@ -1,4 +1,5 @@
 import { showNotification, getCsrfToken } from "js/tasks/utils.js";
+import { enableCopying, disableCopying } from "classroom/copyingMode.js";
 
 export function initClassroomInviteModal(classroom_id, join_password) {
     if (!classroom_id) return;
@@ -39,12 +40,37 @@ export function initClassroomInviteModal(classroom_id, join_password) {
     }
 
     if (copyInviteBtn && !copyInviteBtn.dataset.bound) {
-        copyInviteBtn.addEventListener("click", () => {
-            inviteInput.select();
-            inviteInput.setSelectionRange(0, inviteInput.value.length);
-            document.execCommand("copy");
-            showNotification("Ссылка скопирована");
+        copyInviteBtn.addEventListener("click", async () => {
+            const wasCopyingAllowed = document.body.classList.contains('copy-allowed');
+            let copySuccessful = false;
+
+            try {
+                if (!wasCopyingAllowed) {
+                    enableCopying();
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                }
+
+                inviteInput.select();
+                inviteInput.setSelectionRange(0, inviteInput.value.length);
+
+                copySuccessful = document.execCommand("copy");
+
+                if (!copySuccessful) {
+                    showNotification("Не удалось скопировать ссылку");
+                }
+
+            } catch (error) {
+                console.error("Ошибка при копировании:", error);
+                showNotification("Ошибка при копировании");
+            } finally {
+                if (!wasCopyingAllowed) {
+                    setTimeout(() => {
+                        disableCopying();
+                    }, 100);
+                }
+            }
         });
+
         copyInviteBtn.dataset.bound = "1";
     }
 

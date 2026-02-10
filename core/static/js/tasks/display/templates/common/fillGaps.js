@@ -1,5 +1,9 @@
 import { formatLatex } from 'js/tasks/editor/textFormatting.js';
 
+/**
+ * @param {Object} task
+ * @param {HTMLElement} container
+ */
 export function renderFillGapsTask(task, container) {
     if (!container) return;
     container.innerHTML = "";
@@ -15,8 +19,10 @@ export function renderFillGapsTask(task, container) {
         cardBody.appendChild(title);
     }
 
+    let hintBlock = null;
+
     if (task.data.list_type === "open" && Array.isArray(task.data.answers) && task.data.answers.length) {
-        const hintBlock = document.createElement("div");
+        hintBlock = document.createElement("div");
         hintBlock.className = "mb-3";
 
         const list = document.createElement("div");
@@ -103,13 +109,10 @@ export function renderFillGapsTask(task, container) {
     };
 
     const htmlText = task.data.text || "";
-
-    // Создаем временный контейнер для обработки
     const tempContainer = document.createElement("div");
     const fragment = formatLatex(htmlText);
     tempContainer.appendChild(fragment);
 
-    // Теперь обрабатываем структуру с учетом пропусков [текст]
     const processNodeWithGaps = (node) => {
         if (node.nodeType === Node.TEXT_NODE) {
             const text = node.textContent;
@@ -150,10 +153,8 @@ export function renderFillGapsTask(task, container) {
                 processedNode = document.createElement('span');
                 processedNode.style.textDecoration = 'underline';
             } else if (tagName === 'div' && node.classList.contains('latex-formula-wrapper')) {
-                // Это обертка формулы из formatLatex - копируем как есть
                 return node.cloneNode(true);
             } else if (tagName === 'span' && node.classList.contains('latex-formula')) {
-                // Это формула из formatLatex - копируем как есть
                 return node.cloneNode(true);
             } else {
                 processedNode = node.cloneNode(false);
@@ -172,7 +173,6 @@ export function renderFillGapsTask(task, container) {
         return node.cloneNode(true);
     };
 
-    // Обрабатываем все узлы в tempContainer
     const processedFragment = document.createDocumentFragment();
 
     for (const child of tempContainer.childNodes) {

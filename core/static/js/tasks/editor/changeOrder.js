@@ -10,12 +10,6 @@ let dragImageNode = null;
 
 /**
  *  Инициализирует режим редактирования порядка заданий.
- *
- *  - drag доступен только с видимой кнопочной ручки (справа сверху);
- *  - скрывает ненужные элементы панели;
- *  - ограничивает высоту карточки до 250px;
- *  - добавляет плавные переходы, оверлей для блокировки кликов и видимые ручки;
- *  - рендерит минималистичную кнопку "Готово".
  */
 export function startTasksOrderEditing() {
     if (isOrderEditing) return;
@@ -43,14 +37,14 @@ export function startTasksOrderEditing() {
         });
 
         card.style.opacity = '0.97';
-        card.style.maxHeight = '250px'; // ограничение высоты при редактировании
+        card.style.maxHeight = '250px';
         card.style.overflow = 'hidden';
         if (!card.style.position) card.style.position = 'relative';
-
         card.style.transition = 'transform 160ms ease, box-shadow 160ms ease, opacity 120ms ease';
 
         card.querySelectorAll('.task-card-controls').forEach(c => c.classList.add('d-none'));
 
+        removeExistingDragHandles(card);
         addDragHandle(card);
         addClickBlocker(card);
         attachDragEvents(card);
@@ -60,11 +54,7 @@ export function startTasksOrderEditing() {
 }
 
 /**
- *  Завершает режим редактирования порядка заданий:
- *  - откатывает изменения стилей и DOM-элементов;
- *  - удаляет временные слушатели;
- *  - собирает новый порядок (массив id) и отправляет на сервер;
- *  - аккуратно очищает placeholder и drag image.
+ *  Завершает режим редактирования порядка заданий.
  */
 export async function finishTasksOrderEditing() {
     if (!isOrderEditing) return;
@@ -83,12 +73,7 @@ export async function finishTasksOrderEditing() {
 
         card.classList.remove('dragging', 'drop-target');
 
-        const handle = card.querySelector('.task-drag-handle');
-        if (handle) {
-            handle.removeEventListener('dragstart', onHandleDragStart);
-            handle.removeEventListener('dragend', onHandleDragEnd);
-            handle.remove();
-        }
+        removeExistingDragHandles(card);
 
         const blocker = card.querySelector('.task-click-blocker');
         if (blocker) blocker.remove();
@@ -134,13 +119,23 @@ export async function finishTasksOrderEditing() {
     }
 }
 
-function addDragHandle(card) {
-    if (card.querySelector('.task-drag-handle')) return;
+/**
+ * Удаляет все существующие drag-handle элементы на карточке
+ */
+function removeExistingDragHandles(card) {
+    const existingHandles = card.querySelectorAll('.task-drag-handle, .edit-task-btn[title="Перетаскивать"], .edit-task-btn[draggable="true"]');
+    existingHandles.forEach(handle => {
+        handle.removeEventListener('dragstart', onHandleDragStart);
+        handle.removeEventListener('dragend', onHandleDragEnd);
+        handle.remove();
+    });
+}
 
+function addDragHandle(card) {
     const handle = document.createElement('button');
     handle.type = 'button';
 
-    handle.className = 'task-drag-handle btn btn-sm btn-light border-0 edit-task-btn';
+    handle.className = 'task-drag-handle btn btn-sm btn-light border-0';
     handle.setAttribute('aria-label', 'Переместить задание');
     handle.setAttribute('title', 'Перетаскивать');
     handle.setAttribute('draggable', 'true');
@@ -158,7 +153,7 @@ function addDragHandle(card) {
         justifyContent: 'center',
         cursor: 'grab',
         zIndex: '120',
-        fontSize: '0.85rem' // немного меньше иконка
+        fontSize: '0.85rem'
     });
 
     handle.addEventListener('click', (e) => {
@@ -327,7 +322,7 @@ function onDragOver(e) {
     parent.querySelectorAll('.task-card').forEach(c => c.classList.remove('drop-target'));
     current.classList.add('drop-target');
     current.style.transition = current.style.transition || 'transform 160ms ease';
-    current.style.boxShadow = '0 6px 18px rgba(13,110,253,0.06)'; // лёгкая подсветка цели
+    current.style.boxShadow = '0 6px 18px rgba(13,110,253,0.06)';
 }
 
 function onDragLeave(e) {

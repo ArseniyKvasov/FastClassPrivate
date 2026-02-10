@@ -1,18 +1,62 @@
-/**
- * Управление созданием и редактированием заданий.
- *
- *  - Редакторы возвращают HTMLElement; отображение/обновление карточек регулирует saveTask.
- *  - Редактор при редактировании всегда в модалке.
- */
-
 import { showNotification, fetchSingleTask, TASK_MAP, confirmAction, getSectionId, getIsTeacher } from "js/tasks/utils.js";
 import { getViewedUserId } from "classroom/utils.js";
 import { saveTask, deleteTask } from "js/tasks/editor/api.js";
 import { eventBus } from "js/tasks/events/eventBus.js";
-import { clearTask } from "classroom/answers/handlers/clearAnswers.js"
+import { clearTask } from "classroom/answers/handlers/clearAnswers.js";
 
 const loadingTypes = new Set();
 const editorModuleCache = new Map();
+const creationStartTimes = new Map();
+
+/**
+ * Инициализирует глобальные обработчики клавиатуры
+ */
+function initKeyboardHandlers() {
+    document.addEventListener('keydown', async (e) => {
+        if (e.key === 'Escape') {
+            const modalEl = document.querySelector(".modal.show .task-editor-card");
+            if (modalEl) {
+                const modalInstance = bootstrap.Modal.getInstance(modalEl.closest(".modal"));
+                if (modalInstance) modalInstance.hide();
+                return;
+            }
+
+            const editorCard = document.querySelector(".task-editor-card:not(.modal *)");
+            if (editorCard) {
+                const cardId = editorCard.dataset.cardId || editorCard.id || Math.random().toString(36);
+                
+                if (!creationStartTimes.has(cardId)) {
+                    creationStartTimes.set(cardId, Date.now());
+                }
+                
+                const startTime = creationStartTimes.get(cardId);
+                const elapsed = Date.now() - startTime;
+                
+                if (elapsed < 5000) {
+                    editorCard.remove();
+                    creationStartTimes.delete(cardId);
+                } else {
+                    const hasData = Array.from(editorCard.querySelectorAll('input, textarea, select')).some(
+                        el => el.value && el.value.trim() !== ''
+                    );
+                    
+                    if (hasData) {
+                        const confirmed = await confirmAction("В карточке есть введенные данные. Закрыть без сохранения?");
+                        if (confirmed) {
+                            editorCard.remove();
+                            creationStartTimes.delete(cardId);
+                        }
+                    } else {
+                        editorCard.remove();
+                        creationStartTimes.delete(cardId);
+                    }
+                }
+            }
+        }
+    });
+}
+
+initKeyboardHandlers();
 
 /**
  * @param {string} modulePath
@@ -216,9 +260,15 @@ export async function createTaskTypeSelector() {
                 }
 
                 if (!returnedCard.dataset.taskType) returnedCard.dataset.taskType = type;
+                const cardId = Math.random().toString(36);
+                returnedCard.dataset.cardId = cardId;
+                creationStartTimes.set(cardId, Date.now());
+                
                 insertParent.appendChild(returnedCard);
+
                 attachSaveHandlerToEditorCard(returnedCard, type);
                 returnedCard.scrollIntoView({ behavior: "smooth", block: "center" });
+
             } catch (err) {
                 console.error("editor() create error:", err);
                 showNotification("Ошибка при открытии редактора");
@@ -239,7 +289,7 @@ export async function createTaskTypeSelector() {
  */
 export async function openEditorForTask(taskId) {
     if (!taskId) {
-        showNotification("Не указан id задания");
+        showNotification("Не найден id задания");
         return;
     }
 
@@ -418,7 +468,7 @@ export function attachControlsToTaskCard(taskCard) {
             if (!sectionId) return;
 
             const btns = controls.querySelectorAll(".go-to-task-btn");
-            btns.forEach(btn => btn.disabled = true); // блокируем на 3 секунды
+            btns.forEach(btn => btn.disabled = true);
             setTimeout(() => btns.forEach(btn => btn.disabled = false), 3000);
 
             eventBus.emit("task:attention", { sectionId, taskId });
@@ -447,7 +497,6 @@ export function attachControlsToTaskCard(taskCard) {
         }
     });
 }
-
 
 eventBus.on('taskCardRendered', ({ taskCard, task }) => {
     attachControlsToTaskCard(taskCard);
