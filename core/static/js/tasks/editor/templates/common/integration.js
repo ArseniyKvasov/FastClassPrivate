@@ -1,4 +1,4 @@
-import { showNotification } from "/static/js/tasks/utils.js";
+import { showNotification } from "js/tasks/utils.js";
 
 /**
  * Рендерит редактор задания типа «Интеграция».

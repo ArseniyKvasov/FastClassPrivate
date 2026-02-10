@@ -1,5 +1,5 @@
-import { getClassroomId } from "/static/classroom/utils.js";
-import { showNotification } from "/static/js/tasks/utils.js";
+import { getClassroomId } from "classroom/utils.js";
+import { showNotification } from "js/tasks/utils.js";
 
 export function initVideoCallPanel() {
     const callButton = document.getElementById('callButton');

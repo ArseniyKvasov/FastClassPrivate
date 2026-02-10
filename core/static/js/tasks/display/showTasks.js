@@ -1,6 +1,6 @@
-import { getCsrfToken, showNotification, TASK_MAP, getSectionId } from "/static/js/tasks/utils.js";
-import { eventBus } from '/static/js/tasks/events/eventBus.js';
-import { processTaskAnswer } from "/static/classroom/answers/utils.js";
+import { getCsrfToken, showNotification, TASK_MAP, getSectionId } from "js/tasks/utils.js";
+import { eventBus } from 'js/tasks/events/eventBus.js';
+import { processTaskAnswer } from "classroom/answers/utils.js";
 
 const taskListContainer = document.getElementById("task-list");
 

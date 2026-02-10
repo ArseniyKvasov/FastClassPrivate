@@ -1,7 +1,7 @@
-import { postJSON, showNotification, getCsrfToken, getSectionId, fetchSingleTask } from "/static/js/tasks/utils.js";
-import { closeTaskEditor } from "/static/js/tasks/editor/edit.js";
-import { renderTaskCard } from "/static/js/tasks/display/showTasks.js";
-import { eventBus } from "/static/js/tasks/events/eventBus.js";
+import { postJSON, showNotification, getCsrfToken, getSectionId, fetchSingleTask } from "js/tasks/utils.js";
+import { closeTaskEditor } from "js/tasks/editor/edit.js";
+import { renderTaskCard } from "js/tasks/display/showTasks.js";
+import { eventBus } from "js/tasks/events/eventBus.js";
 
 /**
  * Валидаторы заданий по типу

@@ -1,5 +1,5 @@
-import { showNotification } from "/static/js/tasks/utils.js";
-import { createRichTextEditor } from "/static/js/tasks/editor/textFormatting.js";
+import { showNotification } from "js/tasks/utils.js";
+import { createRichTextEditor } from "js/tasks/editor/textFormatting.js";
 
 export function renderFillGapsTaskEditor(taskData = null) {
     const card = document.createElement("div");

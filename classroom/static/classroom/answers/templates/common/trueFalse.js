@@ -1,5 +1,5 @@
-import { sendAnswer } from "/static/classroom/answers/api.js";
-import { initCheckButton } from "/static/classroom/answers/utils.js";
+import { sendAnswer } from "classroom/answers/api.js";
+import { initCheckButton } from "classroom/answers/utils.js";
 
 /**
  * Собирает ответы из контейнера для true/false задания

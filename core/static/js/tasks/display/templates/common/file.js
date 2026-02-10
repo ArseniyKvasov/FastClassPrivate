@@ -71,7 +71,7 @@ function renderPdfViewer(container, filePath) {
     iframe.style.border = "none";
 
     const viewerUrl =
-        `/static/pdfjs/web/viewer.html?file=${encodeURIComponent(filePath)}`;
+        `pdfjs/web/viewer.html?file=${encodeURIComponent(filePath)}`;
 
     iframe.src = viewerUrl;
 
@@ -97,7 +97,30 @@ function renderImageViewer(container, filePath) {
     img.style.maxHeight = "80vh";
     img.style.objectFit = "contain";
 
+    img.setAttribute('draggable', 'false');
+    img.setAttribute('oncontextmenu', 'return false');
+    img.setAttribute('onselectstart', 'return false');
+    img.setAttribute('onmousedown', 'return false');
+
+    img.style.cssText += `
+        user-select: none;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        pointer-events: none;
+    `;
+
     container.appendChild(img);
+
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = `
+        user-select: none;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+    `;
+    wrapper.appendChild(img);
+    container.appendChild(wrapper);
 }
 
 /**

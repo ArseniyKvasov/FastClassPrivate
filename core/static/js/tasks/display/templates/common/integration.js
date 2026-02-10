@@ -1,4 +1,4 @@
-import { showLoaderWithPhrases } from "/static/js/tasks/utils.js";
+import { showLoaderWithPhrases } from "js/tasks/utils.js";
 
 export function renderIntegrationTask(task, container) {
     if (!container) return;

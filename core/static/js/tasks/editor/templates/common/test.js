@@ -1,4 +1,4 @@
-import { showNotification, escapeHtml, generateId } from "/static/js/tasks/utils.js";
+import { showNotification, escapeHtml, generateId } from "js/tasks/utils.js";
 
 export function renderTestTaskEditor(taskData = null) {
     const card = document.createElement("div");

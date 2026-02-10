@@ -1,4 +1,4 @@
-import { showNotification, getCsrfToken } from "/static/js/tasks/utils.js";
+import { showNotification, getCsrfToken } from "js/tasks/utils.js";
 
 export function initClassroomInviteModal(classroom_id, join_password) {
     if (!classroom_id) return;

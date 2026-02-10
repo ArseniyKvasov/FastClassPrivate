@@ -1,12 +1,12 @@
-import { showNotification, escapeHtml, getInfoElement, getCsrfToken, confirmAction, getCurrentUserId } from "/static/js/tasks/utils.js";
-import { eventBus } from "/static/js/tasks/events/eventBus.js";
-import { startTasksOrderEditing } from "/static/js/tasks/editor/changeOrder.js";
-import { getViewedUserId, getClassroomId } from "/static/classroom/utils.js";
-import { formatStudentName } from "/static/classroom/answers/utils.js";
-import { handleSectionAnswers } from "/static/classroom/answers/handleAnswer.js";
-import { clearAllTaskContainers } from "/static/classroom/answers/handlers/clearAnswers.js";
-import { clearStatistics, loadSectionStatistics } from "/static/classroom/answers/handlers/statistics.js";
-import { disableCopying, enableCopying } from "/static/classroom/copyingMode.js";
+import { showNotification, escapeHtml, getInfoElement, getCsrfToken, confirmAction, getCurrentUserId } from "js/tasks/utils.js";
+import { eventBus } from "js/tasks/events/eventBus.js";
+import { startTasksOrderEditing } from "js/tasks/editor/changeOrder.js";
+import { getViewedUserId, getClassroomId } from "classroom/utils.js";
+import { formatStudentName } from "classroom/answers/utils.js";
+import { handleSectionAnswers } from "classroom/answers/handleAnswer.js";
+import { clearAllTaskContainers } from "classroom/answers/handlers/clearAnswers.js";
+import { clearStatistics, loadSectionStatistics } from "classroom/answers/handlers/statistics.js";
+import { disableCopying, enableCopying } from "classroom/copyingMode.js";
 
 let statsInterval = null;
 let classroomInviteModalInstance = null;

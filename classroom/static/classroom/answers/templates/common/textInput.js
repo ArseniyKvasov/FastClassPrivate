@@ -1,5 +1,5 @@
-import { debounce, adjustTextareaHeight, processTaskAnswer } from "/static/classroom/answers/utils.js";
-import { sendAnswer } from "/static/classroom/answers/api.js";
+import { debounce, adjustTextareaHeight, processTaskAnswer } from "classroom/answers/utils.js";
+import { sendAnswer } from "classroom/answers/api.js";
 
 let isApplyingServerUpdate = false;
 let pendingChanges = new Map();

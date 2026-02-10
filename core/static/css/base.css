@@ -1,0 +1,35 @@
+html, body {
+    height: 100%;
+    margin: 0;
+}
+
+.navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 2000;
+    background-color: #fff;
+    border-bottom: 1px solid #dee2e6;
+}
+
+main {
+    flex: 1 0 auto;
+}
+
+footer {
+    flex-shrink: 0;
+}
+
+.section-title {
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+.drag-handle {
+    cursor: grab;
+    user-select: none;
+}
+
+.drag-handle:active {
+    cursor: grabbing;
+}

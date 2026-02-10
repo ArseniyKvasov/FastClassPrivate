@@ -1,6 +1,6 @@
-import { getClassroomId } from '/static/classroom/utils.js';
-import { getCsrfToken, getCurrentUserId, getIsTeacher, showNotification, escapeHtml, confirmAction } from '/static/js/tasks/utils.js';
-import { eventBus } from '/static/js/tasks/events/eventBus.js';
+import { getClassroomId } from 'classroom/utils.js';
+import { getCsrfToken, getCurrentUserId, getIsTeacher, showNotification, escapeHtml, confirmAction } from 'js/tasks/utils.js';
+import { eventBus } from 'js/tasks/events/eventBus.js';
 
 const chatPanel = document.getElementById('chatPanel');
 const chatButton = document.getElementById('chatButton');

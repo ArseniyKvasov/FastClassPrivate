@@ -56,7 +56,7 @@
 
     <!-- Видеозвонок -->
     <script type="module">
-        import { initVideoCallPanel } from '/static/classroom/integrations/call.js';
+        import { initVideoCallPanel } from 'classroom/integrations/call.js';
 
         document.addEventListener('DOMContentLoaded', function() {
             initVideoCallPanel();
@@ -104,11 +104,11 @@
             initClassroomInviteModal(`{{ classroom_id }}`, `{{ classroom.join_password }}`);
         </script>
 
-        <script type="module" src="/static/js/tasks/editor/lessonSelect.js"></script>
+        <script type="module" src="{% static 'js/tasks/editor/lessonSelect.js' %}"></script>
     {% else %}
         <!-- Разрешение копирования -->
         <script type="module">
-            import { enableCopying, disableCopying } from "/static/classroom/copyingMode.js";
+            import { enableCopying, disableCopying } from "classroom/copyingMode.js";
 
             const copying_enabled = {{ copying_enabled|yesno:"true,false" }};
 

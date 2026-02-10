@@ -1,4 +1,4 @@
-import { sendAnswer } from "/static/classroom/answers/api.js";
+import { sendAnswer } from "classroom/answers/api.js";
 
 /**
  * Навешивает обработчики на карточки match-cards

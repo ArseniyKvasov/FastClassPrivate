@@ -1,6 +1,6 @@
-import { getCsrfToken, showNotification, confirmAction, getInfoElement, getIsTeacher, getIsClassroom, getLessonId, getSectionId } from '/static/js/tasks/utils.js';
-import { loadSectionTasks } from '/static/js/tasks/display/showTasks.js';
-import { eventBus } from '/static/js/tasks/events/eventBus.js';
+import { getCsrfToken, showNotification, confirmAction, getInfoElement, getIsTeacher, getIsClassroom, getLessonId, getSectionId } from 'js/tasks/utils.js';
+import { loadSectionTasks } from 'js/tasks/display/showTasks.js';
+import { eventBus } from 'js/tasks/events/eventBus.js';
 
 const infoEl = getInfoElement();
 const isTeacher = getIsTeacher();

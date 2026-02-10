@@ -1,4 +1,4 @@
-import { getCsrfToken, showNotification, getInfoElement } from "/static/js/tasks/utils.js";
+import { getCsrfToken, showNotification, getInfoElement } from "js/tasks/utils.js";
 
 const infoEl = getInfoElement();
 const classroomId = infoEl.dataset.classroomId;

@@ -1,4 +1,4 @@
-import { formatLatex } from "/static/js/tasks/editor/textFormatting.js";
+import { formatLatex } from "js/tasks/editor/textFormatting.js";
 
 export function renderNoteTask(task, container) {
     if (!container) return;

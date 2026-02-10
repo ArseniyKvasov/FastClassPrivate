@@ -5,11 +5,11 @@
  *  - Редактор при редактировании всегда в модалке.
  */
 
-import { showNotification, fetchSingleTask, TASK_MAP, confirmAction, getSectionId, getIsTeacher } from "/static/js/tasks/utils.js";
-import { getViewedUserId } from "/static/classroom/utils.js";
-import { saveTask, deleteTask } from "/static/js/tasks/editor/api.js";
-import { eventBus } from "/static/js/tasks/events/eventBus.js";
-import { clearTask } from "/static/classroom/answers/handlers/clearAnswers.js"
+import { showNotification, fetchSingleTask, TASK_MAP, confirmAction, getSectionId, getIsTeacher } from "js/tasks/utils.js";
+import { getViewedUserId } from "classroom/utils.js";
+import { saveTask, deleteTask } from "js/tasks/editor/api.js";
+import { eventBus } from "js/tasks/events/eventBus.js";
+import { clearTask } from "classroom/answers/handlers/clearAnswers.js"
 
 const loadingTypes = new Set();
 const editorModuleCache = new Map();

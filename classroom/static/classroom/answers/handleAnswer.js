@@ -1,11 +1,11 @@
-import { eventBus } from "/static/js/tasks/events/eventBus.js";
-import { showNotification, confirmAction, getSectionId } from "/static/js/tasks/utils.js";
-import { ANSWER_HANDLER_MAP } from "/static/classroom/answers/utils.js";
-import { getClassroomId, getViewedUserId } from '/static/classroom/utils.js'
-import { loadAnswerModule, fetchSectionAnswers } from "/static/classroom/answers/api.js";
-import { clearTask } from "/static/classroom/answers/handlers/clearAnswers.js"
-import { loadSectionStatistics } from "/static/classroom/answers/handlers/statistics.js";
-import { renderGoToTaskButton, renderResetButton } from "/static/classroom/answers/classroomPanel.js"
+import { eventBus } from "js/tasks/events/eventBus.js";
+import { showNotification, confirmAction, getSectionId } from "js/tasks/utils.js";
+import { ANSWER_HANDLER_MAP } from "classroom/answers/utils.js";
+import { getClassroomId, getViewedUserId } from 'classroom/utils.js'
+import { loadAnswerModule, fetchSectionAnswers } from "classroom/answers/api.js";
+import { clearTask } from "classroom/answers/handlers/clearAnswers.js"
+import { loadSectionStatistics } from "classroom/answers/handlers/statistics.js";
+import { renderGoToTaskButton, renderResetButton } from "classroom/answers/classroomPanel.js"
 
 /**
  * Инициализация обработчиков ответа для одной карточки задания

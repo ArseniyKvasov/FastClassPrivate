@@ -1,10 +1,10 @@
 "use strict";
 
-import { eventBus } from "/static/js/tasks/events/eventBus.js";
-import { getCurrentUserId } from "/static/js/tasks/utils.js";
-import { showNotification } from "/static/js/tasks/utils.js"
-import { getViewedUserId, refreshClassroom } from '/static/classroom/utils.js'
-import { virtualClassWS } from "/static/classroom/websocket/init.js";
+import { eventBus } from "js/tasks/events/eventBus.js";
+import { getCurrentUserId } from "js/tasks/utils.js";
+import { showNotification } from "js/tasks/utils.js"
+import { getViewedUserId, refreshClassroom } from 'classroom/utils.js'
+import { virtualClassWS } from "classroom/websocket/init.js";
 
 /**
  * Отправляет сообщение в WebSocket, если соединение открыто.

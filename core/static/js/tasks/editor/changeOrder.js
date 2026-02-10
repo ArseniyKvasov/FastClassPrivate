@@ -1,5 +1,5 @@
-import { showNotification } from "/static/js/tasks/utils.js";
-import { sendNewOrderToServer } from "/static/js/tasks/editor/api.js";
+import { showNotification } from "js/tasks/utils.js";
+import { sendNewOrderToServer } from "js/tasks/editor/api.js";
 
 let isOrderEditing = false;
 const originalTaskStyles = new Map();

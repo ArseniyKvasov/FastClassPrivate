@@ -1,4 +1,4 @@
-import { showNotification, escapeHtml } from "/static/js/tasks/utils.js";
+import { showNotification, escapeHtml } from "js/tasks/utils.js";
 
 /**
  * Рендерит минималистичный красивый список слов с кнопкой "Практиковать".

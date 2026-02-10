@@ -1,5 +1,5 @@
-import { showNotification, getCsrfToken, escapeHtml } from '/static/js/tasks/utils.js';
-import { getClassroomId } from '/static/classroom/utils.js';
+import { showNotification, getCsrfToken, escapeHtml } from 'js/tasks/utils.js';
+import { getClassroomId } from 'classroom/utils.js';
 
 const API_URL = '/courses/api/get/all/';
 const LESSONS_LIMIT = 10;

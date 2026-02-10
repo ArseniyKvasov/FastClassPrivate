@@ -1,4 +1,4 @@
-import { sendAnswer } from "/static/classroom/answers/api.js";
+import { sendAnswer } from "classroom/answers/api.js";
 
 function normalizeAnswerString(text) {
     if (typeof text !== 'string') return "";

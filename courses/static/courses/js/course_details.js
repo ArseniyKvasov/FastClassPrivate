@@ -1,4 +1,4 @@
-import { getCsrfToken, escapeHtml, confirmAction } from '/static/js/tasks/utils.js';
+import { getCsrfToken, escapeHtml, confirmAction } from 'js/tasks/utils.js';
 
 let lessonsContainer;
 let lessonsScrollContainer;

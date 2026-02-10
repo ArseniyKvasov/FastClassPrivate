@@ -338,62 +338,62 @@ export function showLoaderWithPhrases(container, phrases = []) {
  */
 export const TASK_MAP = {
     fill_gaps: {
-        render: ["/static/js/tasks/display/templates/common/fillGaps.js", "renderFillGapsTask"],
-        edit:   ["/static/js/tasks/editor/templates/common/fillGaps.js", "renderFillGapsTaskEditor"],
+        render: ["js/tasks/display/templates/common/fillGaps.js", "renderFillGapsTask"],
+        edit:   ["js/tasks/editor/templates/common/fillGaps.js", "renderFillGapsTaskEditor"],
         icon:   "bi-pen",
         label:  "Пропуски"
     },
     note: {
-        render: ["/static/js/tasks/display/templates/common/note.js", "renderNoteTask"],
-        edit:   ["/static/js/tasks/editor/templates/common/note.js", "renderNoteTaskEditor"],
+        render: ["js/tasks/display/templates/common/note.js", "renderNoteTask"],
+        edit:   ["js/tasks/editor/templates/common/note.js", "renderNoteTaskEditor"],
         icon:   "bi-stickies",
         label:  "Заметка"
     },
     text_input: {
-        render: ["/static/js/tasks/display/templates/common/textInput.js", "renderTextInputTask"],
-        edit:   ["/static/js/tasks/editor/templates/common/textInput.js", "renderTextInputTaskEditor"],
+        render: ["js/tasks/display/templates/common/textInput.js", "renderTextInputTask"],
+        edit:   ["js/tasks/editor/templates/common/textInput.js", "renderTextInputTaskEditor"],
         icon:   "bi-text-paragraph",
         label:  "Текст"
     },
     true_false: {
-        render: ["/static/js/tasks/display/templates/common/trueFalse.js", "renderTrueFalseTask"],
-        edit:   ["/static/js/tasks/editor/templates/common/trueFalse.js", "renderTrueFalseTaskEditor"],
+        render: ["js/tasks/display/templates/common/trueFalse.js", "renderTrueFalseTask"],
+        edit:   ["js/tasks/editor/templates/common/trueFalse.js", "renderTrueFalseTaskEditor"],
         icon:   "bi-check2-circle",
         label:  "Утверждения"
     },
     match_cards: {
-        render: ["/static/js/tasks/display/templates/common/matchCards.js", "renderMatchCardsTask"],
-        edit:   ["/static/js/tasks/editor/templates/common/matchCards.js", "renderMatchCardsTaskEditor"],
+        render: ["js/tasks/display/templates/common/matchCards.js", "renderMatchCardsTask"],
+        edit:   ["js/tasks/editor/templates/common/matchCards.js", "renderMatchCardsTaskEditor"],
         icon:   "bi-arrow-left-right",
         label:  "Карточки"
     },
     integration: {
-        render: ["/static/js/tasks/display/templates/common/integration.js", "renderIntegrationTask"],
-        edit:   ["/static/js/tasks/editor/templates/common/integration.js", "renderIntegrationTaskEditor"],
+        render: ["js/tasks/display/templates/common/integration.js", "renderIntegrationTask"],
+        edit:   ["js/tasks/editor/templates/common/integration.js", "renderIntegrationTaskEditor"],
         icon:   "bi-puzzle",
         label:  "Интеграция"
     },
     test: {
-        render: ["/static/js/tasks/display/templates/common/test.js", "renderTestTask"],
-        edit:   ["/static/js/tasks/editor/templates/common/test.js", "renderTestTaskEditor"],
+        render: ["js/tasks/display/templates/common/test.js", "renderTestTask"],
+        edit:   ["js/tasks/editor/templates/common/test.js", "renderTestTaskEditor"],
         icon:   "bi-list-check",
         label:  "Тест"
     },
     file: {
-        render: ["/static/js/tasks/display/templates/common/file.js", "renderFileTask"],
-        edit:   ["/static/js/tasks/editor/templates/common/file.js", "renderFileTaskEditor"],
+        render: ["js/tasks/display/templates/common/file.js", "renderFileTask"],
+        edit:   ["js/tasks/editor/templates/common/file.js", "renderFileTaskEditor"],
         icon:   "bi-file-earmark",
         label:  "Файлы"
     },
     whiteboard: {
-        render: ["/static/js/tasks/display/templates/common/whiteboard.js", "renderWhiteboardTask"],
-        edit:   ["/static/js/tasks/editor/templates/common/whiteboard.js", "renderWhiteboardTaskEditor"],
+        render: ["js/tasks/display/templates/common/whiteboard.js", "renderWhiteboardTask"],
+        edit:   ["js/tasks/editor/templates/common/whiteboard.js", "renderWhiteboardTaskEditor"],
         icon:   "bi-easel",
         label:  "Доска"
     },
     word_list: {
-        render: ["/static/js/tasks/display/templates/languages/wordList.js", "renderWordListTask"],
-        edit:   ["/static/js/tasks/editor/templates/languages/wordList.js", "renderWordListTaskEditor"],
+        render: ["js/tasks/display/templates/languages/wordList.js", "renderWordListTask"],
+        edit:   ["js/tasks/editor/templates/languages/wordList.js", "renderWordListTaskEditor"],
         icon:   "bi-book",
         label:  "Лексика"
     },

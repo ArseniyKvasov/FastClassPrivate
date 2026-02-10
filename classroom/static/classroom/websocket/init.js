@@ -1,9 +1,9 @@
 "use strict";
 
-import { showNotification, getCurrentUserId } from "/static/js/tasks/utils.js";
-import { getClassroomId, refreshClassroom } from '/static/classroom/utils.js'
-import { handleWSMessage } from "/static/classroom/websocket/handleMessage.js";
-import { eventBus } from "/static/js/tasks/events/eventBus.js";
+import { showNotification, getCurrentUserId } from "js/tasks/utils.js";
+import { getClassroomId, refreshClassroom } from 'classroom/utils.js'
+import { handleWSMessage } from "classroom/websocket/handleMessage.js";
+import { eventBus } from "js/tasks/events/eventBus.js";
 
 export let virtualClassWS = null;
 

@@ -1,7 +1,7 @@
-import { getSectionId, getInfoElement, getCsrfToken, getIsTeacher, showNotification } from "/static/js/tasks/utils.js";
-import { fetchSections, renderSectionsList, selectSection } from "/static/js/tasks/display/renderSections.js";
-import { refreshChat } from "/static/classroom/integrations/chat.js";
-import { refreshStudentsList } from "/static/classroom/answers/classroomPanel.js";
+import { getSectionId, getInfoElement, getCsrfToken, getIsTeacher, showNotification } from "js/tasks/utils.js";
+import { fetchSections, renderSectionsList, selectSection } from "js/tasks/display/renderSections.js";
+import { refreshChat } from "classroom/integrations/chat.js";
+import { refreshStudentsList } from "classroom/answers/classroomPanel.js";
 
 
 export function getClassroomId() {

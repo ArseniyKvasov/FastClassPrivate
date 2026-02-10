@@ -1,4 +1,4 @@
-import { getCsrfToken, confirmAction, escapeHtml } from '/static/js/tasks/utils.js';
+import { getCsrfToken, confirmAction, escapeHtml } from 'js/tasks/utils.js';
 
 /**
  * Открывает модальное окно для создания/редактирования сущности
