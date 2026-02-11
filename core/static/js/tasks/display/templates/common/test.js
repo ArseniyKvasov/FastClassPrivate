@@ -1,3 +1,5 @@
+import { formatLatex } from "js/tasks/editor/textFormatting.js";
+
 /**
  * Рендерит тестовую задачу и форму для каждого вопроса.
  *
@@ -23,7 +25,11 @@ export function renderTestTask(task, container) {
     task.data.questions.forEach((q, qIndex) => {
         const questionDiv = document.createElement("div");
         questionDiv.className = "test-question fw-semibold mb-2";
-        questionDiv.textContent = q.question;
+        
+        const questionFragment = formatLatex(q.question);
+        questionDiv.innerHTML = "";
+        questionDiv.appendChild(questionFragment);
+
         container.appendChild(questionDiv);
 
         const form = document.createElement("form");
@@ -45,7 +51,10 @@ export function renderTestTask(task, container) {
             const label = document.createElement("label");
             label.className = "form-check-label";
             label.htmlFor = input.id;
-            label.textContent = option.option;
+
+            const optionFragment = formatLatex(option.option);
+            label.innerHTML = "";
+            label.appendChild(optionFragment);
 
             optionDiv.appendChild(input);
             optionDiv.appendChild(label);
@@ -61,4 +70,8 @@ export function renderTestTask(task, container) {
     checkBtn.textContent = "Проверить";
     checkBtn.style.display = "none";
     container.appendChild(checkBtn);
+
+    if (window.MathJax && MathJax.typesetPromise) {
+        MathJax.typesetPromise([container]).catch(() => {});
+    }
 }

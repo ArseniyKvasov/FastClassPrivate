@@ -1,3 +1,5 @@
+import { formatLatex } from "js/tasks/editor/textFormatting.js";
+
 /**
  * Рендерит задачу True/False и форму для каждого утверждения.
  *
@@ -21,7 +23,11 @@ export function renderTrueFalseTask(task, container) {
     task.data.statements.forEach((stmt, sIndex) => {
         const statementDiv = document.createElement("div");
         statementDiv.className = "tf-statement mb-2 fw-semibold";
-        statementDiv.textContent = stmt.statement;
+        
+        const statementFragment = formatLatex(stmt.statement);
+        statementDiv.innerHTML = "";
+        statementDiv.appendChild(statementFragment);
+
         container.appendChild(statementDiv);
 
         const form = document.createElement("form");
@@ -59,4 +65,8 @@ export function renderTrueFalseTask(task, container) {
     checkBtn.textContent = "Проверить";
     checkBtn.style.display = "none";
     container.appendChild(checkBtn);
+
+    if (window.MathJax && MathJax.typesetPromise) {
+        MathJax.typesetPromise([container]).catch(() => {});
+    }
 }
