@@ -55,14 +55,37 @@
                     <li class="nav-item"><a href="#" class="nav-link">Выйти</a></li>
                     {% else %}
                     <li class="nav-item d-none d-lg-block">
-                        <a href="{% url 'login' %}" class="btn btn-outline-primary me-2">Войти</a>
+                        <button type="button"
+                                class="btn btn-outline-primary me-2"
+                                data-bs-toggle="modal"
+                                data-bs-target="#telegramAuthModal">
+                            Войти
+                        </button>
                     </li>
                     <li class="nav-item d-none d-lg-block">
-                        <a href="#" class="btn btn-primary">Регистрация</a>
+                        <button type="button"
+                                class="btn btn-primary"
+                                data-bs-toggle="modal"
+                                data-bs-target="#telegramAuthModal">
+                            Регистрация
+                        </button>
                     </li>
 
-                    <li class="nav-item d-lg-none"><a href="#" class="nav-link">Войти</a></li>
-                    <li class="nav-item d-lg-none"><a href="#" class="nav-link text-primary fw-semibold">Регистрация</a>
+                    <li class="nav-item d-lg-none">
+                        <button type="button"
+                                class="nav-link btn btn-link p-0"
+                                data-bs-toggle="modal"
+                                data-bs-target="#telegramAuthModal">
+                            Войти
+                        </button>
+                    </li>
+                    <li class="nav-item d-lg-none">
+                        <button type="button"
+                                class="nav-link text-primary fw-semibold btn btn-link p-0"
+                                data-bs-toggle="modal"
+                                data-bs-target="#telegramAuthModal">
+                            Регистрация
+                        </button>
                     </li>
                     {% endif %}
                 </ul>

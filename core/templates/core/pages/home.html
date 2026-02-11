@@ -104,7 +104,16 @@
             {% endfor %}
 
             <div class="col-12 text-end mt-3 material-item" data-category="classrooms">
+                {% if user.is_authenticated %}
                 <a href="#" class="fw-bold text-primary text-decoration-none" data-create="classroom">+ Создать класс</a>
+                {% else %}
+                <button type="button"
+                        class="fw-bold text-primary text-decoration-none btn btn-link p-0"
+                        data-bs-toggle="modal"
+                        data-bs-target="#telegramAuthModal">
+                    + Создать класс
+                </button>
+                {% endif %}
             </div>
 
             {% for course in user_courses %}
@@ -163,7 +172,16 @@
             {% endfor %}
 
             <div class="col-12 text-end mt-3 material-item" data-category="my_courses">
+                {% if user.is_authenticated %}
                 <a href="#" class="fw-bold text-primary text-decoration-none" data-create="course">+ Создать курс</a>
+                {% else %}
+                <button type="button"
+                        class="fw-bold text-primary text-decoration-none btn btn-link p-0"
+                        data-bs-toggle="modal"
+                        data-bs-target="#telegramAuthModal">
+                    + Создать курс
+                </button>
+                {% endif %}
             </div>
 
             {% for course in math_courses %}

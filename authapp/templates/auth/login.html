@@ -1,0 +1,43 @@
+{% extends "core/base.html" %}
+{% block content %}
+<h2>Вход через Telegram</h2>
+<div id="auth-status" style="margin-top: 20px; padding: 10px; border-radius: 5px; display: none;"></div>
+<div id="telegram-login-container">
+    <script async src="https://telegram.org/js/telegram-widget.js?22" data-telegram-login="fastclass_bot" data-size="large" data-onauth="onTelegramAuth(user)" data-request-access="write"></script>
+</div>
+<script type="text/javascript">
+  function logStatus(message, isError = false) {
+      const statusDiv = document.getElementById('auth-status');
+      if (statusDiv) {
+          statusDiv.style.display = 'block';
+          statusDiv.style.backgroundColor = isError ? '#ffebee' : '#f1f8e9';
+          statusDiv.style.color = isError ? '#c62828' : '#2e7d32';
+          statusDiv.innerText = message;
+      }
+      console.log(isError ? 'ERROR: ' : 'INFO: ', message);
+  }
+
+  function onTelegramAuth(user) {
+    logStatus("Telegram callback triggered!");
+    fetch("{% url 'telegram_callback' %}", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": "{{ csrf_token }}"
+        },
+        body: JSON.stringify(user)
+    })
+    .then(async response => {
+        const data = await response.json();
+        if (response.ok) {
+            window.location.href = "/";
+        } else {
+            logStatus("Error: " + (data.error || "Validation failed"), true);
+        }
+    })
+    .catch(error => {
+        logStatus("Network error: " + error.message, true);
+    });
+  }
+</script>
+{% endblock %}

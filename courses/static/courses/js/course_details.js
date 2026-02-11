@@ -15,6 +15,30 @@ let dropbarOverlay = null;
 let selectClassroomModal;
 let selectedLessonId = null;
 let isAttaching = false;
+let telegramAuthModalInstance = null;
+
+function initTelegramAuthModal() {
+    if (telegramAuthModalInstance) return telegramAuthModalInstance;
+    const el = document.getElementById('telegramAuthModal');
+    if (!el) return null;
+    telegramAuthModalInstance = bootstrap.Modal.getOrCreateInstance(el);
+    return telegramAuthModalInstance;
+}
+
+function isUserAuthenticated() {
+    const el = document.getElementById('telegramAuthModal');
+    if (!el) return true;
+    return el.dataset.isAuthenticated === 'true';
+}
+
+function openAuthModal() {
+    const modal = initTelegramAuthModal();
+    if (modal) {
+        modal.show();
+    } else {
+        window.location.href = '/auth/login/';
+    }
+}
 
 function initPreviewModal() {
     if (previewModal) return;
@@ -219,6 +243,16 @@ document.addEventListener('click', (e) => {
     if (selectBtnPreview) {
         e.preventDefault();
         const lessonId = selectBtnPreview.dataset.lessonId;
+
+        if (!isUserAuthenticated()) {
+            if (previewModal) {
+                try {
+                    previewModal.hide();
+                } catch (err) {}
+            }
+            openAuthModal();
+            return;
+        }
 
         if (previewModal) {
             previewModal.hide();
@@ -621,6 +655,18 @@ function handleLessonsContainerClick(e) {
     }
 
     if (selectBtn) {
+        e.preventDefault();
+
+        if (!isUserAuthenticated()) {
+            if (previewModal) {
+                try {
+                    previewModal.hide();
+                } catch (err) {}
+            }
+            openAuthModal();
+            return;
+        }
+
         if (previewModal) {
             previewModal.hide();
         }

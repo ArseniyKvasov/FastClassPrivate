@@ -20,11 +20,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . /app
 
-RUN useradd -m -u 1000 fastclass && \
-    mkdir -p /app/staticfiles /app/media && \
-    chown -R fastclass:fastclass /app && \
-    chmod -R 755 /app/staticfiles /app/media
-
-USER fastclass
+RUN mkdir -p /app/staticfiles /app/media /app/logs && \
+    touch /app/logs/django_errors.log && \
+    chmod -R 777 /app/logs && \
+    chmod 666 /app/logs/django_errors.log
 
 EXPOSE 8000
+
+CMD ["uvicorn", "fastlesson.asgi:application", "--host", "0.0.0.0", "--port", "8000"]

@@ -10,6 +10,7 @@ services:
       - .:/app
       - ./staticfiles:/app/staticfiles
       - ./media:/app/media
+      - ./logs:/app/logs
     env_file:
       - .env
     environment:
@@ -37,7 +38,7 @@ services:
         echo 'Redis готов!' &&
         python manage.py migrate --noinput &&
         python manage.py collectstatic --noinput --clear &&
-        uvicorn fastlesson.asgi:application --host 0.0.0.0 --port 8000 --reload
+        uvicorn fastlesson.asgi:application --host 0.0.0.0 --port 8000
       "
 
   db:
