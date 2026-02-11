@@ -11,7 +11,7 @@ from courses.models import (
 )
 
 
-ALLOWED_TAGS = ["strong", "b", "i", "u", "ul", "ol", "li", "div", "p", "br", "span"]
+ALLOWED_TAGS = ["strong", "b", "i", "u", "ul", "ol", "li", "div", "p", "br", "span", "sup"]
 
 ALLOWED_ATTRIBUTES = {}
 ALLOWED_STYLES = []

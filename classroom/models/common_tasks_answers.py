@@ -183,7 +183,7 @@ class FillGapsTaskAnswer(BaseAnswer):
             models.UniqueConstraint(fields=["task", "user"], name="unique_fillgaps_answer_per_user_task")
         ]
 
-    ALLOWED_TAGS = ['strong', 'b', 'i', 'u', 'ul', 'ol', 'li', 'div', 'p', 'br', 'span']
+    ALLOWED_TAGS = ['strong', 'b', 'i', 'u', 'ul', 'ol', 'li', 'div', 'p', 'br', 'span', 'sup']
     ALLOWED_ATTRIBUTES = {}
 
     def _clean_html(self, html):
@@ -353,7 +353,7 @@ class TextInputTaskAnswer(BaseAnswer):
             models.UniqueConstraint(fields=["task", "user"], name="unique_textinput_answer_per_user_task")
         ]
 
-    ALLOWED_TAGS = ['strong', 'b', 'i', 'u', 'ul', 'ol', 'li', 'div', 'p', 'br', 'span']
+    ALLOWED_TAGS = ['strong', 'b', 'i', 'u', 'ul', 'ol', 'li', 'div', 'p', 'br', 'span', 'sup']
     ALLOWED_ATTRIBUTES = {}
 
     def _clean_html(self, html):
