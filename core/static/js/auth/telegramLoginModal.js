@@ -26,8 +26,6 @@ function renderTelegramWidget(botName) {
     const container = document.getElementById('telegram-login-widget');
     if (!container || !botName) return;
 
-    console.info('[TelegramLogin] Render widget for bot:', botName);
-
     container.innerHTML = '';
 
     const script = document.createElement('script');
@@ -44,11 +42,9 @@ function renderTelegramWidget(botName) {
 }
 
 async function onTelegramAuth(userData) {
-    console.info('[TelegramLogin] onAuth payload received:', userData);
     setError('');
 
     try {
-        console.info('[TelegramLogin] Sending auth payload to backend...');
         const response = await fetch('/auth/telegram/widget-login/', {
             method: 'POST',
             headers: {
@@ -63,15 +59,12 @@ async function onTelegramAuth(userData) {
         });
 
         const data = await response.json().catch(() => ({}));
-        console.info('[TelegramLogin] Backend response:', response.status, data);
         if (!response.ok || data.error) {
             throw new Error(data.error || 'Не удалось авторизоваться через Telegram.');
         }
 
-        console.info('[TelegramLogin] Success. Redirecting to:', data.next || currentNextPath || '/');
         window.location.href = data.next || currentNextPath || '/';
     } catch (error) {
-        console.error('[TelegramLogin] Auth failed:', error);
         setError(error.message);
     }
 }
@@ -103,6 +96,5 @@ export function openTelegramLoginModal(nextPath = null) {
     if (!telegramModal) return;
 
     currentNextPath = nextPath || window.location.pathname || '/';
-    console.info('[TelegramLogin] Open modal. nextPath =', currentNextPath);
     telegramModal.show();
 }

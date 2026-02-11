@@ -7,7 +7,6 @@ from django.conf import settings
 from django.contrib.auth import authenticate, login, get_user_model
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 User = get_user_model()
@@ -60,31 +59,25 @@ def register_view(request):
     return render(request, "authapp/register.html", {"next": next_url})
 
 
-@csrf_exempt
 @require_POST
 def telegram_widget_login(request):
     try:
         payload = json.loads(request.body)
     except json.JSONDecodeError:
-        print("[telegram_widget_login] invalid JSON payload")
         return JsonResponse({"error": "Неверный формат данных"}, status=400)
-
-    print(f"[telegram_widget_login] payload keys: {sorted(payload.keys())}")
 
     bot_token = settings.TELEGRAM_BOT_TOKEN
     if not bot_token:
-        print("[telegram_widget_login] TELEGRAM_BOT_TOKEN is empty")
         return JsonResponse({"error": "Telegram авторизация не настроена"}, status=500)
 
     required_fields = {"id", "auth_date", "hash", "first_name"}
     if not required_fields.issubset(payload):
-        print("[telegram_widget_login] missing required fields")
         return JsonResponse({"error": "Недостаточно данных авторизации"}, status=400)
 
     telegram_hash = payload.get("hash", "")
     check_data = {
         key: value for key, value in payload.items()
-        if key not in {"hash", "next"} and value is not None
+        if key != "hash" and value is not None
     }
 
     data_check_string = "\n".join(
@@ -100,21 +93,14 @@ def telegram_widget_login(request):
     ).hexdigest()
 
     if not hmac.compare_digest(calculated_hash, telegram_hash):
-        print(
-            "[telegram_widget_login] hash mismatch",
-            f"expected={calculated_hash}",
-            f"received={telegram_hash}",
-        )
         return JsonResponse({"error": "Неверная подпись Telegram"}, status=403)
 
     try:
         auth_timestamp = int(payload["auth_date"])
     except (TypeError, ValueError):
-        print("[telegram_widget_login] invalid auth_date")
         return JsonResponse({"error": "Неверная дата авторизации"}, status=400)
 
     if time.time() - auth_timestamp > 86400:
-        print("[telegram_widget_login] auth data expired")
         return JsonResponse({"error": "Данные авторизации устарели"}, status=403)
 
     telegram_id = str(payload.get("id"))
@@ -150,12 +136,9 @@ def telegram_widget_login(request):
         if updated_fields:
             user.save(update_fields=updated_fields)
 
-    print(f"[telegram_widget_login] user authenticated: id={user.id}, created={created}")
-
     login(request, user, backend="django.contrib.auth.backends.ModelBackend")
 
     next_url = payload.get("next") or "/"
-    print(f"[telegram_widget_login] success redirect to: {next_url}")
     return JsonResponse({"ok": True, "next": next_url})
 
 
