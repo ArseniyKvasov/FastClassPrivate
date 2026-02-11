@@ -6,6 +6,7 @@ from . import views
 urlpatterns = [
     path("login/", views.login_view, name="login"),
     path("register/", views.register_view, name="register"),
+    path("telegram/widget-login/", views.telegram_widget_login, name="telegram_widget_login"),
 ]
 
 

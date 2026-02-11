@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="{% static 'css/main_page.css' %}">
 
 {% include 'core/pages/modals/create_element.html' %}
+{% include 'core/pages/modals/telegram_login.html' %}
 
 <section class="py-5 bg-light rounded-3 mb-5">
     <div class="container py-4">
@@ -44,6 +45,7 @@
 
         <div id="materials-container" class="row g-3"
              data-priority-subject="{{ priority_subject|default:'' }}"
+             data-user-authenticated="{{ user.is_authenticated|yesno:'true,false' }}"
              data-create-course-url="{% url 'create_course' %}"
              data-edit-meta-url-template="{% url 'course_edit_meta_view' 0 %}"
              data-course-detail-url-template="{% url 'lessons_list' 0 %}"

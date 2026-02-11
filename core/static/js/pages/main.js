@@ -1,4 +1,5 @@
 import { getCsrfToken, confirmAction, escapeHtml } from 'js/tasks/utils.js';
+import { initTelegramLoginModal, openTelegramLoginModal } from 'js/auth/telegramLoginModal.js';
 
 /**
  * Открывает модальное окно для создания/редактирования сущности
@@ -405,11 +406,18 @@ function setupModalForm() {
  * Обработчик кликов по действиям (редактирование, удаление)
  */
 function setupActionHandlers() {
+    const container = document.getElementById('materials-container');
+    const isAuthenticated = container?.dataset.userAuthenticated === 'true';
+
     document.querySelectorAll('[data-create]').forEach(el => {
         el.addEventListener('click', (ev) => {
             ev.preventDefault();
             const what = el.dataset.create;
             if (what === 'course' || what === 'classroom') {
+                if (!isAuthenticated) {
+                    openTelegramLoginModal(window.location.pathname);
+                    return;
+                }
                 openEntityModal({ mode: 'create', entity: what });
             }
         });
@@ -477,6 +485,7 @@ function setupActionHandlers() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    initTelegramLoginModal();
     setupCategoryFilters();
     setupModalForm();
     setupActionHandlers();

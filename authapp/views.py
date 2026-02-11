@@ -1,6 +1,13 @@
-from django.shortcuts import render, redirect
+import hashlib
+import hmac
+import json
+import time
+
+from django.conf import settings
 from django.contrib.auth import authenticate, login, get_user_model
-from django.contrib.auth.models import User
+from django.http import JsonResponse
+from django.shortcuts import render, redirect
+from django.views.decorators.http import require_POST
 
 User = get_user_model()
 
@@ -50,6 +57,89 @@ def register_view(request):
 
     next_url = request.GET.get("next", "home")
     return render(request, "authapp/register.html", {"next": next_url})
+
+
+@require_POST
+def telegram_widget_login(request):
+    try:
+        payload = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Неверный формат данных"}, status=400)
+
+    bot_token = settings.TELEGRAM_BOT_TOKEN
+    if not bot_token:
+        return JsonResponse({"error": "Telegram авторизация не настроена"}, status=500)
+
+    required_fields = {"id", "auth_date", "hash", "first_name"}
+    if not required_fields.issubset(payload):
+        return JsonResponse({"error": "Недостаточно данных авторизации"}, status=400)
+
+    telegram_hash = payload.get("hash", "")
+    check_data = {
+        key: value for key, value in payload.items()
+        if key != "hash" and value is not None
+    }
+
+    data_check_string = "\n".join(
+        f"{key}={check_data[key]}"
+        for key in sorted(check_data.keys())
+    )
+
+    secret_key = hashlib.sha256(bot_token.encode("utf-8")).digest()
+    calculated_hash = hmac.new(
+        secret_key,
+        data_check_string.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+
+    if not hmac.compare_digest(calculated_hash, telegram_hash):
+        return JsonResponse({"error": "Неверная подпись Telegram"}, status=403)
+
+    try:
+        auth_timestamp = int(payload["auth_date"])
+    except (TypeError, ValueError):
+        return JsonResponse({"error": "Неверная дата авторизации"}, status=400)
+
+    if time.time() - auth_timestamp > 86400:
+        return JsonResponse({"error": "Данные авторизации устарели"}, status=403)
+
+    telegram_id = str(payload.get("id"))
+    telegram_username = payload.get("username")
+    first_name = payload.get("first_name") or ""
+    last_name = payload.get("last_name") or ""
+
+    user, created = User.objects.get_or_create(
+        telegram_id=telegram_id,
+        defaults={
+            "username": User._generate_username(),
+            "telegram_username": telegram_username,
+            "first_name": first_name,
+            "last_name": last_name,
+            "has_full_access": True,
+        },
+    )
+
+    if not created:
+        updated_fields = []
+        if telegram_username and user.telegram_username != telegram_username:
+            user.telegram_username = telegram_username
+            updated_fields.append("telegram_username")
+        if first_name and user.first_name != first_name:
+            user.first_name = first_name
+            updated_fields.append("first_name")
+        if last_name and user.last_name != last_name:
+            user.last_name = last_name
+            updated_fields.append("last_name")
+        if not user.has_full_access:
+            user.has_full_access = True
+            updated_fields.append("has_full_access")
+        if updated_fields:
+            user.save(update_fields=updated_fields)
+
+    login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+
+    next_url = payload.get("next") or "/"
+    return JsonResponse({"ok": True, "next": next_url})
 
 
 

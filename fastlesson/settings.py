@@ -124,6 +124,9 @@ VK_ID_SECRET = config('VK_CLIENT_SECRET', default='')
 VK_ID_REDIRECT_URI = config('VK_REDIRECT_URI', default='')
 VK_ID_TOKEN_URL = "https://id.vk.com/oauth2/token"
 
+TELEGRAM_BOT_TOKEN = config('TELEGRAM_BOT_TOKEN', default='')
+TELEGRAM_BOT_NAME = config('TELEGRAM_BOT_NAME', default='fastclass_bot')
+
 LOGIN_REDIRECT_URL = '/'
 LOGIN_URL = '/auth/login/'
 LOGOUT_REDIRECT_URL = '/'
