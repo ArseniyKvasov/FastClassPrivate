@@ -19,7 +19,6 @@ export function createRichTextEditor(initialHTML = "") {
     }
 
     function sanitizeInPlace(root) {
-        "Функция очищает DOM-ветку root: удаляет теги, не входящие в allowedTags, и убирает все атрибуты у разрешённых элементов. Реализовано через TreeWalker."
         const walker = document.createTreeWalker(
             root,
             NodeFilter.SHOW_ELEMENT,
@@ -62,7 +61,6 @@ export function createRichTextEditor(initialHTML = "") {
     }
 
     function markdownToHTML(text) {
-        "Преобразует Markdown в упрощённый HTML: заголовки в <strong><u>, ** -> <strong>, __ -> <u>, */_ -> <i>, переносы строк в <br>, длинные тире в короткие. Не трогает LaTeX-блоки."
         let result = text;
 
         result = result.replace(/^#{1,6}\s*(.+)$/gm, "<strong><u>$1</u></strong>");
@@ -73,6 +71,10 @@ export function createRichTextEditor(initialHTML = "") {
         result = result.replace(/\n/g, "<br>");
 
         return result;
+    }
+
+    function replaceLongDashes(text) {
+        return text.replace(/[—–]/g, "-");
     }
 
     function exec(command) {
@@ -112,14 +114,16 @@ export function createRichTextEditor(initialHTML = "") {
     }
 
     function processTextForPaste(text, insideMath) {
+        const textWithDashes = replaceLongDashes(text);
+
         if (insideMath) {
-            return text.replace(/\$\$\s*([\s\S]*?)\s*\$\$/g, (m, inner) => {
+            return textWithDashes.replace(/\$\$\s*([\s\S]*?)\s*\$\$/g, (m, inner) => {
                 const collapsed = inner.replace(/\r?\n/g, "");
                 return "$$" + collapsed + "$$";
             });
         }
 
-        const parts = text.split(/(\$\$[\s\S]*?\$\$)/g);
+        const parts = textWithDashes.split(/(\$\$[\s\S]*?\$\$)/g);
         return parts.map(part => {
             if (/^\$\$[\s\S]*\$\$$/.test(part)) {
                 const inner = part.slice(2, -2).replace(/\r?\n/g, "");
@@ -127,8 +131,6 @@ export function createRichTextEditor(initialHTML = "") {
             }
 
             let normalizedPart = part;
-            normalizedPart = normalizedPart.replace(/[—–]/g, "-");
-
             return markdownToHTML(normalizedPart);
         }).join("");
     }
@@ -172,7 +174,7 @@ export function createRichTextEditor(initialHTML = "") {
     editor.style.minHeight = "200px";
     editor.style.overflowY = "scroll";
 
-    editor.innerHTML = sanitizeHTMLString(initialHTML);
+    editor.innerHTML = sanitizeHTMLString(replaceLongDashes(initialHTML));
 
     function updateHeight() {
         editor.style.height = "auto";
@@ -216,7 +218,7 @@ export function createRichTextEditor(initialHTML = "") {
         const insideMath = isCaretInsideMath(editor);
 
         if (html && !insideMath) {
-            const sanitized = sanitizeHTMLString(html);
+            const sanitized = sanitizeHTMLString(replaceLongDashes(html));
             document.execCommand("insertHTML", false, sanitized);
             sanitizeInPlace(editor);
             return;
@@ -245,7 +247,7 @@ export function createRichTextEditor(initialHTML = "") {
             return sanitizeHTMLString(editor.innerHTML);
         },
         setHTML(html) {
-            editor.innerHTML = sanitizeHTMLString(html);
+            editor.innerHTML = sanitizeHTMLString(replaceLongDashes(html));
             updateHeight();
         }
     };
@@ -258,6 +260,24 @@ export function formatLatex(content) {
 
     let wrapper = document.createElement("div");
     wrapper.innerHTML = content;
+
+    const wrapMathElements = (node) => {
+        const mathElements = node.querySelectorAll('.MathJax, .math, [class*="math"], mjx-container, .MathJax_Display');
+        mathElements.forEach(el => {
+            if (el.parentNode && !el.parentNode.classList.contains('math-wrapper')) {
+                const mathWrapper = document.createElement('div');
+                mathWrapper.className = 'math-wrapper';
+                mathWrapper.style.overflowX = 'auto';
+                mathWrapper.style.overflowY = 'hidden';
+                mathWrapper.style.maxWidth = '100%';
+                mathWrapper.style.display = 'block';
+                el.parentNode.insertBefore(mathWrapper, el);
+                mathWrapper.appendChild(el);
+            }
+        });
+    };
+
+    wrapMathElements(wrapper);
 
     const processLinks = (node) => {
         const walker = document.createTreeWalker(
@@ -275,7 +295,7 @@ export function formatLatex(content) {
             const text = textNode.textContent;
             const parent = textNode.parentNode;
 
-            if (parent.closest('.MathJax, .math, [class*="math"]')) {
+            if (parent.closest('.MathJax, .math, [class*="math"], mjx-container')) {
                 return;
             }
 
@@ -318,33 +338,13 @@ export function formatLatex(content) {
 
     const typesetMath = () => {
         if (window.MathJax && MathJax.typesetPromise) {
-            MathJax.typesetPromise([wrapper]).catch(() => {});
+            MathJax.typesetPromise([wrapper]).then(() => {
+                wrapMathElements(wrapper);
+            }).catch(() => {});
         }
     };
 
     typesetMath();
-
-    let resizeTimeout = null;
-
-    const onResize = () => {
-        clearTimeout(resizeTimeout);
-
-        resizeTimeout = setTimeout(() => {
-            const parent = wrapper.parentNode;
-            if (!parent) return;
-
-            const newWrapper = document.createElement("div");
-            newWrapper.innerHTML = content;
-            processLinks(newWrapper);
-
-            parent.replaceChild(newWrapper, wrapper);
-            wrapper = newWrapper;
-
-            typesetMath();
-        }, 200);
-    };
-
-    window.addEventListener("resize", onResize);
 
     return fragment;
 }

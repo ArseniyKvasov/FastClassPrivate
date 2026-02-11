@@ -1,5 +1,6 @@
 import re
 import unicodedata
+from fractions import Fraction
 
 
 def normalize_answer_string(text: str) -> str:
@@ -36,7 +37,41 @@ def normalize_answer_string(text: str) -> str:
     text = text.replace('«', "'")
     text = text.replace('»', "'")
 
-    text = re.sub(r'[^\w\s\'-]', '', text)
+    def fraction_replacer(match):
+        frac = match.group(0)
+        try:
+            if '/' in frac:
+                num, den = frac.split('/')
+                num = num.strip()
+                den = den.strip()
+                if num and den:
+                    value = float(Fraction(num, den))
+                    return str(value)
+        except:
+            pass
+        return frac
+
+    fraction_pattern = r'\b\d+\s*/\s*\d+\b'
+    text = re.sub(fraction_pattern, fraction_replacer, text)
+
+    decimal_pattern = r'\b\d+,\d+\b'
+    text = re.sub(decimal_pattern, lambda m: m.group(0).replace(',', '.'), text)
+
+    def number_evaluator(match):
+        num_str = match.group(0)
+        try:
+            if '.' in num_str:
+                return str(float(num_str))
+            elif num_str.isdigit():
+                return num_str
+        except:
+            pass
+        return num_str
+
+    number_pattern = r'\b\d+\.?\d*\.?\d*\b'
+    text = re.sub(number_pattern, number_evaluator, text)
+
+    text = re.sub(r'[^\w\s\'.+-]', '', text)
 
     text = re.sub(r'\s+', ' ', text).strip()
 

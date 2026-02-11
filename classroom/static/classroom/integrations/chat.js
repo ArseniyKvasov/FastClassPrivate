@@ -188,13 +188,13 @@ export function createBubbleNode(message, showSenderName = true) {
         return fragment;
     };
 
-    const cleanText = escapeHtml(truncated);
+    const cleanText = truncated;
     const textFragment = convertUrlsToLinks(cleanText);
 
     if (textFragment.childNodes.length > 0) {
         text.appendChild(textFragment);
     } else {
-        text.innerHTML = cleanText;
+        text.textContent = cleanText;
     }
 
     bubble.appendChild(text);
@@ -281,7 +281,7 @@ function removeOldMessages() {
 }
 
 export function clearChat() {
-    if (chatMessages) chatMessages.innerHTML = '';
+    if (chatMessages) chatMessages.textContent = '';
     lastSenderId = null;
 }
 

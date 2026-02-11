@@ -17,7 +17,31 @@ function normalizeAnswerString(text) {
         normalized = normalized.replace(new RegExp(from, 'g'), to);
     });
 
-    normalized = normalized.replace(/[^\w\s\'-]/g, '');
+    normalized = normalized.replace(/,/g, '.');
+
+    const fractionPattern = /\b(\d+)\s*\/\s*(\d+)\b/g;
+    normalized = normalized.replace(fractionPattern, (match, num, den) => {
+        try {
+            const numInt = parseInt(num);
+            const denInt = parseInt(den);
+            if (denInt !== 0) {
+                return (numInt / denInt).toString();
+            }
+        } catch (e) {}
+        return match;
+    });
+
+    const numberPattern = /\b\d+\.?\d*\.?\d*\b/g;
+    normalized = normalized.replace(numberPattern, (match) => {
+        try {
+            if (match.includes('.')) {
+                return parseFloat(match).toString();
+            }
+        } catch (e) {}
+        return match;
+    });
+
+    normalized = normalized.replace(/[^\w\s\'.+-]/g, '');
 
     normalized = normalized.replace(/\s+/g, ' ').trim();
 
