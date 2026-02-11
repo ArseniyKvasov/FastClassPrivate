@@ -2,6 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.db.models import Q, Subquery
 from django.db import models
 from django.http import JsonResponse
+from django.conf import settings
 from django.contrib.auth import authenticate, login
 from django.contrib.auth import get_user_model
 from django.views.decorators.http import require_GET, require_POST
@@ -121,6 +122,7 @@ def home(request):
         'english_courses': serialize_courses(english_courses),
         'other_courses': serialize_courses(other_courses),
         'priority_subject': priority_subject,
+        'telegram_bot_name': settings.TELEGRAM_BOT_NAME,
     }
 
     return render(request, "core/pages/home.html", context)
