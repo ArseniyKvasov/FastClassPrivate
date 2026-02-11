@@ -1,4 +1,5 @@
 import json
+from django.conf import settings
 from django.urls import reverse
 from django.shortcuts import render, get_object_or_404
 from django.db.models import ProtectedError
@@ -172,7 +173,6 @@ def create_lesson(request, course_id):
     })
 
 
-@login_required
 def lessons_list(request, course_id):
     """
     Детальная страница курса.
@@ -183,11 +183,13 @@ def lessons_list(request, course_id):
     if course.creator != request.user and not course.is_public:
         return JsonResponse({"error": "Доступ запрещен"}, status=403)
 
-    user_copy_courses = Course.objects.filter(
-        creator=request.user,
-        root_type="copy",
-        linked_to=course
-    )
+    user_copy_courses = Course.objects.none()
+    if request.user.is_authenticated:
+        user_copy_courses = Course.objects.filter(
+            creator=request.user,
+            root_type="copy",
+            linked_to=course
+        )
 
     if user_copy_courses.exists():
         user_course = user_copy_courses.first()
@@ -197,9 +199,11 @@ def lessons_list(request, course_id):
         lessons = course.lessons.all().order_by("order")
         display_course = course
 
-    classrooms_list = Classroom.objects.filter(
-        teacher=request.user
-    ).order_by("title")
+    classrooms_list = Classroom.objects.none()
+    if request.user.is_authenticated:
+        classrooms_list = Classroom.objects.filter(
+            teacher=request.user
+        ).order_by("title")
 
     context = {
         "lessons": lessons,
@@ -208,6 +212,7 @@ def lessons_list(request, course_id):
         "classrooms_list": classrooms_list,
         "is_user_copy": user_copy_courses.exists(),
         "original_course_id": course.id if user_copy_courses.exists() else None,
+        "telegram_bot_name": settings.TELEGRAM_BOT_NAME,
     }
 
     return render(request, "courses/lessons_list.html", context)

@@ -1,4 +1,5 @@
 import { getCsrfToken, escapeHtml, confirmAction } from 'js/tasks/utils.js';
+import { initTelegramLoginModal, openTelegramLoginModal } from 'js/auth/telegramLoginModal.js';
 
 let lessonsContainer;
 let lessonsScrollContainer;
@@ -15,6 +16,7 @@ let dropbarOverlay = null;
 let selectClassroomModal;
 let selectedLessonId = null;
 let isAttaching = false;
+let isAuthenticated = false;
 
 function initPreviewModal() {
     if (previewModal) return;
@@ -218,6 +220,10 @@ document.addEventListener('click', (e) => {
     const selectBtnPreview = e.target.closest('.select-lesson-btn-preview');
     if (selectBtnPreview) {
         e.preventDefault();
+        if (!isAuthenticated) {
+            openTelegramLoginModal(window.location.pathname);
+            return;
+        }
         const lessonId = selectBtnPreview.dataset.lessonId;
 
         if (previewModal) {
@@ -621,6 +627,11 @@ function handleLessonsContainerClick(e) {
     }
 
     if (selectBtn) {
+        if (!isAuthenticated) {
+            openTelegramLoginModal(window.location.pathname);
+            return;
+        }
+
         if (previewModal) {
             previewModal.hide();
         }
@@ -701,6 +712,7 @@ function initCourseDetails() {
     if (!lessonsContainer || !lessonsScrollContainer) return;
     createUrl = lessonsContainer.dataset.createUrl || null;
     reorderUrl = lessonsContainer.dataset.reorderUrl || null;
+    isAuthenticated = lessonsContainer.dataset.userAuthenticated === 'true';
     scrollBtn = document.getElementById('scroll-down-btn');
     reorderTrigger = document.getElementById('reorder-trigger');
     addTrigger = document.getElementById('add-lesson-trigger');
@@ -726,6 +738,7 @@ function initCourseDetails() {
     });
 
     initSelectClassroomModal();
+    initTelegramLoginModal();
 }
 
 document.addEventListener('DOMContentLoaded', initCourseDetails);

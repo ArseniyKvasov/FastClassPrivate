@@ -7,6 +7,7 @@
 {% include 'courses/modals/handle_lesson.html' %}
 {% include 'courses/modals/lesson_preview.html' %}
 {% include 'courses/modals/select_classroom.html' %}
+{% include 'core/pages/modals/telegram_login.html' %}
 
 <div class="d-flex align-items-center mb-3">
     <h1 class="fw-bold mb-0 fs-4">{{ course.title }}</h1>
@@ -59,6 +60,7 @@
             <div id="lessons-container"
                  class="list-group"
                  data-course-id="{{ course.id }}"
+                 data-user-authenticated="{{ user.is_authenticated|yesno:'true,false' }}"
                  data-is-public="{{ course.is_public|yesno:'true,false' }}"
                  data-create-url="{% if not course.is_public %}{% url 'create_lesson' course.id %}{% endif %}"
                  data-reorder-url="{% if not course.is_public %}{% url 'reorder_lessons' course.id %}{% endif %}">

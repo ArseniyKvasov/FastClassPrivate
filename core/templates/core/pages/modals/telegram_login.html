@@ -1,0 +1,13 @@
+<div class="modal fade" id="telegramLoginModal" tabindex="-1" aria-labelledby="telegramLoginModalLabel" aria-hidden="true" data-bot-name="{{ telegram_bot_name|default:'fastclass_bot' }}">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow rounded-4">
+            <div class="modal-body p-4 text-center">
+                <h2 id="telegramLoginModalLabel" class="h6 fw-bold mb-2">Вход через Telegram</h2>
+                <p class="text-muted small mb-3">Авторизуйтесь, чтобы продолжить.</p>
+
+                <div id="telegram-login-widget" class="d-flex justify-content-center"></div>
+                <div id="telegramLoginError" class="alert alert-danger d-none mt-3 py-2 px-2 small mb-0"></div>
+            </div>
+        </div>
+    </div>
+</div>
