@@ -141,7 +141,6 @@ def reorder_lessons(request, course_id):
         return JsonResponse({"error": f"Произошла ошибка: {str(e)}"}, status=500)
 
 
-@login_required
 @xframe_options_exempt
 def lesson_preview(request, lesson_id):
     """Предпросмотр урока в упрощенном виде (для iframe)"""
