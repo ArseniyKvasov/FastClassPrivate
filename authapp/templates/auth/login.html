@@ -1,43 +1,189 @@
 {% extends "core/base.html" %}
+{% load static %}
+
+{% block extra_head %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<style>
+    .telegram-auth {
+      min-height: 80vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .auth-card {
+      max-width: 440px;
+      width: 100%;
+      border: none;
+      border-radius: 28px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.06);
+    }
+    .auth-header {
+      padding: 32px 24px 16px;
+      text-align: center;
+    }
+    .auth-body {
+      padding: 16px 32px 32px;
+    }
+    .feature-list {
+      list-style: none;
+      padding: 0;
+      margin: 24px 0;
+    }
+    .feature-list li {
+      display: flex;
+      align-items: center;
+      padding: 8px 0;
+      color: #4b5563;
+      font-size: 0.95rem;
+    }
+    .feature-icon {
+      width: 32px;
+      color: #2AABEE;
+      font-size: 1.2rem;
+    }
+    .telegram-btn-container {
+      margin-top: 24px;
+    }
+    .badge-free {
+      background: #f0fdf4;
+      color: #166534;
+      padding: 6px 16px;
+      border-radius: 100px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .divider {
+      display: flex;
+      align-items: center;
+      color: #9ca3af;
+      font-size: 0.8rem;
+      margin: 20px 0 16px;
+    }
+    .divider::before,
+    .divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: #e5e7eb;
+    }
+    .divider span {
+      margin: 0 12px;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<h2>Вход через Telegram</h2>
-<div id="auth-status" style="margin-top: 20px; padding: 10px; border-radius: 5px; display: none;"></div>
-<div id="telegram-login-container">
-    <script async src="https://telegram.org/js/telegram-widget.js?22" data-telegram-login="fastclass_bot" data-size="large" data-onauth="onTelegramAuth(user)" data-request-access="write"></script>
+<div class="telegram-auth">
+    <div class="card auth-card">
+        <div class="auth-header">
+            <div class="mb-3">
+        <span class="badge-free">
+          <i class="bi bi-lightning-charge-fill"></i>
+          Бесплатный доступ
+        </span>
+            </div>
+            <h3 class="fw-bold mb-1">FastClass</h3>
+            <p class="text-secondary-emphasis mb-0" style="font-size: 0.95rem;">
+                Платформа для онлайн-репетиторов
+            </p>
+        </div>
+
+        <div class="auth-body">
+            <div class="text-center mb-3">
+                <h6 class="fw-semibold">Вход через Telegram</h6>
+            </div>
+
+            <div class="telegram-btn-container text-center">
+                <script async
+                        src="https://telegram.org/js/telegram-widget.js?22"
+                        data-telegram-login="{{ TELEGRAM_BOT_NAME }}"
+                        data-size="large"
+                        data-onauth="onTelegramAuth(user)"
+                        data-request-access="write">
+                </script>
+            </div>
+
+            <div class="divider">
+                <span>все инструменты в одном месте</span>
+            </div>
+
+            <ul class="feature-list row row-cols-2 g-2">
+                <li class="col">
+                    <span class="feature-icon"><i class="bi bi-collection"></i></span>
+                    <span>Готовые курсы</span>
+                </li>
+                <li class="col">
+                    <span class="feature-icon"><i class="bi bi-people"></i></span>
+                    <span>Виртуальный класс</span>
+                </li>
+                <li class="col">
+                    <span class="feature-icon"><i class="bi bi-camera-video"></i></span>
+                    <span>Видеозвонок</span>
+                </li>
+                <li class="col">
+                    <span class="feature-icon"><i class="bi bi-chat-dots"></i></span>
+                    <span>Чат</span>
+                </li>
+                <li class="col">
+                    <span class="feature-icon"><i class="bi bi-easel"></i></span>
+                    <span>Интерактивная доска</span>
+                </li>
+            </ul>
+
+            <div id="auth-status" class="mt-3" style="display: none;"></div>
+        </div>
+    </div>
 </div>
-<script type="text/javascript">
-  function logStatus(message, isError = false) {
+
+<script>
+    function getNextUrl() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const next = urlParams.get('next');
+      if (next) {
+        try {
+          const nextUrl = new URL(next, window.location.origin);
+          if (nextUrl.origin === window.location.origin) return next;
+        } catch (e) {}
+      }
+      return '/';
+    }
+
+    function logStatus(message, isError = false) {
       const statusDiv = document.getElementById('auth-status');
       if (statusDiv) {
-          statusDiv.style.display = 'block';
-          statusDiv.style.backgroundColor = isError ? '#ffebee' : '#f1f8e9';
-          statusDiv.style.color = isError ? '#c62828' : '#2e7d32';
-          statusDiv.innerText = message;
+        statusDiv.style.display = 'block';
+        statusDiv.className = `alert mt-3 py-2 ${isError ? 'alert-danger' : 'alert-success'}`;
+        statusDiv.innerHTML = `<small>${message}</small>`;
       }
-      console.log(isError ? 'ERROR: ' : 'INFO: ', message);
-  }
+    }
 
-  function onTelegramAuth(user) {
-    logStatus("Telegram callback triggered!");
-    fetch("{% url 'telegram_callback' %}", {
+    function onTelegramAuth(user) {
+      logStatus("Авторизация...");
+
+      fetch("{% url 'telegram_callback' %}", {
         method: "POST",
         headers: {
-            "Content-Type": "application/json",
-            "X-CSRFToken": "{{ csrf_token }}"
+          "Content-Type": "application/json",
+          "X-CSRFToken": "{{ csrf_token }}"
         },
         body: JSON.stringify(user)
-    })
-    .then(async response => {
+      })
+      .then(async response => {
         const data = await response.json();
         if (response.ok) {
-            window.location.href = "/";
+          window.location.href = getNextUrl();
         } else {
-            logStatus("Error: " + (data.error || "Validation failed"), true);
+          logStatus(data.error || "Ошибка авторизации", true);
         }
-    })
-    .catch(error => {
-        logStatus("Network error: " + error.message, true);
-    });
-  }
+      })
+      .catch(() => {
+        logStatus("Ошибка соединения", true);
+      });
+    }
 </script>
 {% endblock %}

@@ -141,7 +141,6 @@ def reorder_lessons(request, course_id):
         return JsonResponse({"error": f"Произошла ошибка: {str(e)}"}, status=500)
 
 
-@login_required
 @xframe_options_exempt
 def lesson_preview(request, lesson_id):
     """Предпросмотр урока в упрощенном виде (для iframe)"""
@@ -152,11 +151,14 @@ def lesson_preview(request, lesson_id):
 
         has_access = False
 
-        if course.creator == request.user:
+        if course.is_public:
             has_access = True
 
-        elif course.root_type == 'clone':
-            has_access = True
+        elif request.user.is_authenticated:
+            if course.creator == request.user:
+                has_access = True
+            elif course.root_type == 'clone':
+                has_access = True
 
         if not has_access:
             raise PermissionDenied("У вас нет доступа к этому уроку")
@@ -165,7 +167,7 @@ def lesson_preview(request, lesson_id):
             'lesson': lesson,
             'course': course,
             'lesson_id': lesson_id,
-            'current_user_id': request.user.id,
+            'current_user_id': request.user.id if request.user.is_authenticated else None,
         }
         return render(request, 'courses/lesson_preview.html', context)
 

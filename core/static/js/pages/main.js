@@ -1,8 +1,6 @@
 import { getCsrfToken, confirmAction, escapeHtml } from 'js/tasks/utils.js';
+import { requireAuth, showAuthModal } from 'auth/telegram.js';
 
-/**
- * Открывает модальное окно для создания/редактирования сущности
- */
 export function openEntityModal({
     mode,
     entity = 'course',
@@ -55,18 +53,12 @@ export function openEntityModal({
     setTimeout(() => nameInput.focus(), 550);
 }
 
-/**
- * Находит элемент карточки по entity и id
- */
 function findMaterialItem(entity, id) {
     const selector = `[data-entity="${entity}"][data-id="${id}"]`;
     const actionEl = document.querySelector(selector);
     return actionEl ? actionEl.closest('.material-item') : null;
 }
 
-/**
- * Обновляет карточку курса после редактирования
- */
 function updateCourseCard(itemEl, updatedData) {
     if (!itemEl) return;
 
@@ -89,9 +81,6 @@ function updateCourseCard(itemEl, updatedData) {
     }
 }
 
-/**
- * Создает HTML для новой карточки курса
- */
 function createCourseCardHtml(data, entity) {
     const subjectBadge = entity === 'course' && data.subject_display
         ? `<span class="badge bg-primary small">${escapeHtml(data.subject_display)}</span>`
@@ -100,10 +89,6 @@ function createCourseCardHtml(data, entity) {
     const roleBadge = entity === 'classroom'
         ? `<span class="badge bg-success small">Ученик</span>`
         : '';
-
-    const editUrl = entity === 'course'
-        ? data.edit_meta_url || '#'
-        : '#';
 
     return `
         <div class="col-12 col-md-6 col-lg-4 material-item" data-category="${entity === 'course' ? 'my_courses' : 'classrooms'}">
@@ -151,44 +136,30 @@ function createCourseCardHtml(data, entity) {
     `;
 }
 
-/**
- * Возвращает контейнер для вставки новой карточки
- */
 function getInsertContainer(entity) {
     const category = entity === 'course' ? 'my_courses' : 'classrooms';
     const items = document.querySelectorAll(`.material-item[data-category="${category}"]`);
     if (items.length === 0) return null;
-
     const lastItem = items[items.length - 1];
     return lastItem.parentElement;
 }
 
-/**
- * Вставляет карточку в правильную позицию
- */
 function insertCard(cardHtml, entity) {
     const container = getInsertContainer(entity);
     if (!container) return null;
-
     const category = entity === 'course' ? 'my_courses' : 'classrooms';
     const linkItem = container.querySelector(`.material-item[data-category="${category}"] a[data-create]`)?.closest('.material-item');
-
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = cardHtml;
     const newCard = tempDiv.firstElementChild;
-
     if (linkItem) {
         container.insertBefore(newCard, linkItem);
     } else {
         container.appendChild(newCard);
     }
-
     return newCard;
 }
 
-/**
- * Обработчик фильтрации по категориям
- */
 function setupCategoryFilters() {
     const buttons = document.querySelectorAll('[data-target]');
     const items = document.querySelectorAll('.material-item');
@@ -209,7 +180,6 @@ function setupCategoryFilters() {
 
     const container = document.getElementById('materials-container');
     const prioritySubject = container?.dataset.prioritySubject || '';
-
     let initialCategory = 'classrooms';
 
     if (prioritySubject === 'math') {
@@ -221,13 +191,11 @@ function setupCategoryFilters() {
     }
 
     const categoryItems = document.querySelectorAll(`.material-item[data-category="${initialCategory}"]`);
-
     if (categoryItems.length === 0) {
         initialCategory = 'classrooms';
     }
 
     showCategory(initialCategory);
-
     const initialButton = document.querySelector(`[data-target="${initialCategory}"]`);
     if (initialButton) {
         buttons.forEach(b => b.classList.remove('active'));
@@ -235,9 +203,6 @@ function setupCategoryFilters() {
     }
 }
 
-/**
- * Обработчик отправки формы модального окна
- */
 function setupModalForm() {
     const modalForm = document.getElementById('universalModalForm');
     const nameInput = document.getElementById('universalModalName');
@@ -286,11 +251,9 @@ function setupModalForm() {
         }
 
         try {
-            const requestBody = {
-                title: title
-            };
+            const requestBody = { title };
 
-            if (entity === 'classroom' && lessonIdInput && lessonIdInput.value) {
+            if (entity === 'classroom' && lessonIdInput?.value) {
                 requestBody.lesson_id = parseInt(lessonIdInput.value);
             }
 
@@ -318,6 +281,11 @@ function setupModalForm() {
             submitBtn.innerHTML = mode === 'create' ? 'Создать' : 'Сохранить';
 
             if (!resp.ok) {
+                if (resp.status === 401 || resp.status === 403) {
+                    bootstrap.Modal.getInstance(modalEl)?.hide();
+                    showAuthModal({ entity });
+                    return;
+                }
                 const errorData = await resp.json().catch(() => ({}));
                 errorEl.textContent = errorData.error || 'Ошибка сервера';
                 errorEl.classList.remove('d-none');
@@ -332,18 +300,12 @@ function setupModalForm() {
                 return;
             }
 
-            if (data.redirect_url) {
-                window.location.href = data.redirect_url;
+            if (data.redirect_url || data.url) {
+                window.location.href = data.redirect_url || data.url;
                 return;
             }
 
-            if (data.url) {
-                window.location.href = data.url;
-                return;
-            }
-
-            const modalInstance = bootstrap.Modal.getInstance(modalEl);
-            modalInstance.hide();
+            bootstrap.Modal.getInstance(modalEl)?.hide();
 
             if (mode === 'create') {
                 const cardHtml = createCourseCardHtml({
@@ -353,9 +315,7 @@ function setupModalForm() {
                     subject: data.subject,
                     subject_display: data.subject_display,
                     description: data.description,
-                    detail_url: entity === 'course'
-                        ? `/courses/${data.id}/`
-                        : `/classroom/${data.id}/`
+                    detail_url: entity === 'course' ? `/courses/${data.id}/` : `/classroom/${data.id}/`
                 }, entity);
 
                 insertCard(cardHtml, entity);
@@ -401,15 +361,14 @@ function setupModalForm() {
     });
 }
 
-/**
- * Обработчик кликов по действиям (редактирование, удаление)
- */
 function setupActionHandlers() {
     document.querySelectorAll('[data-create]').forEach(el => {
-        el.addEventListener('click', (ev) => {
+        el.addEventListener('click', async (ev) => {
             ev.preventDefault();
             const what = el.dataset.create;
-            if (what === 'course' || what === 'classroom') {
+
+            const isAuthenticated = await requireAuth({ entity: what });
+            if (isAuthenticated) {
                 openEntityModal({ mode: 'create', entity: what });
             }
         });
@@ -425,9 +384,13 @@ function setupActionHandlers() {
 
         if (action === 'edit') {
             e.preventDefault();
+
+            const isAuthenticated = await requireAuth({ entity });
+            if (!isAuthenticated) return;
+
             openEntityModal({
                 mode: 'edit',
-                entity: entity,
+                entity,
                 id,
                 title: actionEl.dataset.title || '',
                 description: actionEl.dataset.description || '',
@@ -442,6 +405,10 @@ function setupActionHandlers() {
 
         if (action === 'delete') {
             e.preventDefault();
+
+            const isAuthenticated = await requireAuth({ entity });
+            if (!isAuthenticated) return;
+
             const ok = await confirmAction('Удалить без возможности восстановления?');
             if (!ok) return;
 

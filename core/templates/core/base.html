@@ -37,6 +37,8 @@
         }
     </style>
     <link rel="stylesheet" href="{% static 'css/base.css' %}">
+
+    {% block extra_head %}{% endblock %}
 </head>
 <body translate="no">
     <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom">
@@ -49,45 +51,7 @@
 
             <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
                 <ul class="navbar-nav align-items-lg-center gap-lg-2">
-
-                    {% if user.is_authenticated %}
-                    <li class="nav-item"><a href="#" class="nav-link">Мои курсы</a></li>
-                    <li class="nav-item"><a href="#" class="nav-link">Выйти</a></li>
-                    {% else %}
-                    <li class="nav-item d-none d-lg-block">
-                        <button type="button"
-                                class="btn btn-outline-primary me-2"
-                                data-bs-toggle="modal"
-                                data-bs-target="#telegramAuthModal">
-                            Войти
-                        </button>
-                    </li>
-                    <li class="nav-item d-none d-lg-block">
-                        <button type="button"
-                                class="btn btn-primary"
-                                data-bs-toggle="modal"
-                                data-bs-target="#telegramAuthModal">
-                            Регистрация
-                        </button>
-                    </li>
-
-                    <li class="nav-item d-lg-none">
-                        <button type="button"
-                                class="nav-link btn btn-link p-0"
-                                data-bs-toggle="modal"
-                                data-bs-target="#telegramAuthModal">
-                            Войти
-                        </button>
-                    </li>
-                    <li class="nav-item d-lg-none">
-                        <button type="button"
-                                class="nav-link text-primary fw-semibold btn btn-link p-0"
-                                data-bs-toggle="modal"
-                                data-bs-target="#telegramAuthModal">
-                            Регистрация
-                        </button>
-                    </li>
-                    {% endif %}
+                    <li class="nav-item"><a href="/" class="nav-link">На главную</a></li>
                 </ul>
             </div>
         </div>

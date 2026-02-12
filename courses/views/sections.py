@@ -7,12 +7,27 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 
 
-@login_required
 def lesson_sections(request, lesson_id):
     """
     Возвращает список разделов урока (оригинал или копия)
     """
     lesson = get_object_or_404(Lesson, id=lesson_id)
+    course = lesson.course
+
+    has_access = False
+
+    if course.is_public:
+        has_access = True
+
+    elif request.user.is_authenticated:
+        if course.creator == request.user:
+            has_access = True
+        elif course.root_type == 'clone':
+            has_access = True
+
+    if not has_access:
+        return JsonResponse({"error": "Доступ запрещен"}, status=403)
+
     sections_qs = lesson.sections.all().order_by("order")
 
     if not sections_qs.exists():

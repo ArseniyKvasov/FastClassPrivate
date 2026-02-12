@@ -1,4 +1,5 @@
 import { getCsrfToken, escapeHtml, confirmAction } from 'js/tasks/utils.js';
+import { requireAuth, showAuthModal } from 'auth/telegram.js';
 
 let lessonsContainer;
 let lessonsScrollContainer;
@@ -16,29 +17,6 @@ let selectClassroomModal;
 let selectedLessonId = null;
 let isAttaching = false;
 let telegramAuthModalInstance = null;
-
-function initTelegramAuthModal() {
-    if (telegramAuthModalInstance) return telegramAuthModalInstance;
-    const el = document.getElementById('telegramAuthModal');
-    if (!el) return null;
-    telegramAuthModalInstance = bootstrap.Modal.getOrCreateInstance(el);
-    return telegramAuthModalInstance;
-}
-
-function isUserAuthenticated() {
-    const el = document.getElementById('telegramAuthModal');
-    if (!el) return true;
-    return el.dataset.isAuthenticated === 'true';
-}
-
-function openAuthModal() {
-    const modal = initTelegramAuthModal();
-    if (modal) {
-        modal.show();
-    } else {
-        window.location.href = '/auth/login/';
-    }
-}
 
 function initPreviewModal() {
     if (previewModal) return;
@@ -184,6 +162,7 @@ function openLessonPreview(lessonId) {
     const loading = document.getElementById('lessonPreviewLoading');
     const errorDiv = document.getElementById('lessonPreviewError');
     const selectBtnPreview = document.querySelector('.select-lesson-btn-preview');
+
     if (loading) loading.classList.remove('d-none');
     if (errorDiv) errorDiv.classList.add('d-none');
 
@@ -199,6 +178,7 @@ function openLessonPreview(lessonId) {
     setTimeout(() => {
         if (frame) frame.src = `/courses/lesson/${lessonId}/preview/`;
     }, 100);
+
     if (frame) {
         frame.onload = () => {
             if (loading) loading.classList.add('d-none');
@@ -238,19 +218,25 @@ function openLessonModal({ mode = 'create', id = '', title = '', description = '
     }, 550);
 }
 
-document.addEventListener('click', (e) => {
+document.addEventListener('click', async (e) => {
     const selectBtnPreview = e.target.closest('.select-lesson-btn-preview');
     if (selectBtnPreview) {
         e.preventDefault();
         const lessonId = selectBtnPreview.dataset.lessonId;
 
-        if (!isUserAuthenticated()) {
-            if (previewModal) {
-                try {
-                    previewModal.hide();
-                } catch (err) {}
+        const isAuthenticated = await requireAuth({
+            entity: 'select_lesson',
+            message: 'Чтобы выбрать урок, необходимо авторизоваться',
+            hidePreviewModal: true,
+            onHide: () => {
+                initPreviewModal();
+                if (previewModal) {
+                    previewModal.show();
+                }
             }
-            openAuthModal();
+        });
+
+        if (!isAuthenticated) {
             return;
         }
 
@@ -657,28 +643,22 @@ function handleLessonsContainerClick(e) {
     if (selectBtn) {
         e.preventDefault();
 
-        if (!isUserAuthenticated()) {
+        requireAuth({
+            entity: 'select_lesson',
+            message: 'Чтобы выбрать урок, необходимо авторизоваться'
+        }).then(isAuthenticated => {
+            if (!isAuthenticated) return;
+
             if (previewModal) {
-                try {
-                    previewModal.hide();
-                } catch (err) {}
+                previewModal.hide();
             }
-            openAuthModal();
-            return;
-        }
 
-        if (previewModal) {
-            previewModal.hide();
-        }
+            initSelectClassroomModal();
+            if (!selectClassroomModal) return;
 
-        initSelectClassroomModal();
-        if (!selectClassroomModal) return;
-
-        selectedLessonId = selectBtn.dataset.lessonId;
-
-        setTimeout(() => {
+            selectedLessonId = selectBtn.dataset.lessonId;
             selectClassroomModal.show();
-        }, 300);
+        });
 
         return;
     }

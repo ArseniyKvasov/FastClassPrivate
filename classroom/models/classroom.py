@@ -53,6 +53,17 @@ class Classroom(models.Model):
     def student_count(self):
         return self.students.count()
 
+    def save(self, *args, **kwargs):
+        """Автоматически прикрепляем нулевой урок при создании класса без урока"""
+        if not self.pk and not self.lesson_id:
+            zero_lesson_id = getattr(settings, 'ZERO_LESSON_ID', None)
+            if zero_lesson_id:
+                try:
+                    self.lesson_id = zero_lesson_id
+                except Lesson.DoesNotExist:
+                    pass
+        super().save(*args, **kwargs)
+
     def join(self, user, password):
         if user == self.teacher:
             raise ValidationError("Учитель не может войти в класс как ученик.")

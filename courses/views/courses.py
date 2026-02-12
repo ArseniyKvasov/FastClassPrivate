@@ -172,7 +172,6 @@ def create_lesson(request, course_id):
     })
 
 
-@login_required
 def lessons_list(request, course_id):
     """
     Детальная страница курса.
@@ -183,31 +182,39 @@ def lessons_list(request, course_id):
     if course.creator != request.user and not course.is_public:
         return JsonResponse({"error": "Доступ запрещен"}, status=403)
 
-    user_copy_courses = Course.objects.filter(
-        creator=request.user,
-        root_type="copy",
-        linked_to=course
-    )
+    user_copy_courses = Course.objects.none()
+    user_course = None
+    display_course = course
+    lessons = course.lessons.all().order_by("order")
+    is_user_copy = False
+    original_course_id = None
+    classrooms_list = []
 
-    if user_copy_courses.exists():
-        user_course = user_copy_courses.first()
-        lessons = user_course.lessons.all().order_by("order")
-        display_course = user_course
-    else:
-        lessons = course.lessons.all().order_by("order")
-        display_course = course
+    if request.user.is_authenticated:
+        user_copy_courses = Course.objects.filter(
+            creator=request.user,
+            root_type="copy",
+            linked_to=course
+        )
 
-    classrooms_list = Classroom.objects.filter(
-        teacher=request.user
-    ).order_by("title")
+        if user_copy_courses.exists():
+            user_course = user_copy_courses.first()
+            lessons = user_course.lessons.all().order_by("order")
+            display_course = user_course
+            is_user_copy = True
+            original_course_id = course.id
+
+        classrooms_list = Classroom.objects.filter(
+            teacher=request.user
+        ).order_by("title")
 
     context = {
         "lessons": lessons,
         "course": display_course,
         "is_public": course.is_public,
         "classrooms_list": classrooms_list,
-        "is_user_copy": user_copy_courses.exists(),
-        "original_course_id": course.id if user_copy_courses.exists() else None,
+        "is_user_copy": is_user_copy,
+        "original_course_id": original_course_id,
     }
 
     return render(request, "courses/lessons_list.html", context)

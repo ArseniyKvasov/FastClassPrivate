@@ -29,16 +29,26 @@
     <div class="container">
 
         <div class="d-flex gap-2 mb-4 overflow-auto flex-nowrap" style="scrollbar-width: none;">
-            <button class="btn btn-outline-primary border-0 btn-sm rounded-pill text-nowrap" data-target="classrooms">Мои классы</button>
-            <button class="btn btn-outline-primary border-0 btn-sm rounded-pill text-nowrap" data-target="my_courses">Мои курсы</button>
+            <button class="btn btn-outline-primary border-0 btn-sm rounded-pill text-nowrap" data-target="classrooms">
+                Мои классы
+            </button>
+            <button class="btn btn-outline-primary border-0 btn-sm rounded-pill text-nowrap" data-target="my_courses">
+                Мои курсы
+            </button>
             {% if math_courses %}
-            <button class="btn btn-outline-primary border-0 btn-sm rounded-pill text-nowrap" data-target="math">Математика</button>
+            <button class="btn btn-outline-primary border-0 btn-sm rounded-pill text-nowrap" data-target="math">
+                Математика
+            </button>
             {% endif %}
             {% if english_courses %}
-            <button class="btn btn-outline-primary border-0 btn-sm rounded-pill text-nowrap" data-target="english">Английский</button>
+            <button class="btn btn-outline-primary border-0 btn-sm rounded-pill text-nowrap" data-target="english">
+                Английский
+            </button>
             {% endif %}
             {% if other_courses %}
-            <button class="btn btn-outline-primary border-0 btn-sm rounded-pill text-nowrap" data-target="other">Другое</button>
+            <button class="btn btn-outline-primary border-0 btn-sm rounded-pill text-nowrap" data-target="other">
+                Другое
+            </button>
             {% endif %}
         </div>
 
@@ -68,10 +78,12 @@
 
                     <div class="card-footer bg-transparent border-0 pt-0">
                         <div class="d-flex justify-content-between align-items-center">
-                            <a href="{% url 'classroom_view' classroom.id %}" class="btn btn-sm btn-outline-white border-0 fw-bold text-primary">Перейти</a>
+                            <a href="{% url 'classroom_view' classroom.id %}"
+                               class="btn btn-sm btn-outline-white border-0 fw-bold text-primary">Перейти</a>
                             {% if classroom.role == 'Учитель' %}
                             <div class="dropdown">
-                                <button class="btn btn-sm btn-link text-muted p-0" data-bs-toggle="dropdown" aria-expanded="false">
+                                <button class="btn btn-sm btn-link text-muted p-0" data-bs-toggle="dropdown"
+                                        aria-expanded="false">
                                     <i class="bi bi-three-dots"></i>
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end">
@@ -104,16 +116,8 @@
             {% endfor %}
 
             <div class="col-12 text-end mt-3 material-item" data-category="classrooms">
-                {% if user.is_authenticated %}
-                <a href="#" class="fw-bold text-primary text-decoration-none" data-create="classroom">+ Создать класс</a>
-                {% else %}
-                <button type="button"
-                        class="fw-bold text-primary text-decoration-none btn btn-link p-0"
-                        data-bs-toggle="modal"
-                        data-bs-target="#telegramAuthModal">
-                    + Создать класс
-                </button>
-                {% endif %}
+                <a href="#" class="fw-bold text-primary text-decoration-none" data-create="classroom">+ Создать
+                    класс</a>
             </div>
 
             {% for course in user_courses %}
@@ -135,15 +139,17 @@
 
                     <div class="card-footer bg-transparent border-0 pt-0">
                         <div class="d-flex justify-content-between align-items-center">
-                            <a href="{% url 'lessons_list' course.id %}" class="btn btn-sm btn-outline-white border-0 fw-bold text-primary">Перейти</a>
+                            <a href="{% url 'lessons_list' course.id %}"
+                               class="btn btn-sm btn-outline-white border-0 fw-bold text-primary">Перейти</a>
 
                             <div class="dropdown">
-                                <button class="btn btn-sm btn-link text-muted p-0" data-bs-toggle="dropdown" aria-expanded="false">
+                                <button class="btn btn-sm btn-link text-muted p-0" data-bs-toggle="dropdown"
+                                        aria-expanded="false">
                                     <i class="bi bi-three-dots"></i>
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end">
                                     <li>
-                                       <a class="dropdown-item text-dark bg-white"
+                                        <a class="dropdown-item text-dark bg-white"
                                            href="#"
                                            data-action="edit"
                                            data-entity="course"
@@ -172,16 +178,7 @@
             {% endfor %}
 
             <div class="col-12 text-end mt-3 material-item" data-category="my_courses">
-                {% if user.is_authenticated %}
                 <a href="#" class="fw-bold text-primary text-decoration-none" data-create="course">+ Создать курс</a>
-                {% else %}
-                <button type="button"
-                        class="fw-bold text-primary text-decoration-none btn btn-link p-0"
-                        data-bs-toggle="modal"
-                        data-bs-target="#telegramAuthModal">
-                    + Создать курс
-                </button>
-                {% endif %}
             </div>
 
             {% for course in math_courses %}
@@ -196,7 +193,8 @@
                         </div>
                     </div>
                     <div class="card-footer bg-transparent border-0 pt-0">
-                        <a href="{% url 'lessons_list' course.id %}" class="btn btn-sm btn-outline-white border-0 fw-bold text-primary">Перейти</a>
+                        <a href="{% url 'lessons_list' course.id %}"
+                           class="btn btn-sm btn-outline-white border-0 fw-bold text-primary">Перейти</a>
                     </div>
                 </div>
             </div>
@@ -214,7 +212,8 @@
                         </div>
                     </div>
                     <div class="card-footer bg-transparent border-0 pt-0">
-                        <a href="{% url 'lessons_list' course.id %}" class="btn btn-sm btn-outline-white border-0 fw-bold text-primary">Перейти</a>
+                        <a href="{% url 'lessons_list' course.id %}"
+                           class="btn btn-sm btn-outline-white border-0 fw-bold text-primary">Перейти</a>
                     </div>
                 </div>
             </div>
@@ -232,7 +231,8 @@
                         </div>
                     </div>
                     <div class="card-footer bg-transparent border-0 pt-0">
-                        <a href="{% url 'lessons_list' course.id %}" class="btn btn-sm btn-outline-white border-0 fw-bold text-primary">Перейти</a>
+                        <a href="{% url 'lessons_list' course.id %}"
+                           class="btn btn-sm btn-outline-white border-0 fw-bold text-primary">Перейти</a>
                     </div>
                 </div>
             </div>

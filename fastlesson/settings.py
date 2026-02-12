@@ -159,6 +159,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin"
 
 TELEGRAM_BOT_TOKEN = config('TELEGRAM_BOT_TOKEN', default='')
+TELEGRAM_BOT_NAME = config('TELEGRAM_BOT_NAME', default='')
+
+ZERO_LESSON_ID = config('ZERO_LESSON_ID', default=None, cast=int)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -182,8 +185,10 @@ LOGGING = {
         },
         'file': {
             'level': 'ERROR',
-            'class': 'logging.FileHandler',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
             'filename': os.path.join(LOGS_DIR, 'django_errors.log'),
+            'when': 'midnight',
+            'backupCount': 30,
             'formatter': 'verbose',
         },
     },

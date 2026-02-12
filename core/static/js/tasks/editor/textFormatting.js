@@ -261,16 +261,49 @@ export function formatLatex(content) {
     let wrapper = document.createElement("div");
     wrapper.innerHTML = content;
 
+    const isMathElement = (el) => {
+        return el.matches('.MathJax, .math, [class*="math"], mjx-container, .MathJax_Display') ||
+               el.matches('.math-inline, [class*="math-inline"]') ||
+               (el.closest && el.closest('.MathJax, .math, [class*="math"], mjx-container'));
+    };
+
+    const isInlineContext = (el) => {
+        const parent = el.parentNode;
+        if (!parent) return false;
+
+        const parentText = parent.textContent || '';
+        const elIndex = Array.from(parent.childNodes).indexOf(el);
+        const prevSibling = parent.childNodes[elIndex - 1];
+        const nextSibling = parent.childNodes[elIndex + 1];
+
+        const hasPrevText = prevSibling && prevSibling.nodeType === Node.TEXT_NODE && prevSibling.textContent.trim().length > 0;
+        const hasNextText = nextSibling && nextSibling.nodeType === Node.TEXT_NODE && nextSibling.textContent.trim().length > 0;
+
+        return hasPrevText || hasNextText || parentText.trim().length < 50;
+    };
+
     const wrapMathElements = (node) => {
         const mathElements = node.querySelectorAll('.MathJax, .math, [class*="math"], mjx-container, .MathJax_Display');
         mathElements.forEach(el => {
             if (el.parentNode && !el.parentNode.classList.contains('math-wrapper')) {
-                const mathWrapper = document.createElement('div');
+                const isInline = isInlineContext(el) && !el.classList.contains('MathJax_Display');
+
+                const mathWrapper = document.createElement('span');
                 mathWrapper.className = 'math-wrapper';
-                mathWrapper.style.overflowX = 'auto';
-                mathWrapper.style.overflowY = 'hidden';
-                mathWrapper.style.maxWidth = '100%';
-                mathWrapper.style.display = 'block';
+
+                if (isInline) {
+                    mathWrapper.style.overflowX = 'auto';
+                    mathWrapper.style.overflowY = 'hidden';
+                    mathWrapper.style.maxWidth = '100%';
+                    mathWrapper.style.display = 'inline-block';
+                    mathWrapper.style.verticalAlign = 'middle';
+                } else {
+                    mathWrapper.style.overflowX = 'auto';
+                    mathWrapper.style.overflowY = 'hidden';
+                    mathWrapper.style.maxWidth = '100%';
+                    mathWrapper.style.display = 'block';
+                }
+
                 el.parentNode.insertBefore(mathWrapper, el);
                 mathWrapper.appendChild(el);
             }
@@ -295,7 +328,7 @@ export function formatLatex(content) {
             const text = textNode.textContent;
             const parent = textNode.parentNode;
 
-            if (parent.closest('.MathJax, .math, [class*="math"], mjx-container')) {
+            if (parent.closest('.MathJax, .math, [class*="math"], mjx-container, .math-wrapper')) {
                 return;
             }
 

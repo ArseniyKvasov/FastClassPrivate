@@ -3,7 +3,7 @@ import hashlib
 import json
 from django.conf import settings
 from django.http import JsonResponse
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.contrib.auth import login
 from django.views.decorators.clickjacking import xframe_options_exempt
 from .models import User
@@ -18,10 +18,22 @@ def set_coop_header(view_func):
     return _wrapped_view
 
 
+def check_auth(request):
+    """
+    Проверяет, авторизован ли пользователь
+    """
+    return JsonResponse({
+        'authenticated': request.user.is_authenticated
+    })
+
+
 @set_coop_header
 @xframe_options_exempt
 def login_page(request):
-    return render(request, 'auth/login.html')
+    context = {
+        'TELEGRAM_BOT_NAME': settings.TELEGRAM_BOT_NAME
+    }
+    return render(request, 'auth/login.html', context)
 
 
 def telegram_callback(request):
@@ -56,6 +68,7 @@ def telegram_callback(request):
 
             login(request, user)
             return JsonResponse({'status': 'ok'})
+
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=400)
 
