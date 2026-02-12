@@ -18,12 +18,6 @@ let allCourses = [];
 let currentPreview = null;
 let searchDebounced = null;
 
-/**
- * Debounce helper — вызывает fn не чаще, чем раз в wait миллисекунд.
- * @param {Function} fn
- * @param {number} wait
- * @returns {Function}
- */
 function debounce(fn, wait) {
     let timer = null;
     return (...args) => {
@@ -33,6 +27,28 @@ function debounce(fn, wait) {
             fn(...args);
         }, wait);
     };
+}
+
+function updateLessonTypeToStandart() {
+    const infoEl = document.getElementById('info');
+    if (infoEl) {
+        infoEl.dataset.lessonType = 'standart';
+    }
+
+    const addTaskBtn = document.getElementById('add-task-btn');
+    if (addTaskBtn) {
+        addTaskBtn.style.display = 'block';
+    }
+
+    const createSectionWrapper = document.getElementById('section-create-wrapper');
+    if (createSectionWrapper) {
+        createSectionWrapper.style.display = 'flex';
+    }
+
+    const changeTasksOrderButton = document.getElementById('changeTasksOrderButton');
+    if (changeTasksOrderButton) {
+        changeTasksOrderButton.style.display = 'block';
+    }
 }
 
 selectLessonButton && selectLessonButton.addEventListener('click', () => lessonSelectModal.show());
@@ -45,9 +61,6 @@ if (searchInputEl) {
 
 accordionEl.addEventListener('click', onAccordionClick);
 
-/**
- * Загружает список курсов и рендерит их в модалке.
- */
 async function loadCourses() {
     loadingEl.classList.remove('d-none');
     contentEl.classList.add('d-none');
@@ -65,10 +78,6 @@ async function loadCourses() {
     }
 }
 
-/**
- * Выполняет запрос за курсами.
- * @returns {Promise<Array>}
- */
 async function fetchCourses() {
     const resp = await fetch(API_URL, {
         method: 'GET',
@@ -144,36 +153,57 @@ function renderLessons(lessons, courseId) {
     const visible = lessons.slice(0, LESSONS_LIMIT);
     const hiddenCount = Math.max(0, lessons.length - visible.length);
     return `
-        <div class="d-flex flex-column gap-2 p-2">
-            ${visible.map(renderLessonItem).join('')}
+        <div class="d-flex flex-column gap-3 p-2">
+            ${visible.map(lesson => renderLessonItem(lesson, courseId)).join('')}
             ${hiddenCount > 0 ? `<div class="text-center"><button class="btn btn-sm btn-link js-show-more" data-course-id="${courseId}">Показать ещё (${hiddenCount})</button></div>` : ''}
         </div>
     `;
 }
 
-function renderLessonItem(lesson) {
+function renderLessonItem(lesson, courseId) {
+    const hasLongDescription = lesson.description && lesson.description.length > 50;
+    const shortDescription = hasLongDescription
+        ? lesson.description.substring(0, 50).trim() + '…'
+        : lesson.description || '';
+
     return `
-        <div class="d-flex flex-column flex-md-row gap-2">
-            <div class="fw-medium text-truncate w-100" style="min-width:0;">
-                ${escapeHtml(lesson.title)}
-            </div>
-            <div class="d-flex gap-2 align-self-end align-self-md-center ms-md-auto">
-                <button
-                    id="attachLessonInModal"
-                    class="btn btn-sm btn-outline-primary"
-                    data-lesson-id="${lesson.id}"
-                    type="button"
-                >
-                    Выбрать
-                </button>
-                <button
-                    id="previewLessonInModal"
-                    class="btn btn-sm btn-success"
-                    data-lesson-id="${lesson.id}"
-                    type="button"
-                >
-                    Посмотреть
-                </button>
+        <div class="d-flex flex-column w-100 border-bottom pb-2">
+            <div class="d-flex flex-column flex-md-row align-items-start gap-2 w-100">
+                <div class="flex-grow-1" style="min-width: 0; word-break: normal; overflow-wrap: break-word;">
+                    <div class="fw-medium">${escapeHtml(lesson.title)}</div>
+                    ${lesson.description ? `
+                        <div class="small text-muted lesson-description-${lesson.id}">
+                            <span class="description-short">${escapeHtml(shortDescription)}</span>
+                            ${hasLongDescription ? `
+                                <button class="btn btn-link btn-sm p-0 ms-1 align-baseline js-show-full-description"
+                                        data-lesson-id="${lesson.id}"
+                                        data-course-id="${courseId}"
+                                        style="font-size: 0.85rem; text-decoration: none;">
+                                    Подробнее
+                                </button>
+                                <span class="description-full d-none">${escapeHtml(lesson.description)}</span>
+                            ` : ''}
+                        </div>
+                    ` : ''}
+                </div>
+                <div class="d-flex gap-2 align-self-end align-self-md-center ms-md-auto flex-shrink-0">
+                    <button
+                        id="attachLessonInModal"
+                        class="btn btn-sm btn-outline-primary ms-2"
+                        data-lesson-id="${lesson.id}"
+                        type="button"
+                        style="word-break: normal; white-space: nowrap;">
+                        Выбрать
+                    </button>
+                    <button
+                        id="previewLessonInModal"
+                        class="btn btn-sm btn-success"
+                        data-lesson-id="${lesson.id}"
+                        type="button"
+                        style="word-break: normal; white-space: nowrap;">
+                        Посмотреть
+                    </button>
+                </div>
             </div>
         </div>
     `;
@@ -192,16 +222,36 @@ function expandCourseShowAll(courseId) {
 function onAccordionClick(ev) {
     const btn = ev.target.closest('button');
     if (!btn) return;
+
+    if (btn.classList.contains('js-show-full-description')) {
+        ev.preventDefault();
+        const lessonId = btn.dataset.lessonId;
+        const descriptionEl = btn.closest(`.lesson-description-${lessonId}`);
+        if (descriptionEl) {
+            const shortEl = descriptionEl.querySelector('.description-short');
+            const fullEl = descriptionEl.querySelector('.description-full');
+            if (shortEl && fullEl) {
+                shortEl.classList.add('d-none');
+                fullEl.classList.remove('d-none');
+                btn.classList.add('d-none');
+            }
+        }
+        return;
+    }
+
     if (btn.classList.contains('js-show-more')) {
         expandCourseShowAll(btn.dataset.courseId);
         return;
     }
+
     const lessonId = btn.dataset.lessonId;
     if (!lessonId) return;
+
     if (btn.id === 'previewLessonInModal') {
         openPreview(parseInt(lessonId, 10));
         return;
     }
+
     if (btn.id === 'attachLessonInModal') {
         const classroomId = getClassroomId();
         if (!classroomId) { showNotification('Класс не указан'); return; }
@@ -268,7 +318,11 @@ async function attachLesson(lessonId, classroomId) {
         clearTimeout(timer);
         if (!resp.ok) { showNotification('Не удалось выбрать урок'); lessonSelectModal.hide(); return; }
         const data = await resp.json();
-        if (data && data.status === 'ok') { lessonSelectModal.hide(); return; }
+        if (data && data.status === 'ok') {
+            updateLessonTypeToStandart();
+            lessonSelectModal.hide();
+            return;
+        }
         showNotification('Не удалось выбрать урок'); lessonSelectModal.hide();
     } catch (err) {
         showNotification('Не удалось выбрать урок');

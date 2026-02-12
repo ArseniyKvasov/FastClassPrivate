@@ -1,4 +1,4 @@
-import { showNotification, fetchSingleTask, TASK_MAP, confirmAction, getSectionId, getIsTeacher } from "js/tasks/utils.js";
+import { showNotification, fetchSingleTask, TASK_MAP, confirmAction, getSectionId, getIsTeacher, getIsZeroLesson } from "js/tasks/utils.js";
 import { getViewedUserId } from "classroom/utils.js";
 import { saveTask, deleteTask } from "js/tasks/editor/api.js";
 import { eventBus } from "js/tasks/events/eventBus.js";
@@ -393,6 +393,8 @@ export function closeTaskEditor() {
 export function attachControlsToTaskCard(taskCard) {
     if (!taskCard || taskCard.querySelector(".task-card-controls") || !getIsTeacher()) return;
 
+    const isZeroLesson = getIsZeroLesson();
+
     const controls = document.createElement("div");
     controls.className = "task-card-controls position-absolute top-0 end-0 m-2 d-flex gap-1";
     controls.style.opacity = "0";
@@ -401,36 +403,54 @@ export function attachControlsToTaskCard(taskCard) {
     taskCard.addEventListener("mouseenter", () => controls.style.opacity = "1");
     taskCard.addEventListener("mouseleave", () => controls.style.opacity = "0");
 
-    controls.innerHTML = `
-        <!-- Десктоп -->
-        <div class="d-none d-lg-flex gap-1">
-            <button class="btn btn-sm btn-light border-0 edit-task-btn" title="Редактировать">
-                <i class="bi bi-pencil"></i>
-            </button>
-            <button class="btn btn-sm btn-light border-0 go-to-task-btn d-none" title="Показать ученикам">
-                <i class="bi bi-broadcast"></i>
-            </button>
-            <button class="btn btn-sm btn-light border-0 reset-answer-btn d-none" title="Сбросить ответы">
-                <i class="bi bi-arrow-counterclockwise"></i>
-            </button>
-            <button class="btn btn-sm btn-light border-0 delete-task-btn" title="Удалить">
-                <i class="bi bi-trash"></i>
-            </button>
-        </div>
+    if (isZeroLesson) {
+        controls.innerHTML = `
+            <!-- Десктоп -->
+            <div class="d-none d-lg-flex gap-1">
+                <button class="btn btn-sm btn-light border-0 go-to-task-btn" title="Показать ученикам">
+                    <i class="bi bi-broadcast"></i>
+                </button>
+            </div>
 
-        <!-- Мобильный dropdown -->
-        <div class="d-flex d-lg-none dropdown">
-            <button class="btn btn-sm btn-light border-0 dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                <i class="bi bi-three-dots"></i>
-            </button>
-            <ul class="dropdown-menu dropdown-menu-start p-0">
-                <li><button class="dropdown-item text-black edit-task-btn">Редактировать</button></li>
-                <li><button class="dropdown-item text-black go-to-task-btn d-none">Показать ученикам</button></li>
-                <li><button class="dropdown-item text-black reset-answer-btn d-none">Сбросить ответы</button></li>
-                <li><button class="dropdown-item text-black delete-task-btn">Удалить</button></li>
-            </ul>
-        </div>
-    `;
+            <!-- Мобильный -->
+            <div class="d-flex d-lg-none">
+                <button class="btn btn-sm btn-light border-0 go-to-task-btn" title="Показать ученикам">
+                    <i class="bi bi-broadcast"></i>
+                </button>
+            </div>
+        `;
+    } else {
+        controls.innerHTML = `
+            <!-- Десктоп -->
+            <div class="d-none d-lg-flex gap-1">
+                <button class="btn btn-sm btn-light border-0 edit-task-btn" title="Редактировать">
+                    <i class="bi bi-pencil"></i>
+                </button>
+                <button class="btn btn-sm btn-light border-0 go-to-task-btn d-none" title="Показать ученикам">
+                    <i class="bi bi-broadcast"></i>
+                </button>
+                <button class="btn btn-sm btn-light border-0 reset-answer-btn d-none" title="Сбросить ответы">
+                    <i class="bi bi-arrow-counterclockwise"></i>
+                </button>
+                <button class="btn btn-sm btn-light border-0 delete-task-btn" title="Удалить">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+
+            <!-- Мобильный dropdown -->
+            <div class="d-flex d-lg-none dropdown">
+                <button class="btn btn-sm btn-light border-0 dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    <i class="bi bi-three-dots"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-start p-0">
+                    <li><button class="dropdown-item text-black edit-task-btn">Редактировать</button></li>
+                    <li><button class="dropdown-item text-black go-to-task-btn d-none">Показать ученикам</button></li>
+                    <li><button class="dropdown-item text-black reset-answer-btn d-none">Сбросить ответы</button></li>
+                    <li><button class="dropdown-item text-black delete-task-btn">Удалить</button></li>
+                </ul>
+            </div>
+        `;
+    }
 
     if (!taskCard.style.position) taskCard.style.position = "relative";
     taskCard.appendChild(controls);
@@ -442,13 +462,13 @@ export function attachControlsToTaskCard(taskCard) {
         const taskId = taskCard.dataset.taskId;
         if (!taskId) return;
 
-        if (ev.target.closest(".edit-task-btn")) {
+        if (ev.target.closest(".edit-task-btn") && !isZeroLesson) {
             taskCard.classList.add("editing");
             await openEditorForTask(taskId);
             return;
         }
 
-        if (ev.target.closest(".delete-task-btn")) {
+        if (ev.target.closest(".delete-task-btn") && !isZeroLesson) {
             const confirmed = await confirmAction("Вы уверены, что хотите удалить задание?");
             if (!confirmed) return;
 
@@ -475,7 +495,7 @@ export function attachControlsToTaskCard(taskCard) {
             return;
         }
 
-        if (ev.target.closest(".reset-answer-btn")) {
+        if (ev.target.closest(".reset-answer-btn") && !isZeroLesson) {
             let confirmationMessage;
             if (getViewedUserId() === "all") {
                 confirmationMessage = "Сбросить ответы всех учеников в этом задании?";

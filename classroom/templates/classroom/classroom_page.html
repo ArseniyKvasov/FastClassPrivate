@@ -7,6 +7,7 @@
     <div id="info"
          data-is-teacher="{{ is_teacher|yesno:'true,false' }}"
          data-lesson-id="{{ lesson_id }}"
+         data-lesson-type="{{ lesson_type }}"
          data-viewed-user-id="{{ viewed_user_id }}"
          data-is-classroom="true"
          data-classroom-id="{{ classroom_id }}"
@@ -14,15 +15,12 @@
     >
     </div>
 
-    <!-- Загрузка панели управления классом и чата -->
     {% include 'core/tasks/classroom_panel.html' %}
 
-    <!-- Отображение заданий -->
     <script type="module">
         import { loadSectionTasks } from "{% static 'js/tasks/display/showTasks.js' %}";
     </script>
 
-    <!-- Отображение списка разделов -->
     <script type="module">
         import { initRenderSections } from "{% static 'js/tasks/display/renderSections.js' %}";
 
@@ -31,21 +29,18 @@
         });
     </script>
 
-    <!-- Чат -->
     <script type="module">
         import { initChat } from "{% static 'classroom/integrations/chat.js' %}";
 
         initChat();
     </script>
 
-    <!-- Ответы -->
     <script type="module">
         import { registerAnswerEvents } from "{% static 'classroom/answers/handleAnswer.js' %}";
 
         registerAnswerEvents();
     </script>
 
-    <!-- Взаимодейтсвие Websocket -->
     <script type="module">
         import { initVirtualClassWebSocket } from "{% static 'classroom/websocket/init.js' %}";
         import { initEvents } from "{% static 'classroom/websocket/sendMessage.js' %}";
@@ -54,7 +49,6 @@
         initEvents();
     </script>
 
-    <!-- Видеозвонок -->
     <script type="module">
         import { initVideoCallPanel } from 'classroom/integrations/call.js';
 
@@ -66,20 +60,17 @@
     {% if is_teacher %}
         <link rel="stylesheet" href="{% static 'css/teacher_styles.css' %}">
 
-        <!-- Загрузка модальных окон для редактирования -->
         {% include 'classroom/modals/task_select.html' %}
         {% include 'classroom/modals/section_create.html' %}
         {% include 'classroom/modals/invitation.html' %}
         {% include 'classroom/modals/lesson_select.html' %}
 
-        <!-- Редактирование заданий -->
         <script type="module">
             import { initEditTasks } from "{% static 'js/tasks/editor/edit.js' %}";
 
             initEditTasks();
         </script>
 
-        <!-- Управление учениками -->
         <script type="module">
             import { initStudentPanel, showAllPanelElements } from "{% static 'classroom/answers/classroomPanel.js' %}";
             import { eventBus } from "{% static 'js/tasks/events/eventBus.js' %}";
@@ -97,7 +88,6 @@
             });
         </script>
 
-        <!-- Инициализация модальных окон -->
         <script type="module">
             import { initClassroomInviteModal } from "{% static 'classroom/modals/invitation.js' %}";
 
@@ -106,7 +96,6 @@
 
         <script type="module" src="{% static 'js/tasks/editor/lessonSelect.js' %}"></script>
     {% else %}
-        <!-- Разрешение копирования -->
         <script type="module">
             import { enableCopying, disableCopying } from "classroom/copyingMode.js";
 
@@ -120,7 +109,6 @@
         </script>
     {% endif %}
 
-    <!-- Отображение LaTeX -->
     <script>
     window.MathJax = {
         tex: {
@@ -142,34 +130,34 @@
     </script>
     <script src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
 
-
     <div class="row mt-4 d-flex justify-content-center">
         <div id="main-container" class="col-12 col-xl-9">
             <div id="task-list" class="bg-white p-3 rounded shadow-sm" style="min-height: 400px;"></div>
 
             {% if is_teacher %}
-            <button id="add-task-btn"
-                    class="btn btn-outline-primary w-100 p-4 fs-5 fw-bold shadow-sm border-primary mt-3">
-                <i class="bi bi-plus-circle me-2"></i>
-                Добавить задание
-            </button>
+                <button id="add-task-btn"
+                        class="btn btn-outline-primary w-100 p-4 fs-5 fw-bold shadow-sm border-primary mt-3"
+                        style="{% if lesson_type == 'zero' %}display: none;{% endif %}">
+                    <i class="bi bi-plus-circle me-2"></i>
+                    Добавить задание
+                </button>
             {% endif %}
         </div>
 
         <div id="sidebar" class="col-12 col-xl-3 my-4 my-xl-0">
             <div class="card shadow-sm rounded p-2" style="max-height: 40vh; overflow-y: hidden;">
-
                 <ul id="section-list"
                     class="list-group list-group-flush py-1"
                     style="overflow-y: auto; max-height: calc(40vh - 60px);">
-                    <!-- элементы списка -->
                 </ul>
 
-                <div id="section-create-wrapper" class="d-flex justify-content-center mt-2">
+                {% if is_teacher %}
+                <div id="section-create-wrapper" class="justify-content-center mt-2" style="display: {% if lesson_type == 'zero' %}none{% else %}flex{% endif %};">
                     <button id="add-section-btn" type="button" class="btn btn-sm text-primary fw-bold border-0">
                         <i class="bi bi-plus-circle me-1"></i>Добавить раздел
                     </button>
                 </div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -178,6 +166,5 @@
          class="position-fixed bottom-0 start-0 mb-3 ms-3 d-flex flex-column-reverse gap-2"
          style="z-index: 1155; max-height: 60vh; max-width: 70vw; overflow-y: auto;">
     </div>
-
 
 {% endblock %}

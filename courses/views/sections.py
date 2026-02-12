@@ -20,10 +20,7 @@ def lesson_sections(request, lesson_id):
         has_access = True
 
     elif request.user.is_authenticated:
-        if course.creator == request.user:
-            has_access = True
-        elif course.root_type == 'clone':
-            has_access = True
+        has_access = True
 
     if not has_access:
         return JsonResponse({"error": "Доступ запрещен"}, status=403)

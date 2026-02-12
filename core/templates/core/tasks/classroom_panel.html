@@ -58,7 +58,7 @@
                         </button>
                     </li>
                     <li>
-                        <button class="dropdown-item text-dark bg-white" id="changeTasksOrderButton">
+                        <button class="dropdown-item text-dark bg-white" id="changeTasksOrderButton" style="{% if lesson_type and lesson_type == 'zero' %}display: none;{% endif %}">
                             <i class="bi bi-list-ol me-2"></i> Порядок заданий
                         </button>
                     </li>

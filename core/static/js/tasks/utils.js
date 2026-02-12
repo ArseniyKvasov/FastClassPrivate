@@ -461,6 +461,11 @@ export function getLessonId() {
     return infoEl?.dataset?.lessonId || null;
 }
 
+export function getIsZeroLesson() {
+    const infoEl = getInfoElement();
+    return infoEl?.dataset?.lessonType === "zero";
+}
+
 export function getSectionId() {
     const infoEl = getInfoElement();
     return infoEl?.dataset?.sectionId || null;

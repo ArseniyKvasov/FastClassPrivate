@@ -1,4 +1,4 @@
-import { getCsrfToken, showNotification, confirmAction, getInfoElement, getIsTeacher, getIsClassroom, getLessonId, getSectionId } from 'js/tasks/utils.js';
+import { getCsrfToken, showNotification, confirmAction, getInfoElement, getIsTeacher, getIsClassroom, getLessonId, getSectionId, getIsZeroLesson } from 'js/tasks/utils.js';
 import { loadSectionTasks } from 'js/tasks/display/showTasks.js';
 import { eventBus } from 'js/tasks/events/eventBus.js';
 
@@ -17,13 +17,14 @@ const modalTitleEl = sectionModalEl ? sectionModalEl.querySelector('.modal-title
 let isSubmitting = false;
 
 function renderSectionItem(section) {
+    const canEdit = isTeacher && !getIsZeroLesson();
     const li = document.createElement("li");
     li.className = "list-group-item d-flex justify-content-between align-items-start border-0 p-2 rounded my-1";
     li.dataset.sectionId = section.id;
-    li.draggable = isTeacher;
+    li.draggable = canEdit;
     li.style.flexShrink = "0";
 
-    const teacherHandle = isTeacher
+    const teacherHandle = canEdit
         ? `<span class="drag-handle me-1" style="cursor:move;" role="button">☰</span>`
         : "";
 
@@ -40,7 +41,7 @@ function renderSectionItem(section) {
                 ${section.title || "Без названия"}
             </button>
         </div>
-        ${isTeacher ? `
+        ${canEdit ? `
             <div class="d-flex gap-2 flex-shrink-0">
                 <button type="button" class="btn btn-link p-0 edit-section-button">
                     <i class="bi bi-pencil-fill text-secondary"></i>
@@ -54,7 +55,7 @@ function renderSectionItem(section) {
 
     sectionList?.appendChild(li);
 
-    if (isTeacher) {
+    if (canEdit) {
         initDragHandlers(li);
     }
 }

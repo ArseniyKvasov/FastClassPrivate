@@ -6,6 +6,7 @@ from django.db import transaction
 import json
 import jwt, time
 from decouple import config
+from django.conf import settings
 from django.urls import reverse
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
@@ -137,6 +138,23 @@ def classroom_edit_title_view(request, classroom_id):
 
 
 def classroom_view(request, classroom_id):
+    """
+    Отображает страницу класса.
+
+    Определяет тип урока для корректного отображения интерфейса:
+    - "zero": нулевой урок-гайд (clone + ZERO_LESSON_ID)
+    - "standart": обычный урок (все остальные случаи)
+
+    Args:
+        request: HttpRequest объект
+        classroom_id: ID класса
+
+    Returns:
+        HttpResponse: страница класса или редирект на страницу присоединения
+
+    Raises:
+        Http404: если класс не найден
+    """
     if not request.user.is_authenticated:
         return redirect("join_classroom_view", classroom_id=classroom_id)
 
@@ -154,7 +172,16 @@ def classroom_view(request, classroom_id):
     else:
         viewed_user_id = request.user.id
 
-    lesson_id = classroom.lesson.id if classroom.lesson else None
+    lesson = classroom.lesson
+    lesson_id = lesson.id if lesson else None
+    lesson_root_type = lesson.root_type if lesson else None
+
+    zero_lesson_id = getattr(settings, 'ZERO_LESSON_ID', None)
+
+    if lesson and lesson_root_type == "clone" and zero_lesson_id and lesson.id == zero_lesson_id:
+        lesson_type = "zero"
+    else:
+        lesson_type = "standart"
 
     return render(
         request,
@@ -163,6 +190,7 @@ def classroom_view(request, classroom_id):
             "classroom": classroom,
             "classroom_id": classroom.id,
             "lesson_id": lesson_id,
+            "lesson_type": lesson_type,
             "is_teacher": is_teacher,
             "viewed_user_id": viewed_user_id,
             "current_user_id": request.user.id,
@@ -299,7 +327,7 @@ def get_jitsi_token(request, classroom_id):
             "exp": int(time.time()) + 3600,
             "context": {
                 "user": {
-                    "name": request.user.username,
+                    "name": request.user.display_name,
                     "email": "",
                     "moderator": user_role == "teacher"
                 }
