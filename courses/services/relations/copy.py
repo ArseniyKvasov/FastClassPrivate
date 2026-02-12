@@ -1,6 +1,3 @@
-"""
-Сервис для создания копий курсов и синхронизации копий с клонами.
-"""
 from django.db import transaction
 from django.core.exceptions import ValidationError
 from courses.models import Course, Lesson, Section, Task
@@ -8,8 +5,34 @@ from courses.models import Course, Lesson, Section, Task
 
 class CopyService:
     """
-    Сервис для работы с копиями курсов.
-    Копия создается пользователем на основе клона курса.
+    Сервис для создания пользовательских копий курсов.
+
+    Копия — это легковесная ссылка на курс-клон, которая НЕ создает новые specific объекты.
+    Один пользователь может иметь только одну копию одного курса.
+
+    Логика работы:
+    1. Создание копии:
+       - Проверяется, что исходный курс является клоном (root_type="clone")
+       - Возвращается существующая копия, если она уже есть
+       - Создается курс с root_type="copy", linked_to=клон
+       - Рекурсивно создаются уроки, секции, задачи с root_type="copy"
+       - Все задачи ссылаются на ТЕ ЖЕ specific объекты, что и задачи в клоне
+       - Файлы НЕ КОПИРУЮТСЯ, только ссылки
+
+    2. Синхронизация копии с клоном:
+       - Обновляются поля курса, уроков, секций из клона
+       - Для задач с root_type="copy":
+         * Обновляются content_type и object_id на актуальные specific из клона
+       - Задачи с root_type="original" (пользовательские) НЕ ТРОГАЮТСЯ
+       - Удаляются устаревшие copy-задачи, ссылающиеся на несуществующие задачи клона
+
+    3. Удаление копии:
+       - Удаляются только объекты копии (курс, уроки, секции, задачи)
+       - Specific объекты и файлы НЕ УДАЛЯЮТСЯ, так как на них могут ссылаться другие
+
+    Важно: Копия никогда не создает свои specific объекты, только ссылается на
+    существующие из клона. Исключение — пользовательские задачи, созданные
+    непосредственно в копии (root_type="original").
     """
 
     @staticmethod
@@ -172,10 +195,11 @@ class CopyService:
             for clone_task in clone_tasks:
                 if clone_task.id in existing_task_map:
                     task = existing_task_map[clone_task.id]
-                    task.task_type = clone_task.task_type
-                    task.content_type = clone_task.content_type
-                    task.object_id = clone_task.object_id
-                    task.save()
+                    if task.root_type == "copy":
+                        task.task_type = clone_task.task_type
+                        task.content_type = clone_task.content_type
+                        task.object_id = clone_task.object_id
+                        task.save()
                 else:
                     Task.objects.create(
                         section=copy_section,
@@ -184,7 +208,6 @@ class CopyService:
                         task_type=clone_task.task_type,
                         content_type=clone_task.content_type,
                         object_id=clone_task.object_id,
-                        edited_content=clone_task.edited_content,
                         order=clone_task.order
                     )
 

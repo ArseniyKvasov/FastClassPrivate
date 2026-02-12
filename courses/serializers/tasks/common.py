@@ -270,8 +270,6 @@ class IntegrationTaskSerializer(serializers.ModelSerializer):
         hostname = urlparse(src).hostname or ""
 
         allowed_domains = (
-            'youtube.com',
-            'youtu.be',
             'wordwall.net',
             'miro.com',
             'quizlet.com',
@@ -315,13 +313,19 @@ class IntegrationTaskSerializer(serializers.ModelSerializer):
 
 class FileTaskSerializer(serializers.ModelSerializer):
     file = serializers.FileField(write_only=True)
+    file_url = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = FileTask
-        fields = ["file_path", "file"]
+        fields = ["id", "file", "file_url"]
+
+    def get_file_url(self, obj):
+        if obj.file:
+            return obj.file.url
+        return None
 
     def validate(self, data):
-        if 'file' not in data:
+        if 'file' not in data and not self.instance:
             raise serializers.ValidationError({"file": "Файл обязателен"})
         return data
 
@@ -355,9 +359,13 @@ class FileTaskSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        validated_data.pop('file', None)
-        return super().create(validated_data)
+        file = validated_data.pop('file')
+        return FileTask.objects.create(file=file)
 
     def update(self, instance, validated_data):
-        validated_data.pop('file', None)
-        return super().update(instance, validated_data)
+        file = validated_data.pop('file', None)
+        if file:
+            instance.file.delete(save=False)
+            instance.file = file
+            instance.save()
+        return instance

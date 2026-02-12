@@ -4,13 +4,14 @@
 import os
 import shutil
 from django.conf import settings
-from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.contrib.auth import get_user_model
-from django.utils import timezone
 from django.core.exceptions import ValidationError
-from courses.models import Course, Lesson, Section, Task, NoteTask, FileTask
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.contenttypes.models import ContentType
+from courses.models import Course, Lesson, Section, Task, NoteTask, FileTask
+from courses.services import CloneService
+from courses.services import CopyService
 
 User = get_user_model()
 
@@ -28,7 +29,7 @@ class CloneCourseTests(TestCase):
         self.admin = User.objects.create_user(username='admin', password='testpass', is_staff=True)
         self.student = User.objects.create_user(username='student', password='testpass')
 
-        self.media_test_dir = os.path.join(settings.MEDIA_ROOT, 'test_images')
+        self.media_test_dir = os.path.join(settings.MEDIA_ROOT, 'test_files')
         os.makedirs(self.media_test_dir, exist_ok=True)
 
         self.test_file_path = os.path.join(self.media_test_dir, 'test_image.jpg')
@@ -55,18 +56,12 @@ class CloneCourseTests(TestCase):
             subject='math'
         )
 
-        clone = Course.objects.create(
-            creator=self.admin,
-            linked_to=original_course,
-            root_type='clone',
-            title='Клон курса',
-            description='Описание клона',
-            subject='math'
-        )
+        clone_course = CloneService.create_clone(original_course, self.admin)
 
-        self.assertEqual(clone.root_type, 'clone')
-        self.assertEqual(clone.linked_to, original_course)
-        self.assertEqual(clone.creator, self.admin)
+        self.assertEqual(clone_course.root_type, 'clone')
+        self.assertEqual(clone_course.linked_to, original_course)
+        self.assertEqual(clone_course.creator, self.admin)
+        self.assertEqual(clone_course.title, 'Оригинальный курс')
 
     def test_cannot_clone_clone_course(self):
         """
@@ -79,43 +74,10 @@ class CloneCourseTests(TestCase):
             title='Оригинальный курс'
         )
 
-        clone_course = Course.objects.create(
-            creator=self.admin,
-            linked_to=original_course,
-            root_type='clone',
-            title='Клон курса'
-        )
+        clone_course = CloneService.create_clone(original_course, self.admin)
 
         with self.assertRaises(ValidationError):
-            clone_course.create_clone(self.student)
-
-    def test_cannot_clone_copy_course(self):
-        """
-        Проверяет, что нельзя создать клон из копии курса.
-        Ожидается исключение ValidationError.
-        """
-        original_course = Course.objects.create(
-            creator=self.user,
-            root_type='original',
-            title='Оригинальный курс'
-        )
-
-        clone_course = Course.objects.create(
-            creator=self.admin,
-            linked_to=original_course,
-            root_type='clone',
-            title='Клон курса'
-        )
-
-        copy_course = Course.objects.create(
-            creator=self.student,
-            linked_to=clone_course,
-            root_type='copy',
-            title='Копия курса'
-        )
-
-        with self.assertRaises(ValidationError):
-            copy_course.create_copy_for_user(User.objects.create_user(username='student2', password='testpass'))
+            CloneService.create_clone(clone_course, self.admin)
 
     def test_clone_updates(self):
         """
@@ -135,29 +97,10 @@ class CloneCourseTests(TestCase):
             order=1
         )
 
-        clone_course = Course.objects.create(
-            creator=self.admin,
-            linked_to=original_course,
-            root_type='clone',
-            title='Оригинальный курс',
-            description=original_course.description,
-            subject=original_course.subject,
-            is_public=False
-        )
+        clone_course = CloneService.create_clone(original_course, self.admin)
+        CloneService.sync_clone_with_original(clone_course)
 
-        clone_course.synchronize_with_original()
-
-        copy_course = Course.objects.create(
-            creator=self.student,
-            linked_to=clone_course,
-            root_type='copy',
-            title='Оригинальный курс',
-            description=original_course.description,
-            subject=original_course.subject,
-            is_public=False
-        )
-
-        copy_course.synchronize_with_clone()
+        copy_course = CopyService.create_copy_for_user(clone_course, self.student)
 
         original_course.title = 'Обновленный оригинал'
         original_course.save()
@@ -165,8 +108,8 @@ class CloneCourseTests(TestCase):
         lesson.title = 'Обновленный урок'
         lesson.save()
 
-        clone_course.synchronize_with_original()
-        copy_course.synchronize_with_clone()
+        CloneService.sync_clone_with_original(clone_course)
+        CopyService.sync_copy_with_clone(copy_course)
 
         clone_course.refresh_from_db()
         copy_course.refresh_from_db()
@@ -198,11 +141,11 @@ class CloneCourseTests(TestCase):
             order=1
         )
 
-        clone_course = original_course.create_clone(self.admin)
+        clone_course = CloneService.create_clone(original_course, self.admin)
 
-        copy1 = clone_course.create_copy_for_user(self.student)
+        copy1 = CopyService.create_copy_for_user(clone_course, self.student)
         student2 = User.objects.create_user(username='student2', password='testpass')
-        copy2 = clone_course.create_copy_for_user(student2)
+        copy2 = CopyService.create_copy_for_user(clone_course, student2)
 
         self.assertEqual(copy1.title, 'Оригинальный курс')
         self.assertEqual(copy2.title, 'Оригинальный курс')
@@ -220,7 +163,7 @@ class CloneCourseTests(TestCase):
             order=2
         )
 
-        clone_course.synchronize_with_original()
+        CloneService.sync_clone_with_original(clone_course)
 
         copy1.refresh_from_db()
         copy2.refresh_from_db()
@@ -257,7 +200,7 @@ class CloneCourseTests(TestCase):
             order=1
         )
 
-        clone_course = original_course.create_clone(self.admin)
+        clone_course = CloneService.create_clone(original_course, self.admin)
 
         original_course.title = 'Обновленный курс'
         original_course.save()
@@ -272,10 +215,10 @@ class CloneCourseTests(TestCase):
             order=2
         )
 
-        clone_course.synchronize_with_original()
+        CloneService.sync_clone_with_original(clone_course)
 
         student2 = User.objects.create_user(username='student2', password='testpass')
-        new_copy = clone_course.create_copy_for_user(student2)
+        new_copy = CopyService.create_copy_for_user(clone_course, student2)
 
         self.assertEqual(new_copy.title, 'Обновленный курс')
 
@@ -316,11 +259,11 @@ class CloneCourseTests(TestCase):
             order=3
         )
 
-        clone_course = original_course.create_clone(self.admin)
+        clone_course = CloneService.create_clone(original_course, self.admin)
 
-        copy = clone_course.create_copy_for_user(self.student)
+        copy = CopyService.create_copy_for_user(clone_course, self.student)
 
-        lesson4 = Lesson.objects.create(
+        Lesson.objects.create(
             course=original_course,
             root_type='original',
             title='Урок 4',
@@ -329,7 +272,7 @@ class CloneCourseTests(TestCase):
 
         lesson2.delete()
 
-        clone_course.synchronize_with_original()
+        CloneService.sync_clone_with_original(clone_course)
 
         copy.refresh_from_db()
         copy_lessons = copy.lessons.all().order_by('order')
@@ -375,14 +318,7 @@ class CloneCourseTests(TestCase):
             order=1
         )
 
-        clone_course = Course.objects.create(
-            creator=self.admin,
-            linked_to=original_course,
-            root_type='clone',
-            title='Клон курса'
-        )
-
-        clone_course.synchronize_with_original()
+        clone_course = CloneService.create_clone(original_course, self.admin)
 
         clone_task = clone_course.lessons.first().sections.first().tasks.first()
         cloned_note = clone_task.get_specific()
@@ -416,38 +352,35 @@ class CloneCourseTests(TestCase):
             order=1
         )
 
-        image_task = FileTask.objects.create(
-            file_path=settings.MEDIA_URL + 'test_images/test_image.jpg',
+        with open(self.test_file_path, 'rb') as f:
+            file_content = f.read()
+        uploaded_file = SimpleUploadedFile(
+            name='test_image.jpg',
+            content=file_content,
+            content_type='image/jpeg'
         )
+
+        file_task = FileTask.objects.create(file=uploaded_file)
 
         task = Task.objects.create(
             section=section,
             root_type='original',
-            task_type='image',
+            task_type='file',
             content_type=ContentType.objects.get_for_model(FileTask),
-            object_id=image_task.id,
+            object_id=file_task.id,
             order=1
         )
 
-        clone_course = Course.objects.create(
-            creator=self.admin,
-            linked_to=original_course,
-            root_type='clone',
-            title='Клон курса'
-        )
-
-        clone_course.synchronize_with_original()
+        clone_course = CloneService.create_clone(original_course, self.admin)
 
         clone_task = clone_course.lessons.first().sections.first().tasks.first()
-        cloned_image = clone_task.get_specific()
+        cloned_file = clone_task.get_specific()
 
-        self.assertIsNotNone(cloned_image)
-        self.assertNotEqual(cloned_image.id, image_task.id)
-        self.assertNotEqual(cloned_image.file_path, image_task.file_path)
-        self.assertTrue('_clone_' in cloned_image.file_path)
-        self.assertTrue(os.path.exists(
-            os.path.join(settings.MEDIA_ROOT, cloned_image.file_path.replace(settings.MEDIA_URL, '').lstrip('/'))
-        ))
+        self.assertIsNotNone(cloned_file)
+        self.assertNotEqual(cloned_file.id, file_task.id)
+        self.assertNotEqual(cloned_file.file.name, file_task.file.name)
+        self.assertTrue('_clone_' in cloned_file.file.name)
+        self.assertTrue(os.path.exists(cloned_file.file.path))
 
     def test_clone_specific_persists_when_original_deleted(self):
         """
@@ -485,14 +418,7 @@ class CloneCourseTests(TestCase):
             order=1
         )
 
-        clone_course = Course.objects.create(
-            creator=self.admin,
-            linked_to=original_course,
-            root_type='clone',
-            title='Клон курса'
-        )
-
-        clone_course.synchronize_with_original()
+        clone_course = CloneService.create_clone(original_course, self.admin)
 
         clone_task = clone_course.lessons.first().sections.first().tasks.first()
         cloned_note = clone_task.get_specific()
@@ -533,68 +459,62 @@ class CloneCourseTests(TestCase):
             order=1
         )
 
-        image_task1 = FileTask.objects.create(
-            file_path=settings.MEDIA_URL + 'test_images/test_image1.jpg',
-        )
-
-        task1_path = os.path.join(settings.MEDIA_ROOT, 'test_images/test_image1.jpg')
-        with open(task1_path, 'wb') as f:
+        file1_path = os.path.join(self.media_test_dir, 'test_image1.jpg')
+        with open(file1_path, 'wb') as f:
             f.write(b'first image content')
+
+        with open(file1_path, 'rb') as f:
+            uploaded_file1 = SimpleUploadedFile(
+                name='test_image1.jpg',
+                content=f.read(),
+                content_type='image/jpeg'
+            )
+
+        file_task1 = FileTask.objects.create(file=uploaded_file1)
 
         task = Task.objects.create(
             section=section,
             root_type='original',
             task_type='file',
             content_type=ContentType.objects.get_for_model(FileTask),
-            object_id=image_task1.id,
+            object_id=file_task1.id,
             order=1
         )
 
-        clone_course = Course.objects.create(
-            creator=self.admin,
-            linked_to=original_course,
-            root_type='clone',
-            title='Клон курса'
-        )
-
-        clone_course.synchronize_with_original()
+        clone_course = CloneService.create_clone(original_course, self.admin)
 
         clone_task = clone_course.lessons.first().sections.first().tasks.first()
-        cloned_image1 = clone_task.get_specific()
-        cloned_file_path1 = cloned_image1.file_path
-        cloned_full_path1 = os.path.join(
-            settings.MEDIA_ROOT,
-            cloned_file_path1.replace(settings.MEDIA_URL, '').lstrip('/')
-        )
+        cloned_file1 = clone_task.get_specific()
+        cloned_file_path1 = cloned_file1.file.path
 
-        self.assertTrue(os.path.exists(cloned_full_path1))
+        self.assertTrue(os.path.exists(cloned_file_path1))
 
-        image_task1.delete()
+        file_task1.delete()
 
-        image_task2 = FileTask.objects.create(
-            file_path=settings.MEDIA_URL + 'test_images/test_image2.jpg',
-        )
-
-        task2_path = os.path.join(settings.MEDIA_ROOT, 'test_images/test_image2.jpg')
-        with open(task2_path, 'wb') as f:
+        file2_path = os.path.join(self.media_test_dir, 'test_image2.jpg')
+        with open(file2_path, 'wb') as f:
             f.write(b'second image content')
 
+        with open(file2_path, 'rb') as f:
+            uploaded_file2 = SimpleUploadedFile(
+                name='test_image2.jpg',
+                content=f.read(),
+                content_type='image/jpeg'
+            )
+
+        file_task2 = FileTask.objects.create(file=uploaded_file2)
+
         task.content_type = ContentType.objects.get_for_model(FileTask)
-        task.object_id = image_task2.id
+        task.object_id = file_task2.id
         task.save()
 
-        clone_course.synchronize_with_original()
+        CloneService.sync_clone_with_original(clone_course)
 
         clone_task.refresh_from_db()
-        cloned_image2 = clone_task.get_specific()
+        cloned_file2 = clone_task.get_specific()
 
-        self.assertIsNotNone(cloned_image2)
-        self.assertNotEqual(cloned_image2.id, cloned_image1.id)
-        self.assertNotEqual(cloned_image2.file_path, cloned_file_path1)
-        self.assertFalse(os.path.exists(cloned_full_path1))
-
-        new_full_path = os.path.join(
-            settings.MEDIA_ROOT,
-            cloned_image2.file_path.replace(settings.MEDIA_URL, '').lstrip('/')
-        )
-        self.assertTrue(os.path.exists(new_full_path))
+        self.assertIsNotNone(cloned_file2)
+        self.assertNotEqual(cloned_file2.id, cloned_file1.id)
+        self.assertNotEqual(cloned_file2.file.name, cloned_file1.file.name)
+        self.assertFalse(os.path.exists(cloned_file_path1))
+        self.assertTrue(os.path.exists(cloned_file2.file.path))

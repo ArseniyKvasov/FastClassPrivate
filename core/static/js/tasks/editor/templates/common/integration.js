@@ -25,7 +25,7 @@ export function renderIntegrationTaskEditor(taskData = null) {
                    title="Где взять код?"></i>
             </label>
             <textarea class="form-control embed-code-input"
-                      placeholder="Вставьте iframe-код (YouTube, Wordwall и др.)"
+                      placeholder="Вставьте iframe-код (Miro, Wordwall и др.)"
                       rows="4"
                       autocomplete="off" autofocus>${embedCode}</textarea>
         </div>
@@ -33,9 +33,6 @@ export function renderIntegrationTaskEditor(taskData = null) {
         <div class="mb-3">
             <small class="text-muted">
                 Поддерживаются:
-                <span class="badge bg-light text-dark me-1">
-                    <i class="bi bi-youtube me-1 text-danger"></i>YouTube
-                </span>
                 <span class="badge bg-light text-dark me-1">
                     <i class="bi bi-grid-3x3-gap-fill me-1 text-success"></i>Wordwall
                 </span>
@@ -100,7 +97,6 @@ function showEmbedInstructions() {
                 <div class="modal-body pt-2">
                     <p class="small mb-2">Вставьте embed-код (iframe) с одного из поддерживаемых ресурсов:</p>
                     <ul class="small mb-2">
-                        <li><strong>YouTube:</strong> Поделиться → Встроить</li>
                         <li><strong>Rutube:</strong> Поделиться → Код вставки плеера</li>
                         <li><strong>Wordwall:</strong> Поделиться → Встраивание</li>
                         <li><strong>Quizlet:</strong> Поделиться → Встроить</li>

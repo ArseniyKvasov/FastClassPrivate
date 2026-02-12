@@ -1,3 +1,4 @@
+import uuid
 import random
 from django.conf import settings
 import os
@@ -5,6 +6,8 @@ from django.db import models
 
 
 class TestTask(models.Model):
+    __test__ = False
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     questions = models.JSONField(default=list)
     total_answers = models.PositiveIntegerField(default=10)
 
@@ -14,6 +17,7 @@ class TestTask(models.Model):
 
 
 class TrueFalseTask(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     statements = models.JSONField(default=list)
     total_answers = models.PositiveIntegerField(default=10)
 
@@ -23,6 +27,7 @@ class TrueFalseTask(models.Model):
 
 
 class NoteTask(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     content = models.TextField()
 
     def save(self, *args, **kwargs):
@@ -30,6 +35,7 @@ class NoteTask(models.Model):
 
 
 class FillGapsTask(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     LIST_TYPE_CHOICES = [
         ("open", "Открытый ввод"),
         ("hidden", "Скрытый список слов"),
@@ -50,13 +56,13 @@ class FillGapsTask(models.Model):
 
 
 class MatchCardsTask(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     cards = models.JSONField(default=list)
     shuffled_cards = models.JSONField(default=list)
     total_answers = models.PositiveIntegerField(default=10)
 
     def save(self, *args, **kwargs):
         source = self.cards or []
-
         self.total_answers = len(source) if source else 0
 
         if len(source) > 1:
@@ -81,6 +87,7 @@ class MatchCardsTask(models.Model):
 
 
 class TextInputTask(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     prompt = models.CharField(max_length=255, blank=True)
     default_text = models.TextField("Текст по умолчанию", blank=True)
 
@@ -89,6 +96,7 @@ class TextInputTask(models.Model):
 
 
 class IntegrationTask(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     embed_code = models.TextField(verbose_name="Встроенный код")
 
     def __str__(self):
@@ -96,34 +104,12 @@ class IntegrationTask(models.Model):
 
 
 class FileTask(models.Model):
-    file_path = models.CharField(max_length=255)
-
-    def save(self, *args, **kwargs):
-        if self.pk:
-            try:
-                old = FileTask.objects.get(pk=self.pk)
-            except FileTask.DoesNotExist:
-                old = None
-
-            if old and old.file_path and old.file_path != self.file_path:
-                old_local_path = os.path.join(
-                    settings.MEDIA_ROOT,
-                    old.file_path.replace(settings.MEDIA_URL, "").lstrip("/")
-                )
-                if os.path.exists(old_local_path):
-                    os.remove(old_local_path)
-
-        super().save(*args, **kwargs)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    file = models.FileField(upload_to='tasks/files/')
 
     def delete(self, *args, **kwargs):
-        if self.file_path:
-            local_path = os.path.join(
-                settings.MEDIA_ROOT,
-                self.file_path.replace(settings.MEDIA_URL, '').lstrip("/")
-            )
-            if os.path.exists(local_path):
-                os.remove(local_path)
+        self.file.delete(save=False)
         super().delete(*args, **kwargs)
 
     def __str__(self):
-        return f"FileTask: {self.file_path}"
+        return f"FileTask: {self.file.name}"

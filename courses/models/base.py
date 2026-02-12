@@ -1,4 +1,3 @@
-import os
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -276,7 +275,6 @@ class Task(models.Model):
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
     object_id = models.UUIDField(db_index=True)
     specific = GenericForeignKey("content_type", "object_id")
-    edited_content = models.JSONField(default=dict, blank=True)
     order = models.PositiveIntegerField(default=0, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -308,25 +306,10 @@ class Task(models.Model):
                     spec.delete()
                 except Exception:
                     pass
-        else:
-            file_path = self.edited_content.get("file_path")
-            if file_path:
-                local_path = os.path.join(
-                    settings.MEDIA_ROOT,
-                    file_path.replace(settings.MEDIA_URL, "").lstrip("/")
-                )
-                if os.path.exists(local_path):
-                    try:
-                        os.remove(local_path)
-                    except Exception:
-                        pass
         super().delete(using=using, keep_parents=keep_parents)
 
     def get_serialized_data(self):
         from courses.serializers import SERIALIZER_MAP
-
-        if self.root_type == 'copy' and self.edited_content:
-            return self.edited_content
 
         serializer_class = SERIALIZER_MAP.get(self.task_type)
         if not serializer_class or not self.specific:

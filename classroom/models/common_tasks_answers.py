@@ -5,7 +5,7 @@ from django.db import models
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 from .base import BaseAnswer
-from courses.services import get_task_effective_data
+from courses.services import get_task_data
 from classroom.utils import compare_normalized_answers
 
 
@@ -22,7 +22,7 @@ class TestTaskAnswer(BaseAnswer):
         if self.is_checked:
             raise ValidationError("Ответ уже проверен и не может быть изменен")
 
-        task_data = get_task_effective_data(self.task, to_frontend=False)
+        task_data = get_task_data(self.task, to_frontend=False)
         questions = task_data.get("questions", [])
 
         input_answers = data.get("answers", [])
@@ -49,7 +49,7 @@ class TestTaskAnswer(BaseAnswer):
         self.correct_answers = 0
         self.wrong_answers = 0
 
-        task_data = get_task_effective_data(self.task, to_frontend=False)
+        task_data = get_task_data(self.task, to_frontend=False)
         questions = task_data.get("questions", [])
 
         for i, answer_data in enumerate(self.answers):
@@ -95,7 +95,7 @@ class TrueFalseTaskAnswer(BaseAnswer):
         if self.is_checked:
             raise ValidationError("Ответ уже проверен и не может быть изменен")
 
-        task_data = get_task_effective_data(self.task, to_frontend=False)
+        task_data = get_task_data(self.task, to_frontend=False)
         statements = task_data.get("statements", [])
 
         input_answers = data.get("answers", [])
@@ -127,7 +127,7 @@ class TrueFalseTaskAnswer(BaseAnswer):
         if self.is_checked:
             return
 
-        task_data = get_task_effective_data(self.task, to_frontend=False)
+        task_data = get_task_data(self.task, to_frontend=False)
         statements = task_data.get("statements", [])
 
         self.is_checked = True
@@ -208,7 +208,7 @@ class FillGapsTaskAnswer(BaseAnswer):
         return bleach.clean(text, tags=[], strip=True)
 
     def save_answer_data(self, data):
-        task_data = get_task_effective_data(self.task, to_frontend=False)
+        task_data = get_task_data(self.task, to_frontend=False)
 
         if 'text' in task_data:
             task_data['text'] = self._clean_html(task_data.get('text', ''))
@@ -280,7 +280,7 @@ class MatchCardsTaskAnswer(BaseAnswer):
         ]
 
     def save_answer_data(self, data):
-        task_data = get_task_effective_data(self.task, to_frontend=False)
+        task_data = get_task_data(self.task, to_frontend=False)
         cards = task_data.get("cards", [])
 
         selected_pair = data.get("selected_pair")

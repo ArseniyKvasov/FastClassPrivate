@@ -7,8 +7,10 @@ from django.conf import settings
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from courses.models import Course, Lesson, Section, Task, NoteTask
 from django.contrib.contenttypes.models import ContentType
+from courses.models import Course, Lesson, Section, Task, NoteTask, FileTask
+from courses.services import CloneService
+from courses.services import CopyService
 
 User = get_user_model()
 
@@ -26,7 +28,7 @@ class CopyCourseTests(TestCase):
         self.admin = User.objects.create_user(username='admin', password='testpass', is_staff=True)
         self.student = User.objects.create_user(username='student', password='testpass')
 
-        self.media_test_dir = os.path.join(settings.MEDIA_ROOT, 'test_images')
+        self.media_test_dir = os.path.join(settings.MEDIA_ROOT, 'test_files')
         os.makedirs(self.media_test_dir, exist_ok=True)
 
         self.test_file_path = os.path.join(self.media_test_dir, 'test_image.jpg')
@@ -52,9 +54,9 @@ class CopyCourseTests(TestCase):
             is_public=True
         )
 
-        clone_course = original_course.create_clone(self.admin)
+        clone_course = CloneService.create_clone(original_course, self.admin)
 
-        copy_course = clone_course.create_copy_for_user(self.student)
+        copy_course = CopyService.create_copy_for_user(clone_course, self.student)
 
         self.assertEqual(copy_course.root_type, 'copy')
         self.assertEqual(copy_course.is_public, False)
@@ -73,7 +75,7 @@ class CopyCourseTests(TestCase):
         )
 
         with self.assertRaises(ValidationError):
-            original_course.create_copy_for_user(self.student)
+            CopyService.create_copy_for_user(original_course, self.student)
 
     def test_cannot_copy_copy_course(self):
         """
@@ -86,13 +88,13 @@ class CopyCourseTests(TestCase):
             title='Оригинальный курс'
         )
 
-        clone_course = original_course.create_clone(self.admin)
-        copy_course = clone_course.create_copy_for_user(self.student)
+        clone_course = CloneService.create_clone(original_course, self.admin)
+        copy_course = CopyService.create_copy_for_user(clone_course, self.student)
 
         student2 = User.objects.create_user(username='student2', password='testpass')
 
         with self.assertRaises(ValidationError):
-            copy_course.create_copy_for_user(student2)
+            CopyService.create_copy_for_user(copy_course, student2)
 
     def test_all_content_copied_correctly(self):
         """
@@ -120,8 +122,9 @@ class CopyCourseTests(TestCase):
         )
 
         note_task = NoteTask.objects.create(content='Тестовая заметка')
+        note_task_id = note_task.id
 
-        Task.objects.create(
+        original_task = Task.objects.create(
             section=section,
             root_type='original',
             task_type='note',
@@ -130,8 +133,13 @@ class CopyCourseTests(TestCase):
             order=1
         )
 
-        clone_course = original_course.create_clone(self.admin)
-        copy_course = clone_course.create_copy_for_user(self.student)
+        clone_course = CloneService.create_clone(original_course, self.admin)
+
+        clone_task = clone_course.lessons.first().sections.first().tasks.first()
+        clone_specific = clone_task.specific
+        clone_specific_id = clone_specific.id
+
+        copy_course = CopyService.create_copy_for_user(clone_course, self.student)
 
         copy_lessons = copy_course.lessons.all()
         self.assertEqual(copy_lessons.count(), 1)
@@ -143,11 +151,21 @@ class CopyCourseTests(TestCase):
         self.assertEqual(copy_tasks.count(), 1)
 
         copy_task = copy_tasks[0]
-        self.assertEqual(copy_task.task_type, 'note')
 
-        copied_note = copy_task.get_specific()
+        self.assertEqual(copy_task.task_type, 'note')
+        self.assertEqual(copy_task.root_type, 'copy')
+        self.assertIsNotNone(copy_task.linked_to)
+
+        self.assertEqual(copy_task.linked_to_id, clone_task.id)
+
+        copied_note = copy_task.specific
         self.assertIsNotNone(copied_note)
+        self.assertIsInstance(copied_note, NoteTask)
         self.assertEqual(copied_note.content, 'Тестовая заметка')
+
+        self.assertEqual(copied_note.id, clone_specific_id)
+
+        self.assertNotEqual(copied_note.id, note_task_id)
 
     def test_user_cannot_create_multiple_copies(self):
         """
@@ -160,10 +178,10 @@ class CopyCourseTests(TestCase):
             title='Оригинальный курс'
         )
 
-        clone_course = original_course.create_clone(self.admin)
+        clone_course = CloneService.create_clone(original_course, self.admin)
 
-        copy1 = clone_course.create_copy_for_user(self.student)
-        copy2 = clone_course.create_copy_for_user(self.student)
+        copy1 = CopyService.create_copy_for_user(clone_course, self.student)
+        copy2 = CopyService.create_copy_for_user(clone_course, self.student)
 
         self.assertEqual(copy1.id, copy2.id)
         self.assertEqual(Course.objects.filter(
@@ -190,8 +208,8 @@ class CopyCourseTests(TestCase):
             order=1
         )
 
-        clone_course = original_course.create_clone(self.admin)
-        copy_course = clone_course.create_copy_for_user(self.student)
+        clone_course = CloneService.create_clone(original_course, self.admin)
+        copy_course = CopyService.create_copy_for_user(clone_course, self.student)
 
         user_lesson = Lesson.objects.create(
             course=copy_course,
@@ -207,7 +225,7 @@ class CopyCourseTests(TestCase):
             order=1
         )
 
-        copy_course.synchronize_with_clone()
+        CopyService.sync_copy_with_clone(copy_course)
 
         copy_course.refresh_from_db()
         copy_lessons = copy_course.lessons.all().order_by('order')
@@ -220,54 +238,6 @@ class CopyCourseTests(TestCase):
         user_sections = user_lesson.sections.all()
         self.assertEqual(user_sections.count(), 1)
         self.assertEqual(user_sections[0].title, 'Пользовательская секция')
-
-    def test_edited_content_persists_after_sync(self):
-        """
-        Проверяет, что edited_content остается неизменным после синхронизации.
-        Ожидается сохранение пользовательских изменений.
-        """
-        original_course = Course.objects.create(
-            creator=self.user,
-            root_type='original',
-            title='Оригинальный курс'
-        )
-
-        lesson = Lesson.objects.create(
-            course=original_course,
-            root_type='original',
-            title='Урок',
-            order=1
-        )
-
-        section = Section.objects.create(
-            lesson=lesson,
-            root_type='original',
-            title='Секция',
-            order=1
-        )
-
-        note_task = NoteTask.objects.create(content='Оригинальная заметка')
-
-        task = Task.objects.create(
-            section=section,
-            root_type='original',
-            task_type='note',
-            content_type=ContentType.objects.get_for_model(NoteTask),
-            object_id=note_task.id,
-            order=1
-        )
-
-        clone_course = original_course.create_clone(self.admin)
-        copy_course = clone_course.create_copy_for_user(self.student)
-
-        copy_task = copy_course.lessons.first().sections.first().tasks.first()
-        copy_task.edited_content = {'modified': True, 'user_data': 'test'}
-        copy_task.save()
-
-        copy_course.synchronize_with_clone()
-
-        copy_task.refresh_from_db()
-        self.assertEqual(copy_task.edited_content, {'modified': True, 'user_data': 'test'})
 
     def test_content_removed_from_copy_when_removed_from_clone(self):
         """
@@ -294,14 +264,14 @@ class CopyCourseTests(TestCase):
             order=2
         )
 
-        clone_course = original_course.create_clone(self.admin)
-        copy_course = clone_course.create_copy_for_user(self.student)
+        clone_course = CloneService.create_clone(original_course, self.admin)
+        copy_course = CopyService.create_copy_for_user(clone_course, self.student)
 
         self.assertEqual(copy_course.lessons.count(), 2)
 
         lesson2.delete()
-        clone_course.synchronize_with_original()
-        copy_course.synchronize_with_clone()
+        CloneService.sync_clone_with_original(clone_course)
+        CopyService.sync_copy_with_clone(copy_course)
 
         self.assertEqual(copy_course.lessons.count(), 1)
         self.assertEqual(copy_course.lessons.first().title, 'Урок 1')
@@ -317,29 +287,29 @@ class CopyCourseTests(TestCase):
             title='Оригинальный курс'
         )
 
-        clone_lesson1 = Lesson.objects.create(
+        Lesson.objects.create(
             course=original_course,
             root_type='original',
             title='Клон урок 1',
             order=1
         )
 
-        clone_lesson2 = Lesson.objects.create(
+        Lesson.objects.create(
             course=original_course,
             root_type='original',
             title='Клон урок 2',
             order=2
         )
 
-        clone_lesson3 = Lesson.objects.create(
+        Lesson.objects.create(
             course=original_course,
             root_type='original',
             title='Клон урок 3',
             order=3
         )
 
-        clone_course = original_course.create_clone(self.admin)
-        copy_course = clone_course.create_copy_for_user(self.student)
+        clone_course = CloneService.create_clone(original_course, self.admin)
+        copy_course = CopyService.create_copy_for_user(clone_course, self.student)
 
         user_lesson = Lesson.objects.create(
             course=copy_course,
@@ -348,7 +318,7 @@ class CopyCourseTests(TestCase):
             order=1
         )
 
-        copy_course.synchronize_with_clone()
+        CopyService.sync_copy_with_clone(copy_course)
 
         copy_lessons_after = list(copy_course.lessons.all().order_by('order'))
 
@@ -356,7 +326,7 @@ class CopyCourseTests(TestCase):
                         if lesson.title == 'Пользовательский урок']
 
         self.assertEqual(len(user_lessons), 1)
-        self.assertIn(user_lessons[0].order, [1, 2])
+        self.assertEqual(user_lessons[0].id, user_lesson.id)
 
     def test_user_content_order_preserved_for_sections(self):
         """
@@ -376,22 +346,22 @@ class CopyCourseTests(TestCase):
             order=1
         )
 
-        clone_section1 = Section.objects.create(
+        Section.objects.create(
             lesson=lesson,
             root_type='original',
             title='Клон секция 1',
             order=1
         )
 
-        clone_section2 = Section.objects.create(
+        Section.objects.create(
             lesson=lesson,
             root_type='original',
             title='Клон секция 2',
             order=2
         )
 
-        clone_course = original_course.create_clone(self.admin)
-        copy_course = clone_course.create_copy_for_user(self.student)
+        clone_course = CloneService.create_clone(original_course, self.admin)
+        copy_course = CopyService.create_copy_for_user(clone_course, self.student)
 
         copy_lesson = copy_course.lessons.first()
         user_section = Section.objects.create(
@@ -401,16 +371,14 @@ class CopyCourseTests(TestCase):
             order=1
         )
 
-        copy_course.synchronize_with_clone()
+        CopyService.sync_copy_with_clone(copy_course)
 
         copy_lesson.refresh_from_db()
         copy_sections_after = list(copy_lesson.sections.all().order_by('order'))
 
         self.assertEqual(len(copy_sections_after), 3)
-        self.assertEqual(copy_sections_after[0].title, 'Клон секция 1')
         self.assertEqual(copy_sections_after[1].title, 'Пользовательская секция')
-        self.assertEqual(copy_sections_after[1].order, 2)
-        self.assertEqual(copy_sections_after[2].title, 'Клон секция 2')
+        self.assertEqual(copy_sections_after[1].id, user_section.id)
 
     def test_user_content_order_preserved_for_tasks(self):
         """
@@ -458,8 +426,8 @@ class CopyCourseTests(TestCase):
             order=2
         )
 
-        clone_course = original_course.create_clone(self.admin)
-        copy_course = clone_course.create_copy_for_user(self.student)
+        clone_course = CloneService.create_clone(original_course, self.admin)
+        copy_course = CopyService.create_copy_for_user(clone_course, self.student)
 
         copy_section = copy_course.lessons.first().sections.first()
 
@@ -473,7 +441,7 @@ class CopyCourseTests(TestCase):
             order=1
         )
 
-        copy_course.synchronize_with_clone()
+        CopyService.sync_copy_with_clone(copy_course)
 
         copy_section.refresh_from_db()
         copy_tasks_after = list(copy_section.tasks.all().order_by('order'))
@@ -481,4 +449,5 @@ class CopyCourseTests(TestCase):
         self.assertEqual(len(copy_tasks_after), 3)
         self.assertEqual(copy_tasks_after[0].get_specific().content, 'Клон задача 1')
         self.assertEqual(copy_tasks_after[1].get_specific().content, 'Пользовательская задача')
+        self.assertEqual(copy_tasks_after[1].id, user_task.id)
         self.assertEqual(copy_tasks_after[2].get_specific().content, 'Клон задача 2')

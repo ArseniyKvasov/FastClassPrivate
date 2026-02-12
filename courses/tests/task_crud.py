@@ -1,18 +1,15 @@
-import os
 import json
-import tempfile
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.files.storage import default_storage
 from django.contrib.contenttypes.models import ContentType
-from urllib.parse import urljoin
 from rest_framework import serializers
 
 from courses.models import Section, Lesson, Course, Task, TestTask, NoteTask, TrueFalseTask, FillGapsTask, \
     MatchCardsTask, TextInputTask, IntegrationTask, FileTask, WordListTask
-from courses.services import TaskProcessor, get_task_effective_data
+from courses.services import TaskProcessor, get_task_data, CloneService, CopyService
 
 
 def parse_json_response(response):
@@ -208,10 +205,10 @@ class TaskProcessorTests(TestCase):
         )
         test_data = {"file": test_file}
 
-        with patch.object(processor, '_save_file', return_value='/media/tasks/files/test.pdf'):
+        with patch.object(processor, '_save_file', return_value='tasks/files/test.pdf'):
             result = processor._process_file_if_needed(test_data)
-            self.assertIn('file_path', result)
             self.assertIn('file', result)
+            self.assertEqual(result['file'], test_file)
 
     def test_process_file_if_needed_without_file(self):
         """Тест ошибки при отсутствии файла для задач типа file."""
@@ -259,6 +256,38 @@ class TaskProcessorTests(TestCase):
         self.assertEqual(processor.task.section, self.section)
         self.assertEqual(processor.task.task_type, 'note')
 
+    def test_create_new_file_task_success(self):
+        """Тест успешного создания новой файловой задачи."""
+        processor = TaskProcessor(
+            user=self.user,
+            section_id=self.section.id,
+            task_type='file'
+        )
+        processor._validate_access()
+
+        test_file = SimpleUploadedFile(
+            "test.pdf",
+            b"test content",
+            content_type="application/pdf"
+        )
+
+        validated_data = {"file": test_file}
+
+        task_count_before = Task.objects.count()
+        file_task_count_before = FileTask.objects.count()
+
+        with patch.object(processor, '_save_file', return_value='tasks/files/test.pdf'):
+            result = processor._create_new_task(validated_data)
+
+        task_count_after = Task.objects.count()
+        file_task_count_after = FileTask.objects.count()
+
+        self.assertEqual(task_count_after, task_count_before + 1)
+        self.assertEqual(file_task_count_after, file_task_count_before + 1)
+        self.assertIsInstance(result, FileTask)
+        self.assertEqual(processor.task.section, self.section)
+        self.assertEqual(processor.task.task_type, 'file')
+
     def test_update_existing_task_original_root(self):
         """Тест обновления задачи с root_type 'original'."""
         create_processor = TaskProcessor(
@@ -287,38 +316,92 @@ class TaskProcessorTests(TestCase):
         update_processor._update_existing_task(validated_data)
 
         task.refresh_from_db()
-        if task.root_type == 'original' and hasattr(task, 'specific'):
-            specific_obj = task.specific
-            specific_obj.refresh_from_db()
-            self.assertEqual(specific_obj.content, "Updated content")
+        specific_obj = task.specific
+        specific_obj.refresh_from_db()
+        self.assertEqual(specific_obj.content, "Updated content")
 
     def test_update_existing_task_copy_root(self):
-        """Тест обновления задачи с root_type 'copy'."""
-        note_task = NoteTask.objects.create(content="Original note")
+        """Тест обновления задачи с root_type 'copy' - должна стать original и создать новый specific."""
+        original_note = NoteTask.objects.create(content="Original note")
         content_type = ContentType.objects.get_for_model(NoteTask)
 
-        task = Task.objects.create(
-            section=self.section,
-            task_type='note',
-            root_type='copy',
-            content_type=content_type,
-            object_id=note_task.id,
-            edited_content={"content": "Original edited content"}
+        clone_course = Course.objects.create(
+            creator=self.user,
+            root_type='clone',
+            title='Clone Course'
         )
+        clone_lesson = Lesson.objects.create(
+            course=clone_course,
+            root_type='clone',
+            title='Clone Lesson'
+        )
+        clone_section = Section.objects.create(
+            lesson=clone_lesson,
+            root_type='clone',
+            title='Clone Section'
+        )
+
+        clone_task = Task.objects.create(
+            section=clone_section,
+            task_type='note',
+            root_type='clone',
+            content_type=content_type,
+            object_id=original_note.id,
+            order=1
+        )
+
+        copy_course = Course.objects.create(
+            creator=self.user,
+            linked_to=clone_course,
+            root_type='copy',
+            title='Copy Course'
+        )
+
+        copy_lesson = Lesson.objects.create(
+            course=copy_course,
+            linked_to=clone_lesson,
+            root_type='copy',
+            title='Copy Lesson'
+        )
+
+        copy_section = Section.objects.create(
+            lesson=copy_lesson,
+            linked_to=clone_section,
+            root_type='copy',
+            title='Copy Section'
+        )
+
+        copy_task = Task.objects.create(
+            section=copy_section,
+            linked_to=clone_task,
+            root_type='copy',
+            task_type='note',
+            content_type=content_type,
+            object_id=original_note.id,
+            order=1
+        )
+
+        self.assertEqual(copy_task.root_type, 'copy')
+        self.assertEqual(copy_task.linked_to, clone_task)
 
         processor = TaskProcessor(
             user=self.user,
-            section_id=self.section.id,
+            section_id=copy_task.section.id,
             task_type='note',
-            task_id=task.id
+            task_id=copy_task.id
         )
-        processor.task = task
-        validated_data = {"content": "Updated edited content"}
+        processor.task = copy_task
 
+        validated_data = {"content": "Updated edited content"}
         result = processor._update_existing_task(validated_data)
 
-        task.refresh_from_db()
-        self.assertEqual(task.edited_content, {"content": "Updated edited content"})
+        copy_task.refresh_from_db()
+        self.assertEqual(copy_task.root_type, 'original')
+        self.assertIsNone(copy_task.linked_to)
+
+        self.assertIsNotNone(copy_task.specific)
+        self.assertNotEqual(copy_task.object_id, original_note.id)
+        self.assertEqual(copy_task.specific.content, "Updated edited content")
 
     def test_process_create_test_task(self):
         """Тест полного процесса создания тестовой задачи."""
@@ -485,7 +568,7 @@ class TaskProcessorTests(TestCase):
     def test_process_create_integration_task(self):
         """Тест полного процесса создания интеграционной задачи."""
         test_data = [{
-            "embed_code": '<iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ" width="560" height="315" frameborder="0"></iframe>'
+            "embed_code": '<iframe src="<iframe style="max-width:100%" src="https://wordwall.net/embed/1031241d053e4d21b14ac280dc2c079c?themeId=27&templateId=5&fontStackId=0" width="500" height="380" frameborder="0" allowfullscreen></iframe>" width="560" height="315" frameborder="0"></iframe>'
         }]
 
         processor = TaskProcessor(
@@ -552,33 +635,52 @@ class TaskProcessorTests(TestCase):
         self.assertTrue(response_data['success'])
 
         task = Task.objects.get(id=task_id)
-        if task.root_type == 'original' and hasattr(task, 'specific'):
-            specific_obj = task.specific
-            self.assertEqual(specific_obj.content, "Updated content")
-        elif task.root_type == 'copy' and task.edited_content:
-            self.assertEqual(task.edited_content.get('content'), "Updated content")
+        specific_obj = task.specific
+        self.assertEqual(specific_obj.content, "Updated content")
 
     def test_process_update_copy_task(self):
         """Тест полного процесса обновления копии задачи."""
-        note_task = NoteTask.objects.create(content="Original note")
-        content_type = ContentType.objects.get_for_model(NoteTask)
+        original_note = NoteTask.objects.create(content="Original note")
 
-        task = Task.objects.create(
-            section=self.section,
-            task_type='note',
-            root_type='copy',
-            content_type=content_type,
-            object_id=note_task.id,
-            edited_content={"content": "Original"}
+        clone_course = Course.objects.create(
+            creator=self.user,
+            root_type='clone',
+            title='Clone Course'
         )
+        clone_lesson = Lesson.objects.create(
+            course=clone_course,
+            root_type='clone',
+            title='Clone Lesson'
+        )
+        clone_section = Section.objects.create(
+            lesson=clone_lesson,
+            root_type='clone',
+            title='Clone Section'
+        )
+
+        clone_task = Task.objects.create(
+            section=clone_section,
+            task_type='note',
+            root_type='clone',
+            content_type=ContentType.objects.get_for_model(NoteTask),
+            object_id=original_note.id,
+            order=1
+        )
+
+        copy_course = CopyService.create_copy_for_user(clone_course, self.user)
+        copy_task = copy_course.lessons.first().sections.first().tasks.first()
+
+        self.assertEqual(copy_task.root_type, 'copy')
+        self.assertEqual(copy_task.linked_to, clone_task)
+        self.assertEqual(copy_task.object_id, original_note.id)
 
         update_data = [{"content": "Updated copy"}]
 
         processor = TaskProcessor(
             user=self.user,
-            section_id=self.section.id,
+            section_id=copy_task.section.id,
             task_type='note',
-            task_id=task.id,
+            task_id=copy_task.id,
             raw_data=update_data
         )
 
@@ -588,8 +690,14 @@ class TaskProcessorTests(TestCase):
         response_data = parse_json_response(response)
         self.assertTrue(response_data['success'])
 
-        task.refresh_from_db()
-        self.assertEqual(task.edited_content, {"content": "Updated copy"})
+        copy_task.refresh_from_db()
+        self.assertEqual(copy_task.root_type, 'original')
+        self.assertIsNone(copy_task.linked_to)
+
+        self.assertIsNotNone(copy_task.specific)
+        self.assertIsInstance(copy_task.specific, NoteTask)
+        self.assertNotEqual(copy_task.object_id, original_note.id)
+        self.assertEqual(copy_task.specific.content, "Updated copy")
 
     def test_process_validation_error(self):
         """Тест обработки ошибок валидации при создании задачи."""
@@ -650,7 +758,7 @@ class TaskProcessorTests(TestCase):
             response = processor.process()
             self.assertEqual(response.status_code, 500)
 
-    def test_get_task_effective_data_original_task(self):
+    def test_get_task_data_original_task(self):
         """Тест сериализации данных для оригинальной задачи."""
         processor = TaskProcessor(
             user=self.user,
@@ -663,41 +771,48 @@ class TaskProcessorTests(TestCase):
         task_id = response_data['task_id']
 
         task = Task.objects.get(id=task_id)
-        result = get_task_effective_data(task)
+        result = get_task_data(task)
         self.assertEqual(result['content'], "Test content")
 
-    def test_get_task_effective_data_copy_task(self):
-        """Тест сериализации данных для копии задачи."""
-        note_task = NoteTask.objects.create(content="Original note")
-        content_type = ContentType.objects.get_for_model(NoteTask)
+    def test_get_task_data_copy_task(self):
+        """Тест сериализации данных для копии задачи (должны вернуться данные linked_to)."""
+        # Создаем оригинальную задачу
+        original_note = NoteTask.objects.create(content="Original note")
 
-        task = Task.objects.create(
-            section=self.section,
+        # Создаем клон курс
+        clone_course = Course.objects.create(
+            creator=self.user,
+            root_type='clone',
+            title='Clone Course'
+        )
+        clone_lesson = Lesson.objects.create(
+            course=clone_course,
+            root_type='clone',
+            title='Clone Lesson'
+        )
+        clone_section = Section.objects.create(
+            lesson=clone_lesson,
+            root_type='clone',
+            title='Clone Section'
+        )
+
+        # Создаем задачу-клон
+        clone_task = Task.objects.create(
+            section=clone_section,
             task_type='note',
-            root_type='copy',
-            content_type=content_type,
-            object_id=note_task.id,
-            edited_content={"content": "Edited content"}
+            root_type='clone',
+            content_type=ContentType.objects.get_for_model(NoteTask),
+            object_id=original_note.id,
+            order=1
         )
 
-        result = get_task_effective_data(task)
-        self.assertEqual(result['content'], "Edited content")
+        # Создаем копию для пользователя
+        copy_course = CopyService.create_copy_for_user(clone_course, self.user)
+        copy_task = copy_course.lessons.first().sections.first().tasks.first()
 
-    def test_get_task_effective_data_unknown_type(self):
-        """Тест сериализации данных для неизвестного типа задачи."""
-        note_task = NoteTask.objects.create(content="Test")
-        content_type = ContentType.objects.get_for_model(NoteTask)
-
-        task = Task.objects.create(
-            section=self.section,
-            task_type='unknown_type',
-            root_type='original',
-            content_type=content_type,
-            object_id=note_task.id
-        )
-
-        result = get_task_effective_data(task)
-        self.assertEqual(result, {})
+        # Получаем данные копии - должны вернуться данные из linked_to
+        result = get_task_data(copy_task)
+        self.assertEqual(result['content'], "Original note")
 
     def test_task_belongs_to_different_section(self):
         """Тест ошибки при обновлении задачи из другого раздела."""
@@ -747,10 +862,15 @@ class TaskProcessorTests(TestCase):
             raw_data=test_data
         )
 
-        with patch.object(processor, '_save_file', return_value='/media/tasks/files/test.pdf'):
+        with patch.object(processor, '_save_file', return_value='tasks/files/test.pdf'):
             response = processor.process()
             response_data = parse_json_response(response)
             self.assertTrue(response_data['success'])
+
+            task = Task.objects.get(id=response_data['task_id'])
+            self.assertEqual(task.task_type, 'file')
+            self.assertIsInstance(task.specific, FileTask)
+            self.assertEqual(task.specific.file.name, 'tasks/files/test.pdf')
 
     def test_update_task_with_new_file(self):
         """Тест обновления файловой задачи с новым файлом."""
@@ -767,7 +887,7 @@ class TaskProcessorTests(TestCase):
             raw_data=[{"file": test_file1}]
         )
 
-        with patch.object(processor1, '_save_file', return_value='/media/tasks/files/old.pdf'):
+        with patch.object(processor1, '_save_file', return_value='tasks/files/old.pdf'):
             response1 = processor1.process()
             data1 = parse_json_response(response1)
             self.assertTrue('task_id' in data1)
@@ -789,10 +909,13 @@ class TaskProcessorTests(TestCase):
             raw_data=update_data
         )
 
-        with patch.object(processor, '_save_file', return_value='/media/tasks/files/new.pdf'):
+        with patch.object(processor, '_save_file', return_value='tasks/files/new.pdf'):
             response = processor.process()
             response_data = parse_json_response(response)
             self.assertTrue(response_data['success'])
+
+            task = Task.objects.get(id=task_id)
+            self.assertEqual(task.specific.file.name, 'tasks/files/new.pdf')
 
     def test_create_task_with_file_upload_dict_format(self):
         """Тест создания файловой задачи с форматом словаря."""
@@ -811,7 +934,7 @@ class TaskProcessorTests(TestCase):
             raw_data=test_data
         )
 
-        with patch.object(processor, '_save_file', return_value='/media/tasks/files/test.pdf'):
+        with patch.object(processor, '_save_file', return_value='tasks/files/test.pdf'):
             response = processor.process()
             response_data = parse_json_response(response)
             self.assertTrue(response_data['success'])

@@ -1,7 +1,6 @@
 import os
 import uuid
 from datetime import datetime
-from urllib.parse import urljoin
 
 from django.contrib.contenttypes.models import ContentType
 from django.core.files.storage import default_storage
@@ -14,7 +13,35 @@ from fastlesson import settings
 
 
 class TaskProcessor:
-    """Единый обработчик создания/обновления задач."""
+    """
+    Сервис для создания и редактирования задач в курсах.
+
+    Единый обработчик всех операций CRUD для задач любого типа:
+    - Создание новых задач (original)
+    - Редактирование существующих задач (original)
+    - Редактирование копий задач (copy -> original)
+
+    Логика работы:
+    1. Создание задачи:
+       - Создается specific объект (NoteTask, TestTask, FileTask и т.д.)
+       - Создается Task с root_type="original", ссылающийся на specific
+
+    2. Редактирование оригинальной задачи:
+       - Обновляется существующий specific объект
+       - Для FileTask: старый файл удаляется, новый сохраняется
+
+    3. Редактирование копии задачи:
+       - Проверяется наличие изменений
+       - Создается НОВЫЙ specific объект с обновленными данными
+       - Для FileTask: создается новый файл, старый НЕ удаляется
+       - Task переключается на новый specific
+       - root_type меняется на "original"
+       - linked_to сбрасывается (отвязка от клона)
+
+    4. Удаление задачи:
+       - При root_type="original" или "clone": удаляется specific объект и файл
+       - При root_type="copy": удаляется только Task, specific остается
+    """
 
     def __init__(self, user, section_id, task_type, task_id=None, raw_data=None):
         self.user = user
@@ -101,31 +128,34 @@ class TaskProcessor:
         if not file_obj:
             raise ValueError("Файл не загружен")
 
-        try:
-            file_path = self._save_file(file_obj)
-            data['file_path'] = file_path
-        except Exception as e:
-            raise ValueError(f"Ошибка сохранения файла: {str(e)}")
-
+        data['file'] = file_obj
         return data
 
     def _save_file(self, file_obj):
         ext = os.path.splitext(file_obj.name)[1]
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        file_name = f"tasks/files/{uuid.uuid4().hex}_{timestamp}{ext}"
+        filename = f"{uuid.uuid4().hex}_{timestamp}{ext}"
+        file_path = f"tasks/files/{filename}"
 
-        saved_path = default_storage.save(file_name, file_obj)
-        return urljoin(settings.MEDIA_URL, saved_path)
+        saved_path = default_storage.save(file_path, file_obj)
+        print(saved_path)
+
+        if os.path.sep in saved_path:
+            saved_path = os.path.basename(saved_path)
+
+        return f"tasks/files/{saved_path}"
 
     def _create_new_task(self, validated_data):
         ModelClass = TASK_MODEL_MAP.get(self.task_type)
         if not ModelClass:
             raise ValueError(f"Неизвестная модель для типа {self.task_type}")
 
-        if self.task_type == 'file' and 'file' in validated_data:
-            validated_data.pop('file')
-
-        specific_obj = ModelClass.objects.create(**validated_data)
+        if self.task_type == 'file':
+            file_obj = validated_data.pop('file', None)
+            file_path = self._save_file(file_obj)
+            specific_obj = ModelClass.objects.create(file=file_path)
+        else:
+            specific_obj = ModelClass.objects.create(**validated_data)
 
         self.task = Task.objects.create(
             section=self.section,
@@ -133,21 +163,47 @@ class TaskProcessor:
             root_type="original",
             content_type=ContentType.objects.get_for_model(specific_obj),
             object_id=specific_obj.id,
-            edited_content={},
         )
 
         return specific_obj
 
     def _update_existing_task(self, validated_data):
         if self.task.root_type == 'copy':
-            self.task.edited_content = validated_data
-            self.task.save(update_fields=['edited_content'])
-            return None
+            has_changes = self._has_changes(validated_data)
+            if not has_changes:
+                return None
+
+            ModelClass = TASK_MODEL_MAP.get(self.task_type)
+
+            if self.task_type == 'file':
+                file_obj = validated_data.pop('file', None)
+                if file_obj:
+                    file_path = self._save_file(file_obj)
+                    validated_data['file'] = file_path
+                specific_obj = ModelClass.objects.create(**validated_data)
+            else:
+                specific_obj = ModelClass.objects.create(**validated_data)
+
+            self.task.content_type = ContentType.objects.get_for_model(specific_obj)
+            self.task.object_id = specific_obj.id
+            self.task.root_type = 'original'
+            self.task.linked_to = None
+
+            self.task.save(update_fields=['content_type', 'object_id', 'root_type', 'linked_to'])
+
+            self.task.refresh_from_db()
+
+            return specific_obj
 
         specific_obj = self.task.specific
         if specific_obj:
-            if self.task_type == 'file' and 'file' in validated_data:
-                validated_data.pop('file')
+            if self.task_type == 'file':
+                file_obj = validated_data.pop('file', None)
+                if file_obj:
+                    if specific_obj.file:
+                        specific_obj.file.delete(save=False)
+                    file_path = self._save_file(file_obj)
+                    validated_data['file'] = file_path
 
             for key, value in validated_data.items():
                 setattr(specific_obj, key, value)
@@ -155,6 +211,13 @@ class TaskProcessor:
             return specific_obj
 
         return None
+
+    def _has_changes(self, new_data):
+        if not self.task.specific:
+            return True
+
+        current_data = self.task.get_serialized_data()
+        return current_data != new_data
 
     def process(self):
         try:
@@ -168,9 +231,7 @@ class TaskProcessor:
 
             data = self._normalize_data()
             data = self._process_test_data(data)
-
-            if self.task_type == 'file':
-                data = self._process_file_if_needed(data)
+            data = self._process_file_if_needed(data)
 
             if self.task:
                 specific_obj = self.task.specific

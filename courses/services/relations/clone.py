@@ -13,8 +13,31 @@ from courses.models import Course, Lesson, Section, Task
 
 class CloneService:
     """
-    Сервис для работы с клонами курсов.
-    Клон создается администратором на основе оригинального курса.
+    Сервис для клонирования курсов администратором.
+
+    Клон — это полная копия оригинального курса со ВСЕМИ НОВЫМИ specific объектами.
+    Используется как основа для создания пользовательских копий.
+
+    Логика работы:
+    1. Создание клона:
+       - Создается курс с root_type="clone", linked_to=оригинал
+       - Рекурсивно копируются все уроки, секции, задачи
+       - Для каждой задачи СОЗДАЕТСЯ НОВЫЙ specific объект
+       - Для FileTask: файл физически копируется с суффиксом _clone_
+
+    2. Синхронизация клона с оригиналом:
+       - Обновляются поля курса, уроков, секций
+       - Для каждой задачи:
+         * Создается НОВЫЙ specific объект из актуальной версии оригинала
+         * Старый specific объекта клона УДАЛЯЕТСЯ
+         * Task в клоне переключается на новый specific
+
+    3. Каскадное обновление:
+       - После синхронизации клона автоматически обновляются все пользовательские копии
+       - Копии получают ссылки на новые specific объекты клона
+
+    Важно: Клон всегда работает с собственными unique specific объектами,
+    никогда не ссылается на specific оригинала.
     """
 
     @staticmethod
@@ -167,7 +190,6 @@ class CloneService:
 
                     task.content_type = ContentType.objects.get_for_model(new_specific)
                     task.object_id = new_specific.pk
-                    task.edited_content = {}
                     task.save()
 
                     if old_specific:
@@ -187,7 +209,6 @@ class CloneService:
                         task_type=original_task.task_type,
                         content_type=ContentType.objects.get_for_model(new_specific),
                         object_id=new_specific.pk,
-                        edited_content={},
                         order=original_task.order
                     )
 
@@ -197,7 +218,7 @@ class CloneService:
     @staticmethod
     def _clone_specific_object(original_task):
         """
-        Клонирование специфического объекта задачи с обработкой файлов.
+        Клонирование специфического объекта задачи с копированием файлов.
 
         Args:
             original_task: Оригинальная задача
@@ -210,32 +231,31 @@ class CloneService:
             raise ValidationError(f"У задачи {original_task.id} нет specific объекта")
 
         model_class = original_specific.__class__
-        fields = [f.name for f in model_class._meta.get_fields()
-                 if f.name not in ['id', 'pk', 'created_at', 'updated_at'] and not f.is_relation]
 
-        specific_data = {}
-        for field in fields:
-            specific_data[field] = getattr(original_specific, field)
+        from courses.models import FileTask
 
-        timestamp = timezone.now().strftime("%Y%m%d_%H%M%S")
-        for field_name, field_value in list(specific_data.items()):
-            if isinstance(field_value, str) and field_value.startswith(settings.MEDIA_URL):
-                original_path = field_value.replace(settings.MEDIA_URL, "", 1)
-                original_full_path = os.path.join(settings.MEDIA_ROOT, original_path)
+        if model_class == FileTask:
+            if original_specific.file:
+                original_path = original_specific.file.path
+                filename = os.path.basename(original_specific.file.name)
+                name, ext = os.path.splitext(filename)
+                timestamp = timezone.now().strftime("%Y%m%d_%H%M%S")
+                new_filename = f"{name}_clone_{timestamp}{ext}"
+                new_file_path = f"tasks/files/{new_filename}"
 
-                if os.path.exists(original_full_path):
-                    filename, extension = os.path.splitext(os.path.basename(original_path))
-                    new_filename = f"{filename}_clone_{timestamp}{extension}"
-                    new_relative_path = os.path.join(os.path.dirname(original_path), new_filename)
-                    new_full_path = os.path.join(settings.MEDIA_ROOT, new_relative_path)
+                os.makedirs(os.path.join(settings.MEDIA_ROOT, 'tasks/files'), exist_ok=True)
+                shutil.copy2(original_path, os.path.join(settings.MEDIA_ROOT, new_file_path))
 
-                    os.makedirs(os.path.dirname(new_full_path), exist_ok=True)
-                    shutil.copy2(original_full_path, new_full_path)
+                return FileTask.objects.create(file=new_file_path)
+        else:
+            fields = [f.name for f in model_class._meta.get_fields()
+                     if f.name not in ['id', 'pk'] and not f.is_relation]
 
-                    specific_data[field_name] = settings.MEDIA_URL + new_relative_path
+            specific_data = {}
+            for field in fields:
+                specific_data[field] = getattr(original_specific, field)
 
-        new_specific = model_class.objects.create(**specific_data)
-        return new_specific
+            return model_class.objects.create(**specific_data)
 
     @staticmethod
     def _reorder_lessons(course):
