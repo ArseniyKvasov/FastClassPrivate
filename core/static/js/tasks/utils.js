@@ -466,6 +466,11 @@ export function getIsZeroLesson() {
     return infoEl?.dataset?.lessonType === "zero";
 }
 
+export function getIsPreview() {
+    const infoEl = getInfoElement();
+    return infoEl?.dataset?.lessonType === "preview";
+}
+
 export function getSectionId() {
     const infoEl = getInfoElement();
     return infoEl?.dataset?.sectionId || null;

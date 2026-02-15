@@ -103,3 +103,19 @@ class User(AbstractUser):
         user.set_unusable_password()
         user.save()
         return user
+
+
+class UserRetention(models.Model):
+    """Модель для отслеживания активности пользователей"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='retention_records')
+    date = models.DateField(auto_now_add=True)
+    last_activity = models.DateTimeField(auto_now=True)
+    days_active = models.IntegerField(default=0)
+    is_active_today = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ['user', 'date']
+        ordering = ['-date']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.date}"

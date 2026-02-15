@@ -3,24 +3,33 @@ from django.utils import timezone
 
 SESSION_VERIFIED_KEY = "classroom_{}_verified"
 SESSION_VERIFIED_TS_KEY = "classroom_{}_verified_ts"
-SESSION_TTL = timedelta(minutes=1)
+SESSION_VERIFIED_PASSWORD_KEY = "classroom_{}_verified_password"
+SESSION_TTL = timedelta(minutes=5)
 
 def _now_ts() -> int:
     return int(timezone.now().timestamp())
 
-def set_verified_in_session(request, classroom) -> None:
+def set_verified_in_session(request, classroom, password: str) -> None:
     key = SESSION_VERIFIED_KEY.format(classroom.id)
     ts_key = SESSION_VERIFIED_TS_KEY.format(classroom.id)
+    password_key = SESSION_VERIFIED_PASSWORD_KEY.format(classroom.id)
     request.session[key] = True
     request.session[ts_key] = _now_ts()
+    request.session[password_key] = password
     request.session.modified = True
 
 def clear_verified_in_session(request, classroom) -> None:
     key = SESSION_VERIFIED_KEY.format(classroom.id)
     ts_key = SESSION_VERIFIED_TS_KEY.format(classroom.id)
+    password_key = SESSION_VERIFIED_PASSWORD_KEY.format(classroom.id)
     request.session.pop(key, None)
     request.session.pop(ts_key, None)
+    request.session.pop(password_key, None)
     request.session.modified = True
+
+def get_verified_password_hash(request, classroom):
+    password_key = SESSION_VERIFIED_PASSWORD_KEY.format(classroom.id)
+    return request.session.get(password_key)
 
 def is_session_verified(request, classroom) -> bool:
     key = SESSION_VERIFIED_KEY.format(classroom.id)

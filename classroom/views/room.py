@@ -156,14 +156,21 @@ def classroom_view(request, classroom_id):
         Http404: если класс не найден
     """
     if not request.user.is_authenticated:
-        return redirect("join_classroom_view", classroom_id=classroom_id)
+        join_url = reverse("join_classroom_view", args=[classroom_id])
+        classroom = Classroom.objects.filter(pk=classroom_id).first()
+        if classroom and classroom.join_password:
+            join_url += f"?pw={classroom.join_password}"
+        return redirect(join_url)
 
     classroom = get_object_or_404(Classroom, pk=classroom_id)
 
     is_teacher = request.user == classroom.teacher
 
     if request.user not in classroom.students.all() and not is_teacher:
-        return redirect("join_classroom_view", classroom_id=classroom_id)
+        join_url = reverse("join_classroom_view", args=[classroom_id])
+        if classroom.join_password:
+            join_url += f"?pw={classroom.join_password}"
+        return redirect(join_url)
 
     students_qs = classroom.students.all().values_list("id", flat=True)
 
@@ -258,12 +265,14 @@ def change_classroom_password(request, classroom_id):
 
     new_password = data.get("password", "").strip()
 
-    if new_password:
-        if len(new_password) > 12:
-            return JsonResponse({"ok": False, "error": "Пароль не должен превышать 12 символов."}, status=400)
+    if not new_password:
+        return JsonResponse({"ok": False, "error": "Пароль не может быть пустым."}, status=400)
 
-        if not new_password.isdigit():
-            return JsonResponse({"ok": False, "error": "Пароль должен состоять только из цифр."}, status=400)
+    if len(new_password) < 1 or len(new_password) > 18:
+        return JsonResponse({"ok": False, "error": "Пароль должен быть от 1 до 18 символов."}, status=400)
+
+    if not new_password.isalnum():
+        return JsonResponse({"ok": False, "error": "Пароль должен состоять только из цифр и латинских букв."}, status=400)
 
     classroom.join_password = new_password
     classroom.save(update_fields=["join_password"])

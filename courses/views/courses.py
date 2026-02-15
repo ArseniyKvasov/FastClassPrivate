@@ -1,11 +1,13 @@
 import json
 from django.urls import reverse
 from django.shortcuts import render, get_object_or_404
-from django.db.models import ProtectedError
+from django.db import transaction
+from django.db.models import ProtectedError, Prefetch, Case, When, Value, IntegerField
 from django.http import JsonResponse, Http404
 from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
-from django.db.models import Prefetch, Case, When, Value, IntegerField
+from django.core.exceptions import ValidationError
+
 from courses.models import Course, Lesson
 from classroom.models import Classroom
 
@@ -274,3 +276,57 @@ def get_all_courses_for_selection(request):
     ]
 
     return JsonResponse({'courses': courses_data})
+
+
+def admin_clone_course_for_user(original_course_id: int, target_user, admin_user):
+    """
+    Вспомогательная функция для админки:
+    1) создаёт КЛОН из оригинального курса;
+    2) создаёт копию этого клона для указанного пользователя.
+
+    Используется админ-панелью, чтобы не дублировать бизнес-логику.
+    """
+    if not admin_user or not admin_user.is_staff:
+        raise PermissionError("Операция доступна только администраторам")
+
+    try:
+        original_course = Course.objects.get(id=original_course_id)
+    except Course.DoesNotExist:
+        raise ValidationError("Оригинальный курс не найден")
+
+    if original_course.root_type != "original":
+        raise ValidationError("Клон можно создать только из оригинального курса")
+
+    with transaction.atomic():
+        # Создаём клон от имени администратора
+        clone_course = original_course.create_clone(admin_user)
+
+        # Создаём пользовательскую копию для выбранного пользователя
+        copy_course = clone_course.create_copy_for_user(target_user)
+
+    return clone_course, copy_course
+
+
+def admin_sync_clone_course(clone_course_id: int, admin_user):
+    """
+    Вспомогательная функция для админки:
+    синхронизирует существующий КЛОН с его оригиналом.
+    """
+    if not admin_user or not admin_user.is_staff:
+        raise PermissionError("Операция доступна только администраторам")
+
+    try:
+        clone_course = Course.objects.get(id=clone_course_id)
+    except Course.DoesNotExist:
+        raise ValidationError("Клон курса не найден")
+
+    if clone_course.root_type != "clone":
+        raise ValidationError("Указанный курс не является клоном")
+
+    if not clone_course.linked_to:
+        raise ValidationError("У клона не задан оригинальный курс")
+
+    with transaction.atomic():
+        clone_course.synchronize_with_original()
+
+    return clone_course

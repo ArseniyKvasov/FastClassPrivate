@@ -34,8 +34,8 @@
          data-lesson-id="{{ lesson_id }}"
          data-lesson-type="preview"
          data-is-classroom="false"
-         data-classroom-id="{{ classroom_id }}"
          data-current-user-id="{{ current_user_id }}"
+         data-viewed-user-id="{{ current_user_id }}"
     >
     </div>
 
@@ -49,6 +49,12 @@
         document.addEventListener("DOMContentLoaded", () => {
             initRenderSections();
         });
+    </script>
+
+    <script type="module">
+        import { registerAnswerEvents } from "{% static 'classroom/answers/handleAnswer.js' %}";
+
+        registerAnswerEvents();
     </script>
 
     <script>

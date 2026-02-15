@@ -116,7 +116,7 @@ export function renderFillGapsTask(task, container) {
     const processNodeWithGaps = (node) => {
         if (node.nodeType === Node.TEXT_NODE) {
             const text = node.textContent;
-            const parts = text.split(/(\[[^\]]+\])/g);
+            const parts = text.split(/(\[[^\]]*\])/g);
 
             if (parts.length > 1) {
                 const fragment = document.createDocumentFragment();

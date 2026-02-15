@@ -1,0 +1,230 @@
+<!-- admin_panel/templates/admin_panel/users.html -->
+{% extends "admin_panel/base_admin.html" %}
+
+{% block title %}Пользователи - Admin Panel{% endblock %}
+
+{% block page_title %}Управление пользователями{% endblock %}
+
+{% block breadcrumbs %}
+    <li class="breadcrumb-item"><a href="{% url 'admin_panel:dashboard' %}">Главная</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Пользователи</li>
+{% endblock %}
+
+{% block content %}
+<!-- Статистика -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-primary">
+            <div class="card-body">
+                <h6 class="card-title">Всего</h6>
+                <h2 class="card-text">{{ stats.total }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <h6 class="card-title">С Telegram</h6>
+                <h2 class="card-text">{{ stats.with_telegram }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-info">
+            <div class="card-body">
+                <h6 class="card-title">Полный доступ</h6>
+                <h2 class="card-text">{{ stats.full_access }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-secondary">
+            <div class="card-body">
+                <h6 class="card-title">Ограниченный</h6>
+                <h2 class="card-text">{{ stats.limited }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Фильтры и поиск -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-8">
+                <div class="btn-group" role="group">
+                    <a href="?filter=all" class="btn btn-outline-secondary {% if current_filter == 'all' %}active{% endif %}">
+                        Все
+                    </a>
+                    <a href="?filter=with_telegram" class="btn btn-outline-success {% if current_filter == 'with_telegram' %}active{% endif %}">
+                        С Telegram
+                    </a>
+                    <a href="?filter=without_telegram" class="btn btn-outline-warning {% if current_filter == 'without_telegram' %}active{% endif %}">
+                        Без Telegram
+                    </a>
+                    <a href="?filter=full_access" class="btn btn-outline-info {% if current_filter == 'full_access' %}active{% endif %}">
+                        Полный доступ
+                    </a>
+                    <a href="?filter=limited" class="btn btn-outline-secondary {% if current_filter == 'limited' %}active{% endif %}">
+                        Ограниченный
+                    </a>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <form method="get" class="d-flex">
+                    <input type="text" name="search" class="form-control me-2" placeholder="Поиск..." value="{{ search_query }}">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-search"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Таблица пользователей -->
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Имя</th>
+                        <th>Telegram</th>
+                        <th>Доступ</th>
+                        <th>Дата регистрации</th>
+                        <th>Последний вход</th>
+                        <th>Retention</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td>{{ user.id }}</td>
+                        <td>
+                            <strong>{{ user.display_name }}</strong><br>
+                            <small class="text-muted">{{ user.email|default:"нет email" }}</small>
+                        </td>
+                        <td>
+                            {% if user.telegram_id %}
+                                <span class="badge bg-success">
+                                    <i class="bi bi-telegram"></i>
+                                    {{ user.telegram_username|default:"есть ID" }}
+                                </span>
+                            {% else %}
+                                <span class="badge bg-secondary">нет</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if user.has_full_access %}
+                                <span class="badge bg-info">Полный</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Ограниченный</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ user.date_joined|date:"d.m.Y" }}</td>
+                        <td>{{ user.last_login|date:"d.m.Y H:i"|default:"никогда" }}</td>
+                        <td>
+                            <div class="progress" style="height: 20px;" title="Retention: {{ user.retention_rate|floatformat:1 }}%">
+                                <div class="progress-bar {% if user.retention_rate >= 70 %}bg-success{% elif user.retention_rate >= 30 %}bg-warning{% else %}bg-danger{% endif %}"
+                                     role="progressbar"
+                                     style="width: {{ user.retention_rate }}%;"
+                                     aria-valuenow="{{ user.retention_rate }}"
+                                     aria-valuemin="0"
+                                     aria-valuemax="100">
+                                    {{ user.retention_rate|floatformat:0 }}%
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" onclick="cloneForUser({{ user.id }})">
+                                <i class="bi bi-copy"></i> Клонировать курс
+                            </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center text-muted py-4">
+                            <i class="bi bi-people fs-1 d-block mb-2"></i>
+                            Пользователи не найдены
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для клонирования -->
+<div class="modal fade" id="cloneModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Клонирование курса</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="cloneForm">
+                    {% csrf_token %}
+                    <input type="hidden" name="user_id" id="user_id">
+                    <div class="mb-3">
+                        <label for="course_id" class="form-label">Выберите курс</label>
+                        <select class="form-select" id="course_id" name="course_id" required>
+                            <option value="">-- Выберите курс --</option>
+                            <!-- Здесь будут курсы из БД -->
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" onclick="submitClone()">
+                    <i class="bi bi-copy"></i> Клонировать
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function cloneForUser(userId) {
+    document.getElementById('user_id').value = userId;
+    var modal = new bootstrap.Modal(document.getElementById('cloneModal'));
+    modal.show();
+}
+
+function submitClone() {
+    var form = document.getElementById('cloneForm');
+    var formData = new FormData(form);
+    formData.append('mode', 'create');
+
+    var csrfTokenInput = document.querySelector('input[name=csrfmiddlewaretoken]');
+    var csrfToken = csrfTokenInput ? csrfTokenInput.value : '';
+
+    fetch('{% url "admin_panel:clone_course" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': csrfToken
+        }
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert('Клон успешно создан: ' + data.message);
+                var modalElement = document.getElementById('cloneModal');
+                var modal = bootstrap.Modal.getInstance(modalElement);
+                modal.hide();
+            } else {
+                alert('Ошибка: ' + (data.message || 'Неизвестная ошибка'));
+            }
+        })
+        .catch(error => {
+            alert('Ошибка при отправке запроса');
+        });
+}
+</script>
+{% endblock %}

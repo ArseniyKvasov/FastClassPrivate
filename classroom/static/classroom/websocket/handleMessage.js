@@ -3,7 +3,7 @@
 import { showNotification, getIsTeacher, getLessonId, getSectionId, fetchSingleTask } from "js/tasks/utils.js";
 import { loadSectionTasks } from "js/tasks/display/showTasks.js";
 import { selectSection } from "js/tasks/display/renderSections.js";
-import { getViewedUserId, scrollToTask, refreshSections, refreshClassroom } from 'classroom/utils.js';
+import { getViewedUserId, scrollToTask, highlightTaskRed, refreshSections, refreshClassroom } from 'classroom/utils.js';
 import { fetchTaskAnswer } from "classroom/answers/api.js";
 import { processTaskAnswer } from "classroom/answers/utils.js";
 import { clearTask } from "classroom/answers/handlers/clearAnswers.js"
@@ -126,21 +126,6 @@ function shouldProcessMessage({ student_id }) {
 
     return String(student_id) === String(getViewedUserId()) || String(student_id) === "all";
 }
-
-/**
- * Добавляет красный пульс на карточку задания на 2 секунды
- * @param {HTMLElement} taskCard
- */
-function highlightTaskRed(taskCard) {
-    if (!taskCard) return;
-
-    taskCard.classList.add("pulse-red");
-
-    setTimeout(() => {
-        taskCard.classList.remove("pulse-red");
-    }, 2000);
-}
-
 
 /**
  * Обработка входящего сообщения о статусе пользователя

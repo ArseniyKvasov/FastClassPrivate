@@ -3,7 +3,7 @@
 import { eventBus } from "js/tasks/events/eventBus.js";
 import { getCurrentUserId } from "js/tasks/utils.js";
 import { showNotification } from "js/tasks/utils.js"
-import { getViewedUserId, refreshClassroom } from 'classroom/utils.js'
+import { getViewedUserId, refreshClassroom, scrollToTask, highlightTaskRed } from 'classroom/utils.js'
 import { virtualClassWS } from "classroom/websocket/init.js";
 
 /**
@@ -64,6 +64,8 @@ export function initEvents(isTeacher = false) {
                 section_id: payload.sectionId
             });
             showNotification("Ученики переведены к заданию");
+            const taskCard = await scrollToTask(payload.sectionId, payload.taskId);
+            highlightTaskRed(taskCard);
         } catch (e) {
             console.error("eventBus task:attention message failed", e);
         }

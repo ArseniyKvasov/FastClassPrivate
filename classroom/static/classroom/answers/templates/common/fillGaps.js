@@ -1,3 +1,4 @@
+import { getIsPreview, showNotification } from "js/tasks/utils.js";
 import { sendAnswer } from "classroom/answers/api.js";
 
 function normalizeAnswerString(text) {
@@ -109,9 +110,14 @@ export function bindAnswerSubmission(container, task) {
 
     const inputs = container.querySelectorAll(".gap-input");
 
-    const submitValue = (input, index) => {
+    const handleSubmit = (input, index) => {
         const value = input.value.trim();
         if (!value) return;
+
+        if (getIsPreview()) {
+            showNotification("Нажмите Выбрать чтобы отправить ответ");
+            return;
+        }
 
         sendAnswer({
             taskId: task.task_id,
@@ -121,14 +127,14 @@ export function bindAnswerSubmission(container, task) {
 
     inputs.forEach((input, index) => {
         input.addEventListener("blur", () => {
-            submitValue(input, index);
+            handleSubmit(input, index);
         });
 
         input.addEventListener("keydown", (e) => {
             if (e.key !== "Enter") return;
 
             e.preventDefault();
-            submitValue(input, index);
+            handleSubmit(input, index);
             input.blur();
         });
     });

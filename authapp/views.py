@@ -4,7 +4,7 @@ import json
 from django.conf import settings
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
-from django.contrib.auth import login
+from django.contrib.auth import login, logout
 from django.views.decorators.clickjacking import xframe_options_exempt
 from .models import User
 
@@ -73,3 +73,8 @@ def telegram_callback(request):
             return JsonResponse({'error': str(e)}, status=400)
 
     return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+
+def logout_view(request):
+    logout(request)
+    return redirect('login')

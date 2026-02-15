@@ -1,0 +1,174 @@
+<!-- admin_panel/templates/admin_panel/clone_course.html -->
+{% extends "admin_panel/base_admin.html" %}
+
+{% block title %}Клонирование курса - Admin Panel{% endblock %}
+
+{% block page_title %}Клонирование курса{% endblock %}
+
+{% block breadcrumbs %}
+    <li class="breadcrumb-item"><a href="{% url 'admin_panel:dashboard' %}">Главная</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Клонирование</li>
+{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Параметры клонирования</h5>
+            </div>
+            <div class="card-body">
+                <form id="cloneForm">
+                    {% csrf_token %}
+
+                    <div class="mb-3">
+                        <label class="form-label d-block">Режим</label>
+                        <div class="btn-group" role="group" aria-label="Режим клонирования">
+                            <input type="radio" class="btn-check" name="mode" id="mode_create" value="create" autocomplete="off" checked>
+                            <label class="btn btn-outline-primary" for="mode_create">Создать новый клон</label>
+
+                            <input type="radio" class="btn-check" name="mode" id="mode_sync" value="sync" autocomplete="off">
+                            <label class="btn btn-outline-secondary" for="mode_sync">Синхронизировать клон</label>
+                        </div>
+                    </div>
+
+                    <div id="mode_create_fields">
+                        <div class="mb-3">
+                            <label for="original_course_id" class="form-label">ID оригинального курса</label>
+                            <input type="number" class="form-control" id="original_course_id" name="original_course_id"
+                                   placeholder="Например: 101" required>
+                            <div class="form-text">
+                                Укажите ID курса-оригинала, из которого будет создан клон.
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="user_id" class="form-label">ID пользователя</label>
+                            <input type="number" class="form-control" id="user_id" name="user_id"
+                                   placeholder="Например: 42" required>
+                            <div class="form-text">
+                                Пользователь, для которого нужно создать копию нового клона.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="mode_sync_fields" class="d-none">
+                        <div class="mb-3">
+                            <label for="clone_course_id" class="form-label">ID клона курса</label>
+                            <input type="number" class="form-control" id="clone_course_id" name="clone_course_id"
+                                   placeholder="Например: 205">
+                            <div class="form-text">
+                                Курс-клон, который нужно синхронизировать с оригиналом.
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-copy"></i> Запустить клонирование
+                    </button>
+                </form>
+
+                <div id="progress" class="mt-3" style="display: none;">
+                    <div class="progress">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated"
+                             role="progressbar" style="width: 100%">
+                            Обработка...
+                        </div>
+                    </div>
+                </div>
+
+                <div id="result" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Информация</h5>
+            </div>
+            <div class="card-body">
+                <h6 class="mb-3">Как это работает</h6>
+                <ul class="small mb-3">
+                    <li><strong>Создать новый клон</strong> — из оригинального курса создаётся клон, а затем копия для выбранного пользователя.</li>
+                    <li><strong>Синхронизировать клон</strong> — существующий клон обновляется из оригинала, а вместе с ним и все пользовательские копии.</li>
+                </ul>
+
+                <div class="alert alert-info mb-3">
+                    <i class="bi bi-info-circle"></i>
+                    Все операции выполняются атомарно — при ошибке данные не будут частично сохранены.
+                </div>
+
+                <p class="small text-muted mb-0">
+                    ID курсов и пользователей можно посмотреть в стандартной Django-админке или в разделах
+                    «Пользователи» и «Курсы».
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const modeCreateRadio = document.getElementById('mode_create');
+const modeSyncRadio = document.getElementById('mode_sync');
+const createFields = document.getElementById('mode_create_fields');
+const syncFields = document.getElementById('mode_sync_fields');
+
+function updateModeFields() {
+    if (modeCreateRadio.checked) {
+        createFields.classList.remove('d-none');
+        syncFields.classList.add('d-none');
+        document.getElementById('original_course_id').required = true;
+        document.getElementById('user_id').required = true;
+        document.getElementById('clone_course_id').required = false;
+    } else {
+        createFields.classList.add('d-none');
+        syncFields.classList.remove('d-none');
+        document.getElementById('original_course_id').required = false;
+        document.getElementById('user_id').required = false;
+        document.getElementById('clone_course_id').required = true;
+    }
+}
+
+modeCreateRadio.addEventListener('change', updateModeFields);
+modeSyncRadio.addEventListener('change', updateModeFields);
+updateModeFields();
+
+document.getElementById('cloneForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const form = this;
+    const formData = new FormData(form);
+    const progress = document.getElementById('progress');
+    const result = document.getElementById('result');
+    const csrfTokenInput = document.querySelector('input[name=csrfmiddlewaretoken]');
+    const csrfToken = csrfTokenInput ? csrfTokenInput.value : '';
+
+    progress.style.display = 'block';
+    result.innerHTML = '';
+
+    fetch('{% url "admin_panel:clone_course" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': csrfToken
+        }
+    })
+        .then(response => response.json())
+        .then(data => {
+            progress.style.display = 'none';
+            if (data.status === 'success') {
+                result.innerHTML = '<div class="alert alert-success mb-0">' + data.message + '</div>';
+                form.reset();
+                updateModeFields();
+            } else {
+                result.innerHTML = '<div class="alert alert-danger mb-0">Ошибка: ' + (data.message || 'Неизвестная ошибка') + '</div>';
+            }
+        })
+        .catch(error => {
+            progress.style.display = 'none';
+            result.innerHTML = '<div class="alert alert-danger mb-0">Ошибка при отправке запроса</div>';
+        });
+});
+</script>
+{% endblock %}

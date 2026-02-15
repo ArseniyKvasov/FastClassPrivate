@@ -5,10 +5,11 @@ from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path("", include("core.urls")),
-    path("auth/", include("authapp.urls")),
-    path("classroom/", include("classroom.urls")),
-    path("courses/", include("courses.urls")),
+    path('admin-panel/', include('admin_panel.urls')),
+    path('', include('core.urls')),
+    path('auth/', include('authapp.urls')),
+    path('classroom/', include('classroom.urls')),
+    path('courses/', include('courses.urls')),
 ]
 
 if settings.DEBUG:

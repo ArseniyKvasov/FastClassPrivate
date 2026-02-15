@@ -27,12 +27,38 @@ export async function scrollToTask(sectionId, taskId) {
     const taskCard = document.querySelector(`.task-card[data-task-id="${taskId}"]`);
     if (!taskCard) return null;
 
+    const rect = taskCard.getBoundingClientRect();
+    const isPartiallyVisible = (
+        rect.top < window.innerHeight &&
+        rect.bottom > 0 &&
+        rect.left < window.innerWidth &&
+        rect.right > 0
+    );
+
+    if (isPartiallyVisible) {
+        return taskCard;
+    }
+
     taskCard.scrollIntoView({
         behavior: "smooth",
         block: "center"
     });
 
     return taskCard;
+}
+
+/**
+ * Добавляет красный пульс на карточку задания на 2 секунды
+ * @param {HTMLElement} taskCard
+ */
+export function highlightTaskRed(taskCard) {
+    if (!taskCard) return;
+
+    taskCard.classList.add("pulse-red");
+
+    setTimeout(() => {
+        taskCard.classList.remove("pulse-red");
+    }, 2000);
 }
 
 /**

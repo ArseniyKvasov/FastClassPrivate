@@ -140,6 +140,7 @@ function createStudentItem(studentId, name) {
 
                 li.remove();
                 eventBus.emit("user:delete", studentId);
+                eventBus.emit("chat:update");
                 showNotification("Ученик удалён. Обновите пароль класса через кнопку «Добавить ученика».", 6);
 
                 const currentViewedId = getViewedUserId();
@@ -352,6 +353,8 @@ export async function markUserOnline(userId) {
     if (!option) {
         await refreshStudentsList();
     }
+
+    option = dropdownMenu.querySelector(`.student-option[data-student-id="${userId}"]`);
 
     if (!option) return;
 

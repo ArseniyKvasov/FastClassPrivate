@@ -2,12 +2,14 @@ from django.db import models, transaction
 from django.conf import settings
 from django.core.exceptions import ValidationError
 import random
+import string
 from courses.models import Lesson, Course
 
 
 def generate_join_password():
-    """Генерирует случайный пароль из 4 цифр"""
-    return "".join(random.choices("0123456789", k=4))
+    """Генерирует случайный пароль из 8 символов (цифры и латинские буквы)"""
+    characters = string.digits + string.ascii_letters
+    return "".join(random.choices(characters, k=6))
 
 
 class Classroom(models.Model):
@@ -36,7 +38,7 @@ class Classroom(models.Model):
 
     join_password = models.CharField(
         max_length=12,
-        default="",
+        default=generate_join_password(),
         help_text="пароль для входа в класс",
     )
 

@@ -1,0 +1,131 @@
+{% extends "admin_panel/base_admin.html" %}
+
+{% block title %}Дашборд - Admin Panel{% endblock %}
+
+{% block page_title %}Дашборд{% endblock %}
+
+{% block breadcrumbs %}
+    <li class="breadcrumb-item active" aria-current="page">Дашборд</li>
+{% endblock %}
+
+{% block page_actions %}
+    <button type="button" class="btn btn-sm btn-outline-primary" onclick="location.reload()">
+        <i class="bi bi-arrow-repeat"></i> Обновить
+    </button>
+{% endblock %}
+
+{% block content %}
+    <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-lg-3">
+            <div class="card text-white bg-primary h-100 shadow-sm">
+                <div class="card-body">
+                    <h6 class="card-title text-uppercase small mb-2">Пользователи</h6>
+                    <p class="card-text display-6 mb-0">{{ total_users }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="card text-white bg-success h-100 shadow-sm">
+                <div class="card-body">
+                    <h6 class="card-title text-uppercase small mb-2">Курсы</h6>
+                    <p class="card-text display-6 mb-0">{{ total_courses }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="card text-white bg-info h-100 shadow-sm">
+                <div class="card-body">
+                    <h6 class="card-title text-uppercase small mb-2">Логи</h6>
+                    <p class="card-text display-6 mb-0">{{ total_logs }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="card text-white bg-dark h-100 shadow-sm">
+                <div class="card-body">
+                    <h6 class="card-title text-uppercase small mb-2">Новые за 7 дней</h6>
+                    <p class="card-text mb-1">
+                        <span class="display-6">{{ new_users_last_week }}</span>
+                    </p>
+                    <small class="text-white-50">Пользователи с момента {{ 7 }} дней назад</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="card shadow-sm border-0">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span class="fw-semibold">Последние события</span>
+                    <a href="{% url 'admin_panel:logs' %}" class="small text-decoration-none">Все логи</a>
+                </div>
+                <div class="card-body">
+                    {% if recent_logs %}
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead>
+                                <tr>
+                                    <th class="text-nowrap">Время</th>
+                                    <th>Уровень</th>
+                                    <th>Сообщение</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                {% for log in recent_logs %}
+                                    <tr>
+                                        <td class="text-nowrap">
+                                            {{ log.timestamp|date:"d.m.Y H:i:s"|default:"—" }}
+                                        </td>
+                                        <td>
+                                            {% if log.level == 'ERROR' or log.level == 'CRITICAL' %}
+                                                <span class="badge bg-danger">{{ log.level }}</span>
+                                            {% elif log.level == 'WARNING' %}
+                                                <span class="badge bg-warning text-dark">WARNING</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">INFO</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="small text-truncate" style="max-width: 420px;">
+                                            {{ log.message }}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted mb-0 small">Нет логов для отображения.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-header">
+                    <span class="fw-semibold">Краткая сводка</span>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled small mb-0">
+                        <li class="mb-2">
+                            <span class="text-muted">Пользователи с полным доступом:</span><br>
+                            <strong>{{ active_full_access }}</strong>
+                        </li>
+                        <li class="mb-2">
+                            <span class="text-muted">Открыть управление пользователями:</span><br>
+                            <a href="{% url 'admin_panel:users' %}" class="text-decoration-none">
+                                Перейти к пользователям
+                            </a>
+                        </li>
+                        <li>
+                            <span class="text-muted">Работа с курсами:</span><br>
+                            <a href="{% url 'admin_panel:clone_course' %}" class="text-decoration-none">
+                                Клонировать или синхронизировать курс
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

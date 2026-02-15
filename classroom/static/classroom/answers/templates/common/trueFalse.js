@@ -1,3 +1,4 @@
+import { getIsPreview, showNotification } from "js/tasks/utils.js";
 import { sendAnswer } from "classroom/answers/api.js";
 import { initCheckButton } from "classroom/answers/utils.js";
 
@@ -34,6 +35,12 @@ export function bindAnswerSubmission(container, task) {
 
     container.querySelectorAll('input[type="radio"]').forEach(input => {
         input.addEventListener("change", () => {
+            if (getIsPreview()) {
+                showNotification("Нажмите Выбрать чтобы отправить ответ");
+                input.checked = false;
+                return;
+            }
+
             const answers = collectAnswers(task, container);
             sendAnswer({
                 taskId: task.task_id,

@@ -1,3 +1,4 @@
+import { getIsPreview, showNotification } from "js/tasks/utils.js";
 import { debounce, adjustTextareaHeight, processTaskAnswer } from "classroom/answers/utils.js";
 import { sendAnswer } from "classroom/answers/api.js";
 
@@ -13,6 +14,11 @@ export function bindAnswerSubmission(container, task) {
 
     const sendEditorAnswer = debounce(() => {
         if (isApplyingServerUpdate) return;
+
+        if (getIsPreview()) {
+            showNotification("Нажмите Выбрать чтобы отправить ответ");
+            return;
+        }
 
         const content = editor.innerHTML;
 

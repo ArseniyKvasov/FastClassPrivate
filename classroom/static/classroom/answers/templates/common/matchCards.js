@@ -1,3 +1,4 @@
+import { getIsPreview, showNotification } from "js/tasks/utils.js";
 import { sendAnswer } from "classroom/answers/api.js";
 
 /**
@@ -23,6 +24,12 @@ export function bindAnswerSubmission(container, task) {
 
     const selectPair = () => {
         if (selectedLeft && selectedRight) {
+            if (getIsPreview()) {
+                showNotification("Нажмите Выбрать чтобы отправить ответ");
+                clearSelection();
+                return;
+            }
+
             sendAnswer({
                 taskId: task.task_id,
                 data: {

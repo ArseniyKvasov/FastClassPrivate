@@ -3,6 +3,7 @@ import { getCsrfToken, showNotification, getInfoElement } from "js/tasks/utils.j
 const infoEl = getInfoElement();
 const classroomId = infoEl.dataset.classroomId;
 const loginUrl = infoEl.dataset.loginUrl;
+const initialPassword = infoEl.dataset.initialPassword || "";
 
 let passwordVerified = infoEl.dataset.passwordVerified === "true";
 let selectedRole = "student";
@@ -37,6 +38,10 @@ roleModalEl.addEventListener('shown.bs.modal', function () {
 });
 
 passwordModalEl.addEventListener('shown.bs.modal', function () {
+    if (initialPassword && !passwordInput.value) {
+        passwordInput.value = initialPassword;
+        submitPasswordBtn.disabled = false;
+    }
     setTimeout(() => passwordInput.focus(), 50);
 });
 
@@ -58,7 +63,8 @@ roleTeacherBtn.addEventListener("click", () => {
 
 submitRoleBtn.addEventListener("click", () => {
     if (selectedRole === "teacher") {
-        window.location.href = loginUrl;
+        const currentUrl = encodeURIComponent(window.location.href);
+        window.location.href = loginUrl + '?next=' + currentUrl;
         return;
     }
 
@@ -70,7 +76,11 @@ submitRoleBtn.addEventListener("click", () => {
         submitRoleBtn.disabled = false;
         submitRoleBtn.innerHTML = 'Далее';
         setTimeout(() => {
-            passwordModal.show();
+            if (passwordVerified) {
+                nameModal.show();
+            } else {
+                passwordModal.show();
+            }
         }, 300);
     }, 200);
 });
@@ -81,7 +91,6 @@ passwordInput.addEventListener("input", () => {
 
 backFromPasswordBtn.addEventListener("click", () => {
     backFromPasswordBtn.disabled = true;
-    passwordVerified = false;
 
     setTimeout(() => {
         passwordModal.hide();
@@ -243,12 +252,6 @@ function setupEnterKeyBindings() {
 
 function init() {
     setupEnterKeyBindings();
-
-    if (passwordVerified) {
-        nameModal.show();
-        return;
-    }
-
     roleModal.show();
 }
 

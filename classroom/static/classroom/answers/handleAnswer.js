@@ -1,5 +1,5 @@
 import { eventBus } from "js/tasks/events/eventBus.js";
-import { showNotification, confirmAction, getSectionId } from "js/tasks/utils.js";
+import { showNotification, confirmAction, getSectionId, getIsPreview } from "js/tasks/utils.js";
 import { ANSWER_HANDLER_MAP } from "classroom/answers/utils.js";
 import { getClassroomId, getViewedUserId } from 'classroom/utils.js'
 import { loadAnswerModule, fetchSectionAnswers } from "classroom/answers/api.js";
@@ -92,6 +92,8 @@ export function registerAnswerEvents() {
     eventBus.on("taskCardRendered", async ({ taskCard, task }) => {
         await initTaskAnswerHandlers(taskCard, task);
     });
+
+    if (getIsPreview()) return;
 
     eventBus.on("taskCardControlsRendered", async ({ panel, taskCard }) => {
         const taskType = taskCard?.dataset?.taskType;

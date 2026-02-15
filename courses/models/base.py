@@ -88,7 +88,8 @@ class Course(models.Model):
     objects = CourseQuerySet.as_manager()
 
     def __str__(self):
-        return self.title
+        type_display = dict(ROOT_TYPE_CHOICES).get(self.root_type, self.root_type)
+        return f"{self.title} ({type_display})"
 
     @property
     def is_active(self):
